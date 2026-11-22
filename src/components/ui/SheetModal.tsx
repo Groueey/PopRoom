@@ -7,8 +7,14 @@ import {
 } from '@gorhom/bottom-sheet';
 import { X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  computeSheetMaxDynamicHeight,
+  resolveSheetModalTransition,
+} from '../../lib/sheetModalHelpers';
+import { THEME_COLORS } from '../../lib/theme';
+import { MotionPressable } from './Motion';
 
 /** Props for the PopRoom `SheetModal` bottom-sheet wrapper. */
 export interface SheetModalProps {
@@ -22,7 +28,8 @@ export interface SheetModalProps {
 
 /**
  * Declarative wrapper around `@gorhom/bottom-sheet`'s `BottomSheetModal`
- * with dim backdrop, keyboard-aware resize behavior, and safe-area padding.
+ * with warm milky-white surface, gentle dimmed backdrop, tactile close button,
+ * and keyboard-aware resize behavior.
  */
 export function SheetModal({
   visible,
@@ -33,15 +40,37 @@ export function SheetModal({
   children,
 }: SheetModalProps) {
   const modalRef = useRef<BottomSheetModal>(null);
+  const isPresentedRef = useRef(false);
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
 
   useEffect(() => {
-    if (visible) {
+    const { command, nextPresented } = resolveSheetModalTransition({
+      visible,
+      isPresented: isPresentedRef.current,
+    });
+    isPresentedRef.current = nextPresented;
+
+    if (command === 'present') {
       modalRef.current?.present();
-    } else {
+    } else if (command === 'dismiss') {
       modalRef.current?.dismiss();
     }
   }, [visible]);
+
+  const handleModalDismiss = useCallback(() => {
+    isPresentedRef.current = false;
+    onClose();
+  }, [onClose]);
+
+  const handleRequestClose = useCallback(() => {
+    if (isPresentedRef.current) {
+      isPresentedRef.current = false;
+      modalRef.current?.dismiss();
+    } else {
+      onClose();
+    }
+  }, [onClose]);
 
   const renderBackdrop = useCallback(
     (backdropProps: BottomSheetBackdropProps) => (
@@ -50,46 +79,62 @@ export function SheetModal({
         appearsOnIndex={0}
         disappearsOnIndex={-1}
         pressBehavior="close"
-        opacity={0.45}
+        opacity={0.34}
       />
     ),
     [],
   );
 
+  const renderHandle = useCallback(() => {
+    return (
+      <View className="rounded-t-[28px] bg-white">
+        <View className="items-center pb-2 pt-3">
+          <View className="h-1 w-10 rounded-full bg-primaryBorder" />
+        </View>
+        {title ? (
+          <View className="flex-row items-center justify-between border-b border-lineSoft px-5 pb-3.5 pt-1">
+            <Text className="text-[17px] font-bold text-ink">{title}</Text>
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel="关闭弹窗"
+              onPress={handleRequestClose}
+              scaleTo={0.9}
+              className="h-8 w-8 items-center justify-center rounded-full bg-surface"
+            >
+              <X size={17} color={THEME_COLORS.inkMuted} />
+            </MotionPressable>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [title, handleRequestClose]);
+
   const bottomPadding = Math.max(insets.bottom, 16) + 12;
+  const topInset = insets.top + 8;
+  const maxDynamicContentSize = snapPoints
+    ? undefined
+    : computeSheetMaxDynamicHeight(windowHeight, topInset);
 
   return (
     <BottomSheetModal
       ref={modalRef}
       snapPoints={snapPoints}
       enableDynamicSizing={!snapPoints}
+      maxDynamicContentSize={maxDynamicContentSize}
+      topInset={topInset}
       enablePanDownToClose
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       backdropComponent={renderBackdrop}
-      onDismiss={onClose}
-      handleIndicatorStyle={{ backgroundColor: '#D4D4D8', width: 40 }}
+      handleComponent={renderHandle}
+      onDismiss={handleModalDismiss}
       backgroundStyle={{
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
       }}
     >
-      {title ? (
-        <View className="flex-row items-center justify-between border-b border-zinc-100 px-5 pb-3 pt-1">
-          <Text className="text-lg font-bold text-ink">{title}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="关闭弹窗"
-            onPress={() => modalRef.current?.dismiss()}
-            className="h-8 w-8 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
-          >
-            <X size={18} color="#52525B" />
-          </Pressable>
-        </View>
-      ) : null}
-
       {scrollable ? (
         <BottomSheetScrollView
           keyboardShouldPersistTaps="handled"
