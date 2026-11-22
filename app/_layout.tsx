@@ -12,7 +12,7 @@ import {
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -23,8 +23,8 @@ import { asyncStoragePersister, queryClient } from '../src/lib/queryClient';
 import { extractRoomCodeFromUrl } from '../src/lib/roomCode';
 import { fetchProfileByUserId, supabase } from '../src/lib/supabase';
 import {
+  computeNavigationStep,
   registerProfileFetcher,
-  resolveAuthRedirect,
   useAuthStore,
 } from '../src/stores/authStore';
 import { type ToastVariant, useUiStore } from '../src/stores/uiStore';
@@ -103,14 +103,18 @@ function RootNavigator() {
   const setPendingRoomCode = useAuthStore((s) => s.setPendingRoomCode);
   const clearPendingRoomCode = useAuthStore((s) => s.clearPendingRoomCode);
   const showToast = useUiStore((s) => s.showToast);
+  const inFlightJoinTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
     let initialHandled = false;
+    let latestSyncId = 0;
 
     const syncSession = async (nextSession: Session | null) => {
+      const syncId = ++latestSyncId;
+
       if (!nextSession?.user?.id) {
-        if (isMounted) {
+        if (isMounted && syncId === latestSyncId) {
           setAuthSnapshot({ session: null, profile: null, initialized: true });
         }
         return;
@@ -118,7 +122,7 @@ function RootNavigator() {
 
       try {
         const nextProfile = await fetchProfileByUserId(nextSession.user.id);
-        if (isMounted) {
+        if (isMounted && syncId === latestSyncId) {
           setAuthSnapshot({
             session: nextSession,
             profile: nextProfile,
@@ -126,7 +130,7 @@ function RootNavigator() {
           });
         }
       } catch {
-        if (isMounted) {
+        if (isMounted && syncId === latestSyncId) {
           const current = useAuthStore.getState();
           const sameUser = current.session?.user.id === nextSession.user.id;
           setAuthSnapshot({
@@ -149,7 +153,7 @@ function RootNavigator() {
         void syncSession(data.session);
       })
       .catch(() => {
-        if (isMounted && !initialHandled) {
+        if (isMounted && !initialHandled && latestSyncId === 0) {
           initialHandled = true;
           setInitialized(true);
         }
@@ -172,6 +176,7 @@ function RootNavigator() {
 
     return () => {
       isMounted = false;
+      latestSyncId += 1;
       subscription.unsubscribe();
     };
   }, [setAuthSnapshot, setInitialized, showToast]);
@@ -210,33 +215,26 @@ function RootNavigator() {
       return;
     }
 
-    const target = resolveAuthRedirect({
+    const step = computeNavigationStep({
       initialized,
       hasSession: Boolean(session),
       hasProfile: Boolean(profile),
       pendingRoomCode,
       currentSegment,
+      inFlightJoinTarget: inFlightJoinTargetRef.current,
     });
 
-    if (!target) {
-      return;
-    }
+    inFlightJoinTargetRef.current = step.nextInFlightJoinTarget;
 
-    if (target.startsWith('/room/join')) {
+    if (step.shouldClearPendingRoomCode) {
       clearPendingRoomCode();
-      const shouldReplace =
-        !currentSegment ||
-        currentSegment.startsWith('(auth)') ||
-        currentSegment === 'room/join';
-      if (shouldReplace) {
-        router.replace(target as Href);
-      } else {
-        router.push(target as Href);
-      }
-      return;
     }
 
-    router.replace(target as Href);
+    if (step.action === 'replace' && step.target) {
+      router.replace(step.target as Href);
+    } else if (step.action === 'push' && step.target) {
+      router.push(step.target as Href);
+    }
   }, [
     rootNavigationState?.key,
     initialized,

@@ -62,6 +62,86 @@ export function resolveAuthRedirect(state: AuthRedirectState): string | null {
   return null;
 }
 
+/** Input state for `computeNavigationStep`, adding in-flight `/room/join` deduplication state. */
+export interface NavigationStepInput extends AuthRedirectState {
+  inFlightJoinTarget: string | null;
+}
+
+/** Pure navigation effect plan preventing premature `pendingRoomCode` clearing before `room/join` mounts. */
+export interface NavigationStepResult {
+  action: 'none' | 'replace' | 'push';
+  target: string | null;
+  nextInFlightJoinTarget: string | null;
+  shouldClearPendingRoomCode: boolean;
+}
+
+/**
+ * Computes the next root navigation transition without clearing `pendingRoomCode` until
+ * `currentSegment` actually arrives at `room/join`, preventing intermediate re-renders
+ * from falling back to `/(tabs)` and clobbering the deep-link transition.
+ */
+export function computeNavigationStep(
+  state: NavigationStepInput,
+): NavigationStepResult {
+  const target = resolveAuthRedirect(state);
+  const normalizedSegment = state.currentSegment?.replace(/^\/+/, '');
+
+  if (!target) {
+    return {
+      action: 'none',
+      target: null,
+      nextInFlightJoinTarget: null,
+      shouldClearPendingRoomCode: false,
+    };
+  }
+
+  if (target.startsWith('/room/join')) {
+    if (normalizedSegment === 'room/join') {
+      if (state.inFlightJoinTarget === target) {
+        return {
+          action: 'none',
+          target: null,
+          nextInFlightJoinTarget: null,
+          shouldClearPendingRoomCode: true,
+        };
+      }
+      return {
+        action: 'replace',
+        target,
+        nextInFlightJoinTarget: null,
+        shouldClearPendingRoomCode: true,
+      };
+    }
+
+    if (state.inFlightJoinTarget === target) {
+      return {
+        action: 'none',
+        target: null,
+        nextInFlightJoinTarget: target,
+        shouldClearPendingRoomCode: false,
+      };
+    }
+
+    const shouldReplace =
+      !normalizedSegment ||
+      normalizedSegment.startsWith('(auth)') ||
+      state.inFlightJoinTarget !== null;
+    return {
+      action: shouldReplace ? 'replace' : 'push',
+      target,
+      nextInFlightJoinTarget: target,
+      shouldClearPendingRoomCode: false,
+    };
+  }
+
+  return {
+    action: 'replace',
+    target,
+    nextInFlightJoinTarget: null,
+    shouldClearPendingRoomCode: false,
+  };
+}
+
 /** Async loader returning a user's `ProfileRow` or `null` if not yet onboarded. */
 export type ProfileFetcher = (userId: string) => Promise<ProfileRow | null>;
 

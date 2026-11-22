@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AVATAR_COLORS,
+  computeNavigationStep,
   registerProfileFetcher,
   resolveAuthRedirect,
   useAuthStore,
@@ -248,5 +249,122 @@ describe('useAuthStore and useUiStore pure Node behavior', () => {
 
     ui.dismissToast(second?.id);
     expect(useUiStore.getState().toast).toBeNull();
+  });
+});
+
+describe('computeNavigationStep (Review Fix #1: deferred pendingRoomCode clearing)', () => {
+  it('defers clearing pendingRoomCode until currentSegment arrives on room/join so /(tabs) cannot clobber it', () => {
+    // Step 1: User finishes onboarding with pendingRoomCode still queued -> dispatch replace to /room/join
+    const step1 = computeNavigationStep({
+      initialized: true,
+      hasSession: true,
+      hasProfile: true,
+      pendingRoomCode: 'K7M3P9',
+      currentSegment: '(auth)/onboarding',
+      inFlightJoinTarget: null,
+    });
+    expect(step1).toEqual({
+      action: 'replace',
+      target: '/room/join?code=K7M3P9',
+      nextInFlightJoinTarget: '/room/join?code=K7M3P9',
+      shouldClearPendingRoomCode: false,
+    });
+
+    // Step 2: Intermediate re-render before Expo Router segments update from '(auth)/onboarding' to 'room/join'
+    const step2 = computeNavigationStep({
+      initialized: true,
+      hasSession: true,
+      hasProfile: true,
+      pendingRoomCode: 'K7M3P9',
+      currentSegment: '(auth)/onboarding',
+      inFlightJoinTarget: step1.nextInFlightJoinTarget,
+    });
+    expect(step2).toEqual({
+      action: 'none',
+      target: null,
+      nextInFlightJoinTarget: '/room/join?code=K7M3P9',
+      shouldClearPendingRoomCode: false,
+    });
+
+    // Step 3: Segments arrive at 'room/join' -> now clear pendingRoomCode and reset in-flight marker
+    const step3 = computeNavigationStep({
+      initialized: true,
+      hasSession: true,
+      hasProfile: true,
+      pendingRoomCode: 'K7M3P9',
+      currentSegment: 'room/join',
+      inFlightJoinTarget: step2.nextInFlightJoinTarget,
+    });
+    expect(step3).toEqual({
+      action: 'none',
+      target: null,
+      nextInFlightJoinTarget: null,
+      shouldClearPendingRoomCode: true,
+    });
+
+    // Step 4: Post-clear render while on 'room/join' -> steady state (no redirect)
+    const step4 = computeNavigationStep({
+      initialized: true,
+      hasSession: true,
+      hasProfile: true,
+      pendingRoomCode: null,
+      currentSegment: 'room/join',
+      inFlightJoinTarget: step3.nextInFlightJoinTarget,
+    });
+    expect(step4).toEqual({
+      action: 'none',
+      target: null,
+      nextInFlightJoinTarget: null,
+      shouldClearPendingRoomCode: false,
+    });
+  });
+
+  it('pushes from /(tabs) and clears only on arrival, while handling fresh deep links already on room/join', () => {
+    const fromTabs = computeNavigationStep({
+      initialized: true,
+      hasSession: true,
+      hasProfile: true,
+      pendingRoomCode: 'K7M3P9',
+      currentSegment: '(tabs)/index',
+      inFlightJoinTarget: null,
+    });
+    expect(fromTabs).toEqual({
+      action: 'push',
+      target: '/room/join?code=K7M3P9',
+      nextInFlightJoinTarget: '/room/join?code=K7M3P9',
+      shouldClearPendingRoomCode: false,
+    });
+
+    const freshLinkOnJoin = computeNavigationStep({
+      initialized: true,
+      hasSession: true,
+      hasProfile: true,
+      pendingRoomCode: '7P9Q2R',
+      currentSegment: 'room/join',
+      inFlightJoinTarget: null,
+    });
+    expect(freshLinkOnJoin).toEqual({
+      action: 'replace',
+      target: '/room/join?code=7P9Q2R',
+      nextInFlightJoinTarget: null,
+      shouldClearPendingRoomCode: true,
+    });
+  });
+
+  it('clears inFlightJoinTarget without losing pendingRoomCode if session ends mid-transition', () => {
+    const signedOutMidFlight = computeNavigationStep({
+      initialized: true,
+      hasSession: false,
+      hasProfile: false,
+      pendingRoomCode: 'K7M3P9',
+      currentSegment: '(auth)/onboarding',
+      inFlightJoinTarget: '/room/join?code=K7M3P9',
+    });
+    expect(signedOutMidFlight).toEqual({
+      action: 'replace',
+      target: '/(auth)/login',
+      nextInFlightJoinTarget: null,
+      shouldClearPendingRoomCode: false,
+    });
   });
 });
