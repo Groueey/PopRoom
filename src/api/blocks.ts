@@ -1,5 +1,6 @@
 import { parseBlockConfig } from '../schemas/blocks';
 import type { PollTally, TaskStatus } from '../schemas/blocks';
+import { validateReorderBlockIds } from '../lib/blockOrderHelpers';
 import { supabase } from '../lib/supabase';
 import type {
   ActivityLogRow,
@@ -336,6 +337,27 @@ export async function updateBlockConfig<T extends BlockType>(
 /** Deletes a collaborative block and cascades its child items (host/admin on active rooms only). */
 export async function deleteBlock(blockId: string): Promise<void> {
   const { error } = await supabase.from('blocks').delete().eq('id', blockId);
+
+  if (error) {
+    throw toRoomApiError(error);
+  }
+}
+
+/** Persists a complete room block ordering via `reorder_room_blocks` RPC (host/admin on active rooms only). */
+export async function reorderRoomBlocks(
+  roomId: string,
+  blockIds: readonly string[],
+): Promise<void> {
+  const trimmedRoomId = typeof roomId === 'string' ? roomId.trim() : '';
+  if (!trimmedRoomId) {
+    throw new RoomApiError('INVALID_INPUT', '积木排序参数无效');
+  }
+
+  const validated = validateReorderBlockIds(blockIds);
+  const { error } = await supabase.rpc('reorder_room_blocks', {
+    p_room_id: trimmedRoomId,
+    p_block_ids: validated,
+  });
 
   if (error) {
     throw toRoomApiError(error);

@@ -203,6 +203,7 @@ export async function createRoomWithTemplate(
     p_announcement: validated.announcement,
     p_event_start_at: validated.eventStartAt,
     p_event_end_at: validated.eventEndAt,
+    p_chat_enabled: validated.chatEnabled ?? null,
   });
 
   if (error) {
@@ -306,15 +307,39 @@ export async function resetRoomCode(roomId: string): Promise<string> {
   return data;
 }
 
-/** Updates editable room metadata (title, announcement, join_mode, poll policy) for active admins. */
+/** Updates editable room metadata (title, announcement, join_mode, poll/chat policy, event window) for active admins. */
 export async function updateRoomMetadata(
   roomId: string,
   input: UpdateRoomMetadataInput,
 ): Promise<RoomRow> {
-  const patch = validateUpdateRoomMetadataInput(input);
+  const validated = validateUpdateRoomMetadataInput(input);
+  const payload: UpdateRoomMetadataInput = {};
+
+  if (validated.title !== undefined) {
+    payload.title = validated.title;
+  }
+  if (validated.announcement !== undefined) {
+    payload.announcement = validated.announcement;
+  }
+  if (validated.join_mode !== undefined) {
+    payload.join_mode = validated.join_mode;
+  }
+  if (validated.allow_member_create_poll !== undefined) {
+    payload.allow_member_create_poll = validated.allow_member_create_poll;
+  }
+  if (validated.chat_enabled !== undefined) {
+    payload.chat_enabled = validated.chat_enabled;
+  }
+  if (validated.event_start_at !== undefined) {
+    payload.event_start_at = validated.event_start_at;
+  }
+  if (validated.event_end_at !== undefined) {
+    payload.event_end_at = validated.event_end_at;
+  }
+
   const { data, error } = await supabase
     .from('rooms')
-    .update(patch)
+    .update(payload)
     .eq('id', roomId)
     .select(ROOM_COLUMNS)
     .single();
@@ -326,6 +351,22 @@ export async function updateRoomMetadata(
     throw new RoomApiError('ROOM_NOT_FOUND', mapRoomError('ROOM_NOT_FOUND'));
   }
   return data as RoomRow;
+}
+
+/** Leaves an active room as a non-host member via `leave_room` RPC. */
+export async function leaveRoom(roomId: string): Promise<void> {
+  const trimmedRoomId = typeof roomId === 'string' ? roomId.trim() : '';
+  if (!trimmedRoomId) {
+    throw new RoomApiError('INVALID_INPUT', '房间参数无效');
+  }
+
+  const { error } = await supabase.rpc('leave_room', {
+    p_room_id: trimmedRoomId,
+  });
+
+  if (error) {
+    throw toRoomApiError(error);
+  }
 }
 
 /** Archives an active room so all members become permanently read-only (host only). */

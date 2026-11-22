@@ -106,6 +106,26 @@ describe('activityLogHelpers', () => {
           true,
         ),
       ).toBe(false);
+      expect(
+        canRestoreLogEntry(
+          makeLog({
+            action: 'delete_message',
+            target_table: 'room_messages',
+            restored_at: null,
+          }),
+          true,
+        ),
+      ).toBe(false);
+      expect(
+        canRestoreLogEntry(
+          makeLog({
+            action: 'leave_room',
+            target_table: 'room_members',
+            restored_at: null,
+          }),
+          true,
+        ),
+      ).toBe(false);
     });
   });
 
@@ -326,6 +346,36 @@ describe('activityLogHelpers', () => {
       expect(deletedMsg.summary).toContain('房主A');
       expect(deletedMsg.detail).toContain('记得周六早上九点在东门集合');
 
+      const longMsgText = '一二三四五六七八九十'.repeat(5);
+      const truncatedMsg = formatActivityLogEntry(
+        makeLog({
+          id: 'log-dm-long',
+          action: 'delete_message',
+          target_table: 'room_messages',
+          before_snapshot: {
+            content: longMsgText,
+          },
+        }),
+        '房主A',
+        true,
+      );
+      expect(truncatedMsg.canRestore).toBe(false);
+      expect(truncatedMsg.detail).toContain('原消息内容：');
+      expect(truncatedMsg.detail).toContain('…');
+
+      const nullMsg = formatActivityLogEntry(
+        makeLog({
+          id: 'log-dm-null',
+          action: 'delete_message',
+          target_table: 'room_messages',
+          before_snapshot: null,
+        }),
+        '房主A',
+        true,
+      );
+      expect(nullMsg.canRestore).toBe(false);
+      expect(nullMsg.detail).toBe('该聊天消息已被删除');
+
       const leftRoom = formatActivityLogEntry(
         makeLog({
           id: 'log-lr',
@@ -342,6 +392,20 @@ describe('activityLogHelpers', () => {
       expect(leftRoom.canRestore).toBe(false);
       expect(leftRoom.summary).toContain('小李');
       expect(leftRoom.detail).toContain('成员');
+
+      const leftRoomNull = formatActivityLogEntry(
+        makeLog({
+          id: 'log-lr-null',
+          action: 'leave_room',
+          target_table: 'room_members',
+          before_snapshot: null,
+        }),
+        '小李',
+        true,
+      );
+      expect(leftRoomNull.canRestore).toBe(false);
+      expect(leftRoomNull.summary).toBe('小李 退出了房间');
+      expect(leftRoomNull.detail).toBe('成员已主动离开该活动房间');
     });
   });
 

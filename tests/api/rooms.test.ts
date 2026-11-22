@@ -1,4 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
+}));
+
+vi.mock('@/src/lib/supabase', () => ({
+  supabase: {
+    from: mockFrom,
+    rpc: mockRpc,
+  },
+}));
+
+import {
+  createRoomWithTemplate,
+  leaveRoom,
+  updateRoomMetadata,
+} from '@/src/api/rooms';
 import {
   MAX_ROOM_TITLE_LENGTH,
   RoomApiError,
@@ -8,6 +26,11 @@ import {
   validateUpdateRoomMetadataInput,
 } from '@/src/api/roomHelpers';
 import type { JoinMode, TemplateType } from '@/src/types/database';
+
+beforeEach(() => {
+  mockFrom.mockReset();
+  mockRpc.mockReset();
+});
 
 describe('mapRoomError', () => {
   it('maps Postgres/Supabase domain errors to crisp Chinese user-facing messages', () => {
@@ -234,5 +257,130 @@ describe('validateUpdateRoomMetadataInput', () => {
     ).toThrow(
       new RoomApiError('INVALID_INPUT', '活动结束时间不能早于开始时间'),
     );
+  });
+});
+
+describe('Stage 2 room API mutations', () => {
+  it('createRoomWithTemplate forwards p_chat_enabled (boolean or null) to create_room_with_template RPC', async () => {
+    const fakeRoom = {
+      id: 'room-1',
+      title: '周末露营',
+      announcement: '',
+      template_type: 'travel',
+      event_start_at: null,
+      event_end_at: null,
+      join_mode: 'passcode',
+      room_code: 'K7M3P9',
+      chat_enabled: false,
+      allow_member_create_poll: true,
+      status: 'active',
+      archived_at: null,
+      created_by: 'u1',
+      created_at: '2026-11-22T10:00:00.000Z',
+      updated_at: '2026-11-22T10:00:00.000Z',
+    };
+    mockRpc.mockResolvedValue({ data: fakeRoom, error: null });
+
+    await createRoomWithTemplate({
+      title: '周末露营',
+      templateType: 'travel',
+      joinMode: 'passcode',
+      chatEnabled: false,
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('create_room_with_template', {
+      p_title: '周末露营',
+      p_template_type: 'travel',
+      p_join_mode: 'passcode',
+      p_announcement: '',
+      p_event_start_at: null,
+      p_event_end_at: null,
+      p_chat_enabled: false,
+    });
+
+    await createRoomWithTemplate({
+      title: '社团招新',
+      templateType: 'campus',
+      joinMode: 'approval',
+    });
+
+    expect(mockRpc).toHaveBeenLastCalledWith('create_room_with_template', {
+      p_title: '社团招新',
+      p_template_type: 'campus',
+      p_join_mode: 'approval',
+      p_announcement: '',
+      p_event_start_at: null,
+      p_event_end_at: null,
+      p_chat_enabled: null,
+    });
+  });
+
+  it('updateRoomMetadata includes chat_enabled, event_start_at, and event_end_at in Supabase update payload', async () => {
+    const updatedRoom = {
+      id: 'room-1',
+      title: '周末露营',
+      announcement: '',
+      template_type: 'travel',
+      event_start_at: '2026-11-28T09:00:00.000Z',
+      event_end_at: '2026-11-29T18:00:00.000Z',
+      join_mode: 'passcode',
+      room_code: 'K7M3P9',
+      chat_enabled: true,
+      allow_member_create_poll: true,
+      status: 'active',
+      archived_at: null,
+      created_by: 'u1',
+      created_at: '2026-11-22T10:00:00.000Z',
+      updated_at: '2026-11-22T10:05:00.000Z',
+    };
+
+    const mockSingle = vi.fn().mockResolvedValue({ data: updatedRoom, error: null });
+    const mockSelect = vi.fn().mockReturnValue({ single: mockSingle });
+    const mockEq = vi.fn().mockReturnValue({ select: mockSelect });
+    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq });
+    mockFrom.mockReturnValue({ update: mockUpdate });
+
+    const result = await updateRoomMetadata('room-1', {
+      chat_enabled: true,
+      event_start_at: '2026-11-28T09:00:00.000Z',
+      event_end_at: '2026-11-29T18:00:00.000Z',
+    });
+
+    expect(result).toEqual(updatedRoom);
+    expect(mockFrom).toHaveBeenCalledWith('rooms');
+    expect(mockUpdate).toHaveBeenCalledWith({
+      chat_enabled: true,
+      event_start_at: '2026-11-28T09:00:00.000Z',
+      event_end_at: '2026-11-29T18:00:00.000Z',
+    });
+    expect(mockEq).toHaveBeenCalledWith('id', 'room-1');
+  });
+
+  it('leaveRoom calls leave_room RPC and maps HOST_CANNOT_LEAVE and ROOM_ARCHIVED via toRoomApiError', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await leaveRoom('room-1');
+    expect(mockRpc).toHaveBeenCalledWith('leave_room', {
+      p_room_id: 'room-1',
+    });
+
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'ERROR: HOST_CANNOT_LEAVE' },
+    });
+
+    await expect(leaveRoom('room-1')).rejects.toMatchObject({
+      code: 'HOST_CANNOT_LEAVE',
+      message: '房主无法直接退出房间，你可以选择归档活动',
+    });
+
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'P0001', message: 'ERROR: ROOM_ARCHIVED' },
+    });
+
+    await expect(leaveRoom('room-1')).rejects.toMatchObject({
+      code: 'ROOM_ARCHIVED',
+    });
   });
 });

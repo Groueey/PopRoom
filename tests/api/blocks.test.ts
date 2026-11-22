@@ -1,4 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockRpc } = vi.hoisted(() => ({
+  mockRpc: vi.fn(),
+}));
+
+vi.mock('@/src/lib/supabase', () => ({
+  supabase: {
+    rpc: mockRpc,
+  },
+}));
+
+import { reorderRoomBlocks } from '@/src/api/blocks';
 import {
   parseBlockRowsSafely,
   parsePollTalliesSafely,
@@ -20,6 +32,10 @@ import {
   validateImageSizeBytes,
 } from '@/src/lib/mediaHelpers';
 import type { BlockItemRow, BlockRow } from '@/src/types/database';
+
+beforeEach(() => {
+  mockRpc.mockReset();
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -314,5 +330,44 @@ describe('blockHelpers', () => {
 
     expect(validateCommentContent('  收到，我来带冰块  ')).toBe('收到，我来带冰块');
     expect(() => validateCommentContent('   ')).toThrow(RoomApiError);
+  });
+});
+
+describe('reorderRoomBlocks', () => {
+  it('validates unique non-empty block IDs and invokes reorder_room_blocks RPC', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await reorderRoomBlocks('room-1', ['b2', 'b1', 'b3']);
+
+    expect(mockRpc).toHaveBeenCalledWith('reorder_room_blocks', {
+      p_room_id: 'room-1',
+      p_block_ids: ['b2', 'b1', 'b3'],
+    });
+  });
+
+  it('rejects empty or duplicate block IDs before calling RPC and maps RPC errors', async () => {
+    await expect(reorderRoomBlocks('room-1', [])).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+      message: '积木排序参数无效',
+    });
+    await expect(
+      reorderRoomBlocks('room-1', ['b1', 'b1']),
+    ).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+      message: '积木排序参数无效',
+    });
+    await expect(reorderRoomBlocks('  ', ['b1'])).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message: 'ERROR: ROOM_ARCHIVED' },
+    });
+
+    await expect(reorderRoomBlocks('room-1', ['b1'])).rejects.toMatchObject({
+      code: 'ROOM_ARCHIVED',
+    });
   });
 });
