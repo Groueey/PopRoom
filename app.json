@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "轻橘 PopRoom",
+    "slug": "poproom",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "poproom",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.poproom.app"
+    },
+    "android": {
+      "package": "com.poproom.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
