@@ -22,7 +22,7 @@ void _verifyRealtimeKeyCompatibility;
 
 /**
  * Opens a single room-scoped Supabase Realtime channel (`room:${roomId}`) listening to
- * `rooms`, `room_members`, `blocks`, `block_items`, and `item_comments`.
+ * `rooms`, `room_members`, `blocks`, `block_items`, `item_comments`, and `room_messages`.
  * Automatically invalidates affected TanStack Query keys and ejects the current user if kicked.
  */
 export function useRoomRealtime(
@@ -126,6 +126,18 @@ export function useRoomRealtime(
         (payload) => {
           const itemId = extractCommentItemId(payload.new, payload.old);
           invalidateForTable('item_comments', itemId);
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_messages',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          invalidateForTable('room_messages');
         },
       )
       .subscribe();
