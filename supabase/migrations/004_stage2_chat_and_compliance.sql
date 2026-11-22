@@ -190,20 +190,6 @@ CREATE POLICY user_blocks_delete_own
     AND blocker_id = auth.uid()
   );
 
--- Allow viewing basic profiles of users you have blocked so Profile -> Blocked Users can render unblock entries even after they leave shared rooms
-DROP POLICY IF EXISTS profiles_select_blocked_by_self ON public.profiles;
-CREATE POLICY profiles_select_blocked_by_self
-  ON public.profiles
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.user_blocks ub
-      WHERE ub.blocker_id = auth.uid()
-        AND ub.blocked_id = profiles.id
-    )
-  );
-
 -- ==========================================
 -- 11. room_chat_reads policies (self read cursor for active room members)
 -- ==========================================

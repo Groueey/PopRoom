@@ -671,7 +671,7 @@ GRANT EXECUTE ON FUNCTION public.reorder_room_blocks(UUID, UUID[]) TO authentica
 REVOKE ALL ON FUNCTION public.leave_room(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.leave_room(UUID) TO authenticated, service_role;
 
-REVOKE ALL ON FUNCTION public.auto_archive_expired_rooms() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.auto_archive_expired_rooms() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.auto_archive_expired_rooms() TO service_role;
 
 -- ==========================================

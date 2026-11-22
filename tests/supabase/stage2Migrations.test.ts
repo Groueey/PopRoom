@@ -145,6 +145,9 @@ describe('Stage 2 Supabase migration contracts', () => {
       expect(blockInsert?.[0]).toMatch(/blocked_id\s*<>\s*auth\.uid\(\)/i);
       expect(blockDelete?.[0]).toMatch(/blocker_id\s*=\s*auth\.uid\(\)/i);
 
+      // Must NOT widen public.profiles RLS via user_blocks
+      expect(sql).not.toMatch(/CREATE\s+POLICY\s+\S+\s+ON\s+(?:public\.)?profiles\b/i);
+
       // room_chat_reads: SELECT, INSERT, UPDATE scoped to user_id = auth.uid() AND is_active_member(room_id)
       for (const op of ['SELECT', 'INSERT', 'UPDATE'] as const) {
         const policy = sql.match(
@@ -245,13 +248,13 @@ describe('Stage 2 Supabase migration contracts', () => {
       }
 
       expect(sql).toMatch(
-        /REVOKE\s+ALL\s+ON\s+FUNCTION\s+(?:public\.)?auto_archive_expired_rooms\s*\(\s*\)\s+FROM\s+PUBLIC/i,
+        /REVOKE\s+ALL\s+ON\s+FUNCTION\s+(?:public\.)?auto_archive_expired_rooms\s*\(\s*\)\s+FROM\s+PUBLIC\s*,\s*anon\s*,\s*authenticated\s*;/i,
       );
       expect(sql).toMatch(
         /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+(?:public\.)?auto_archive_expired_rooms\s*\(\s*\)\s+TO\s+service_role\s*;/i,
       );
       expect(sql).not.toMatch(
-        /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+(?:public\.)?auto_archive_expired_rooms\s*\(\s*\)\s+TO\s+[^;]*authenticated/i,
+        /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+(?:public\.)?auto_archive_expired_rooms\s*\(\s*\)\s+TO\s+[^;]*(?:authenticated|anon)/i,
       );
     });
 
