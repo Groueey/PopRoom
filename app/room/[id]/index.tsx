@@ -12,12 +12,10 @@ import {
   ChevronLeft,
   Copy,
   LayoutGrid,
-  Lock,
   Megaphone,
   Plus,
   Settings,
   Share2,
-  Trash2,
   Users,
   Wallet,
 } from 'lucide-react-native';
@@ -52,11 +50,13 @@ import {
   mapRoomError,
 } from '../../../src/api/rooms';
 import { Avatar } from '../../../src/components/ui/Avatar';
-import { Badge, type BadgeVariant } from '../../../src/components/ui/Badge';
+import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
+import { ExpenseBlock } from '../../../src/components/blocks/ExpenseBlock';
 import { PollBlock } from '../../../src/components/blocks/PollBlock';
+import { ScheduleBlock } from '../../../src/components/blocks/ScheduleBlock';
 import { TaskBlock } from '../../../src/components/blocks/TaskBlock';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { useRoomRealtime } from '../../../src/hooks/useRoomRealtime';
@@ -89,15 +89,6 @@ function readRoomIdParam(value: string | string[] | undefined): string {
   return value ?? '';
 }
 
-interface BlockPreviewMeta {
-  badgeLabel: string;
-  badgeVariant: BadgeVariant;
-  secondaryBadges: string[];
-  summaryText: string;
-  previewLines: string[];
-  emptyHint: string;
-}
-
 function BlockTypeIcon({
   type,
   color = '#F97316',
@@ -117,194 +108,6 @@ function BlockTypeIcon({
     case 'expense':
       return <Wallet size={size} color={color} />;
   }
-}
-
-function summarizeBlockForShell(
-  block: ParsedBlock,
-  talliesForBlock: readonly PollTally[],
-): BlockPreviewMeta {
-  switch (block.type) {
-    case 'poll': {
-      const tallyMap = new Map<string, PollTally>();
-      let totalVotes = 0;
-      for (const tally of talliesForBlock) {
-        tallyMap.set(tally.item_id, tally);
-        totalVotes += tally.vote_count;
-      }
-
-      const secondaryBadges: string[] = [];
-      if (block.config.multiple) {
-        secondaryBadges.push('多选');
-      }
-      if (block.config.anonymous) {
-        secondaryBadges.push('匿名');
-      }
-      if (block.config.isLocked) {
-        secondaryBadges.push('已锁定');
-      }
-
-      return {
-        badgeLabel:
-          block.config.mode === 'availability' ? '时间热力图' : '方案投票',
-        badgeVariant: 'primary',
-        secondaryBadges,
-        summaryText: `${block.items.length} 个候选项 · ${totalVotes} 票`,
-        previewLines: block.items.slice(0, 3).map((item) => {
-          const votes = tallyMap.get(item.id)?.vote_count ?? 0;
-          return `${item.data.label}（${votes} 票）`;
-        }),
-        emptyHint: '暂无投票选项，即将接入投票交互组件',
-      };
-    }
-
-    case 'task': {
-      const doneCount = block.items.filter(
-        (item) => item.data.status === 'done',
-      ).length;
-      const unclaimedCount = block.items.filter(
-        (item) => item.data.status === 'unclaimed',
-      ).length;
-
-      return {
-        badgeLabel: '分工认领',
-        badgeVariant: 'warning',
-        secondaryBadges: block.config.allowMemberCreate
-          ? ['全员可新增']
-          : ['仅管理新增'],
-        summaryText: `${block.items.length} 项任务 · 已完成 ${doneCount} · 待认领 ${unclaimedCount}`,
-        previewLines: block.items.slice(0, 3).map((item) => item.data.title),
-        emptyHint: '暂无分工任务，即将接入任务认领看板',
-      };
-    }
-
-    case 'schedule': {
-      return {
-        badgeLabel: block.config.groupBy === 'phase' ? '阶段日程' : '每日日程',
-        badgeVariant: 'neutral',
-        secondaryBadges: [],
-        summaryText: `${block.items.length} 个日程节点`,
-        previewLines: block.items
-          .slice(0, 3)
-          .map(
-            (item) =>
-              `${item.data.groupLabel} · ${item.data.startTime} ${item.data.title}`,
-          ),
-        emptyHint: '暂无日程节点，即将接入时间轴与地图导航',
-      };
-    }
-
-    case 'expense': {
-      const totalAmount = block.items.reduce(
-        (sum, item) => sum + item.data.amount,
-        0,
-      );
-      const budgetText =
-        block.config.mode === 'budget' && block.config.totalBudget !== null
-          ? ` / 预算 ¥${block.config.totalBudget.toFixed(0)}`
-          : '';
-
-      return {
-        badgeLabel: block.config.mode === 'budget' ? '预算报销' : 'AA 分账',
-        badgeVariant: 'success',
-        secondaryBadges: [block.config.currency],
-        summaryText: `${block.items.length} 笔账目 · 累计 ¥${totalAmount.toFixed(2)}${budgetText}`,
-        previewLines: block.items
-          .slice(0, 3)
-          .map((item) => `${item.data.title}（¥${item.data.amount.toFixed(2)}）`),
-        emptyHint: '暂无消费记录，即将接入预算与 AA 最小分账器',
-      };
-    }
-  }
-}
-
-interface BlockShellCardProps {
-  block: ParsedBlock;
-  talliesForBlock: readonly PollTally[];
-  canManageBlocks: boolean;
-  onRequestDelete: (block: ParsedBlock) => void;
-}
-
-/**
- * Typed placeholder dispatcher ready for Tasks 8–10 (`PollBlock`, `TaskBlock`,
- * `ScheduleBlock`, `ExpenseBlock`) to drop in seamlessly per `block.type`.
- */
-function BlockShellCard({
-  block,
-  talliesForBlock,
-  canManageBlocks,
-  onRequestDelete,
-}: BlockShellCardProps) {
-  const meta = summarizeBlockForShell(block, talliesForBlock);
-
-  const renderInnerSlot = () => {
-    switch (block.type) {
-      case 'poll':
-      case 'task':
-      case 'schedule':
-      case 'expense':
-        return meta.previewLines.length > 0 ? (
-          <View className="mt-3 gap-1.5 rounded-xl bg-surface p-3">
-            {meta.previewLines.map((line, idx) => (
-              <View
-                key={`${block.id}-preview-${idx}`}
-                className="flex-row items-center gap-2"
-              >
-                <View className="h-1.5 w-1.5 rounded-full bg-primary" />
-                <Text className="flex-1 text-xs text-zinc-700" numberOfLines={1}>
-                  {line}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-surface/60 px-3 py-3">
-            <Text className="text-xs text-zinc-400">{meta.emptyHint}</Text>
-          </View>
-        );
-    }
-  };
-
-  return (
-    <Card className="mb-3.5">
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
-            <BlockTypeIcon type={block.type} />
-          </View>
-          <View className="flex-1">
-            <View className="mb-1 flex-row flex-wrap items-center gap-1.5">
-              <Badge label={meta.badgeLabel} variant={meta.badgeVariant} />
-              {meta.secondaryBadges.map((tag) => (
-                <Badge key={tag} label={tag} variant="neutral" />
-              ))}
-              {block.type === 'poll' && block.config.isLocked ? (
-                <Lock size={12} color="#71717A" />
-              ) : null}
-            </View>
-            <Text className="text-base font-bold text-ink" numberOfLines={2}>
-              {block.title}
-            </Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
-              {meta.summaryText}
-            </Text>
-          </View>
-        </View>
-
-        {canManageBlocks ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`删除积木 ${block.title}`}
-            onPress={() => onRequestDelete(block)}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-zinc-200 bg-surface active:bg-red-50"
-          >
-            <Trash2 size={15} color="#71717A" />
-          </Pressable>
-        ) : null}
-      </View>
-
-      {renderInnerSlot()}
-    </Card>
-  );
 }
 
 /** Room Collaboration Board Shell with realtime sync, read-only archive guard, and gated block builder. */
@@ -901,14 +704,29 @@ export default function RoomBoardScreen() {
                   />
                 );
               case 'schedule':
-              case 'expense':
                 return (
-                  <BlockShellCard
+                  <ScheduleBlock
                     key={block.id}
                     block={block}
-                    talliesForBlock={talliesByBlockId.get(block.id) ?? []}
-                    canManageBlocks={permissions.canManageBlocks}
-                    onRequestDelete={setDeleteTarget}
+                    items={block.items}
+                    members={activeMembers}
+                    permissions={permissions}
+                    onRequestDeleteBlock={
+                      permissions.canManageBlocks ? setDeleteTarget : undefined
+                    }
+                  />
+                );
+              case 'expense':
+                return (
+                  <ExpenseBlock
+                    key={block.id}
+                    block={block}
+                    items={block.items}
+                    members={activeMembers}
+                    permissions={permissions}
+                    onRequestDeleteBlock={
+                      permissions.canManageBlocks ? setDeleteTarget : undefined
+                    }
                   />
                 );
             }
