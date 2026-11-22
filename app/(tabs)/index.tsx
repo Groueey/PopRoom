@@ -1,7 +1,6 @@
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useFocusEffect } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import {
   Archive,
   Calendar,

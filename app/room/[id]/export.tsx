@@ -31,7 +31,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import {
   fetchRoomBlocksWithItems,
   fetchRoomPollTallies,
@@ -89,7 +89,7 @@ export default function RoomExportScreen() {
   const showToast = useUiStore((s) => s.showToast);
   const currentUserId = session?.user.id ?? null;
 
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<ViewShotRef>(null);
   const [exportingType, setExportingType] = useState<ExportKind | null>(null);
 
   const {
