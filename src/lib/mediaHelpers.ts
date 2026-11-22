@@ -135,7 +135,12 @@ export function extractMediaStoragePath(url: string): string | null {
       return null;
     }
 
-    const decoded = decodeURIComponent(match[1]).replace(/^\/+/, '');
+    let decoded = '';
+    try {
+      decoded = decodeURIComponent(match[1]).replace(/^\/+/, '');
+    } catch {
+      return null;
+    }
     if (!decoded || decoded.includes('..')) {
       return null;
     }

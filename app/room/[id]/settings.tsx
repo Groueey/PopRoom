@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import * as Linking from 'expo-linking';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AlertTriangle,
@@ -49,10 +50,12 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
-import { buildInviteLink, buildShareMessage } from '../../../src/lib/roomCode';
+import { buildShareMessage } from '../../../src/lib/roomCode';
+import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
@@ -114,6 +117,7 @@ export default function RoomSettingsScreen() {
     data: members = [],
     isLoading: membersLoading,
     isRefetching: membersRefetching,
+    error: membersError,
     refetch: refetchMembers,
   } = useQuery({
     queryKey: QUERY_KEYS.roomMembers(roomId),
@@ -137,6 +141,11 @@ export default function RoomSettingsScreen() {
   const pendingMembers = useMemo(
     () => members.filter((m) => m.status === 'pending'),
     [members],
+  );
+
+  const myRawMembership = useMemo(
+    () => members.find((m) => m.user_id === currentUserId) ?? null,
+    [members, currentUserId],
   );
 
   const myMembership = useMemo(
@@ -204,7 +213,9 @@ export default function RoomSettingsScreen() {
       return;
     }
     try {
-      const inviteUrl = buildInviteLink(room.room_code);
+      const inviteUrl = Linking.createURL('room/join', {
+        queryParams: { code: room.room_code },
+      });
       const message = buildShareMessage(room.title, room.room_code, inviteUrl);
       await Clipboard.setStringAsync(message);
       showToast('已复制邀请口令与链接', 'success');
@@ -344,7 +355,19 @@ export default function RoomSettingsScreen() {
     }
   };
 
-  if (roomLoading || (membersLoading && members.length === 0)) {
+  const screenState = resolveRoomScreenState({
+    mode: 'settings',
+    room,
+    roomLoading,
+    roomError,
+    members,
+    membersLoading,
+    membersError,
+    myRawMembership,
+    canAccess: true,
+  });
+
+  if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
         <ActivityIndicator size="large" color="#F97316" />
@@ -353,18 +376,35 @@ export default function RoomSettingsScreen() {
     );
   }
 
-  if (roomError || !room) {
+  if (screenState.kind === 'full_error' || !room) {
+    const errorTitle =
+      screenState.kind === 'full_error'
+        ? screenState.title
+        : '无法加载房间设置';
+    const errorMessage =
+      screenState.kind === 'full_error'
+        ? screenState.message
+        : mapRoomError(roomError);
+    const canRetry =
+      screenState.kind === 'full_error' ? screenState.canRetry : true;
+
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
           <AlertTriangle size={28} color="#EF4444" />
-          <Text className="mt-3 text-base font-bold text-ink">
-            无法加载房间设置
-          </Text>
+          <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
           <Text className="mt-1.5 text-center text-xs text-zinc-500">
-            {mapRoomError(roomError)}
+            {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2">
+            {canRetry ? (
+              <Button
+                title="重新加载"
+                variant="secondary"
+                fullWidth
+                onPress={handleRefreshAll}
+              />
+            ) : null}
             <Button
               title="返回活动大厅"
               fullWidth
@@ -376,6 +416,7 @@ export default function RoomSettingsScreen() {
     );
   }
 
+  const isRefreshing = roomRefetching || membersRefetching;
   const templateName = ROOM_TEMPLATES[room.template_type].name;
   const titleLen = Array.from(titleDraft.trim()).length;
   const hasMetadataChanges =
@@ -409,13 +450,20 @@ export default function RoomSettingsScreen() {
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
-              refreshing={roomRefetching || membersRefetching}
+              refreshing={isRefreshing}
               onRefresh={handleRefreshAll}
               tintColor="#F97316"
               colors={['#F97316']}
             />
           }
         >
+          {screenState.kind === 'ready' && screenState.syncWarning ? (
+            <OfflineSyncBanner
+              message={screenState.syncWarning}
+              onRetry={handleRefreshAll}
+              retrying={isRefreshing}
+            />
+          ) : null}
           {permissions.isArchived ? (
             <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
               <Archive size={18} color="#B45309" />

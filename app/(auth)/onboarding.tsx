@@ -13,6 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import {
+  clearCachedProfile,
+  saveCachedProfile,
+} from '../../src/lib/profileCache';
 import { supabase } from '../../src/lib/supabase';
 import { AVATAR_COLORS, useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
@@ -75,7 +79,9 @@ export default function OnboardingScreen() {
         return;
       }
 
-      setProfile(data as ProfileRow);
+      const savedProfile = data as ProfileRow;
+      await saveCachedProfile(savedProfile);
+      setProfile(savedProfile);
       showToast('资料已保存，欢迎来到轻橘！', 'success');
     } catch {
       setErrorText('网络异常，请稍后再试');
@@ -85,7 +91,11 @@ export default function OnboardingScreen() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    const currentUserId = session?.user.id;
+    const { error } = await supabase.auth.signOut();
+    if (!error) {
+      await clearCachedProfile(currentUserId);
+    }
   };
 
   return (

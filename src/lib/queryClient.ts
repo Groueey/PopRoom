@@ -12,6 +12,7 @@ export const queryClient = new QueryClient({
       gcTime: TWENTY_FOUR_HOURS_MS,
       staleTime: THIRTY_SECONDS_MS,
       retry: 1,
+      networkMode: 'offlineFirst',
     },
     mutations: {
       retry: 0,

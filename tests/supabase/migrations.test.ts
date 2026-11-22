@@ -135,6 +135,12 @@ describe('Supabase migration contracts', () => {
         const body = extractFunctionBody(sql, fn);
         expect(body).toMatch(/SECURITY\s+DEFINER/i);
         expect(body).toMatch(/SET\s+search_path\s*=\s*public\b/i);
+        expect(sql).toMatch(
+          new RegExp(`REVOKE\\s+ALL\\s+ON\\s+FUNCTION\\s+(?:public\\.)?${fn}\\s*\\(\\s*UUID\\s*\\)\\s+FROM\\s+PUBLIC`, 'i'),
+        );
+        expect(sql).toMatch(
+          new RegExp(`GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+(?:public\\.)?${fn}\\s*\\(\\s*UUID\\s*\\)\\s+TO\\s+authenticated\\s*,\\s*service_role`, 'i'),
+        );
       }
     });
 
@@ -168,12 +174,38 @@ describe('Supabase migration contracts', () => {
       );
       expect(blockItemUpdateSql).toMatch(/isLocked/i);
 
-      // room_id and block_id immutability trigger on block_items UPDATE
-      const rebindFn = extractFunctionBody(sql, 'prevent_block_item_rebind');
-      expect(rebindFn).toMatch(/NEW\.room_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.room_id/i);
-      expect(rebindFn).toMatch(/NEW\.block_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.block_id/i);
+      // Immutability triggers on block_items, blocks, and rooms UPDATE (Important #3)
+      const blockItemImmutableFn = extractFunctionBody(sql, 'prevent_block_item_immutable_update');
+      expect(blockItemImmutableFn).toMatch(/SET\s+search_path\s*=\s*public\b/i);
+      expect(blockItemImmutableFn).toMatch(/NEW\.room_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.room_id/i);
+      expect(blockItemImmutableFn).toMatch(/NEW\.block_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.block_id/i);
+      expect(blockItemImmutableFn).toMatch(/NEW\.created_by\s+IS\s+DISTINCT\s+FROM\s+OLD\.created_by/i);
+      expect(blockItemImmutableFn).toMatch(/NEW\.is_deleted\s+IS\s+DISTINCT\s+FROM\s+OLD\.is_deleted/i);
+      expect(blockItemImmutableFn).toMatch(/current_setting\s*\(\s*'app\.poproom_rpc'\s*,\s*true\s*\)/i);
       expect(sql).toMatch(
-        /CREATE\s+TRIGGER\s+trg_block_items_immutable_refs\s+BEFORE\s+UPDATE\s+ON\s+(?:public\.)?block_items/i,
+        /CREATE\s+TRIGGER\s+\S+\s+BEFORE\s+UPDATE\s+ON\s+(?:public\.)?block_items[\s\S]*?EXECUTE\s+FUNCTION\s+(?:public\.)?prevent_block_item_immutable_update\s*\(\s*\)/i,
+      );
+
+      const blockImmutableFn = extractFunctionBody(sql, 'prevent_block_immutable_update');
+      expect(blockImmutableFn).toMatch(/SET\s+search_path\s*=\s*public\b/i);
+      expect(blockImmutableFn).toMatch(/NEW\.room_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.room_id/i);
+      expect(blockImmutableFn).toMatch(/NEW\.type\s+IS\s+DISTINCT\s+FROM\s+OLD\.type/i);
+      expect(blockImmutableFn).toMatch(/NEW\.created_by\s+IS\s+DISTINCT\s+FROM\s+OLD\.created_by/i);
+      expect(sql).toMatch(
+        /CREATE\s+TRIGGER\s+\S+\s+BEFORE\s+UPDATE\s+ON\s+(?:public\.)?blocks[\s\S]*?EXECUTE\s+FUNCTION\s+(?:public\.)?prevent_block_immutable_update\s*\(\s*\)/i,
+      );
+
+      const roomImmutableFn = extractFunctionBody(sql, 'prevent_room_immutable_update');
+      expect(roomImmutableFn).toMatch(/SET\s+search_path\s*=\s*public\b/i);
+      expect(roomImmutableFn).toMatch(/NEW\.template_type\s+IS\s+DISTINCT\s+FROM\s+OLD\.template_type/i);
+      expect(roomImmutableFn).toMatch(/NEW\.created_by\s+IS\s+DISTINCT\s+FROM\s+OLD\.created_by/i);
+      expect(roomImmutableFn).toMatch(/NEW\.room_code\s+IS\s+DISTINCT\s+FROM\s+OLD\.room_code/i);
+      expect(roomImmutableFn).toMatch(/NEW\.status\s+IS\s+DISTINCT\s+FROM\s+OLD\.status/i);
+      expect(roomImmutableFn).toMatch(/NEW\.archived_at\s+IS\s+DISTINCT\s+FROM\s+OLD\.archived_at/i);
+      expect(roomImmutableFn).toMatch(/NEW\.chat_enabled\s+IS\s+DISTINCT\s+FROM\s+OLD\.chat_enabled/i);
+      expect(roomImmutableFn).toMatch(/current_setting\s*\(\s*'app\.poproom_rpc'\s*,\s*true\s*\)/i);
+      expect(sql).toMatch(
+        /CREATE\s+TRIGGER\s+\S+\s+BEFORE\s+UPDATE\s+ON\s+(?:public\.)?rooms[\s\S]*?EXECUTE\s+FUNCTION\s+(?:public\.)?prevent_room_immutable_update\s*\(\s*\)/i,
       );
 
       // item_comments DELETE must block kicked/inactive members
@@ -427,6 +459,28 @@ describe('Supabase migration contracts', () => {
       for (const token of expectedTokens) {
         expect(sql).toContain(token);
       }
+    });
+
+    it('sets transaction-local app.poproom_rpc flag in guarded RPCs and logs kicked member nickname (Important #3 & #4)', () => {
+      const sql = stripSqlComments(readSql(RPCS_SQL_PATH));
+
+      for (const rpc of [
+        'reset_room_code',
+        'archive_room',
+        'soft_delete_block_item',
+        'restore_deleted_item',
+      ]) {
+        const body = extractFunctionBody(sql, rpc);
+        expect(body).toMatch(
+          /PERFORM\s+set_config\s*\(\s*'app\.poproom_rpc'\s*,\s*'1'\s*,\s*true\s*\)/i,
+        );
+      }
+
+      const kickBody = extractFunctionBody(sql, 'kick_room_member');
+      expect(kickBody).toMatch(/SELECT\s+nickname\s+INTO\s+\w+\s+FROM\s+(?:public\.)?profiles/i);
+      expect(kickBody).toMatch(
+        /to_jsonb\s*\(\s*v_target\s*\)\s*\|\|\s*jsonb_build_object\s*\(\s*'nickname'\s*,/i,
+      );
     });
   });
 

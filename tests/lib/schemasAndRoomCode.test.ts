@@ -55,6 +55,23 @@ describe('roomCode utilities (Review Focus #1)', () => {
     expect(extractRoomCodeFromUrl('poproom:///room/join?code=k7m3p9')).toBe('K7M3P9');
   });
 
+  it('extracts normalized valid room codes from Expo Go exp:// and exps:// invite links (Important #5)', () => {
+    expect(
+      extractRoomCodeFromUrl('exp://192.168.1.10:8081/--/room/join?code=K7M3P9'),
+    ).toBe('K7M3P9');
+    expect(
+      extractRoomCodeFromUrl(
+        'exp://192.168.1.10:8081/--/room/join?code=k7m-3p9&from=share',
+      ),
+    ).toBe('K7M3P9');
+    expect(
+      extractRoomCodeFromUrl('exps://u.expo.dev/update/123/--/room/join?code=234567'),
+    ).toBe('234567');
+    expect(
+      extractRoomCodeFromUrl('exp://192.168.1.10:8081/--/profile?code=K7M3P9'),
+    ).toBeNull();
+  });
+
   it('returns null for unrelated URLs or invalid room codes', () => {
     expect(extractRoomCodeFromUrl('poproom://room/join?code=K7M0P9')).toBeNull();
     expect(extractRoomCodeFromUrl('poproom://room/join?code=SHORT')).toBeNull();

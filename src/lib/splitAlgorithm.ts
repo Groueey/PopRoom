@@ -47,7 +47,10 @@ function accumulateExpenses(expenses: readonly ExpenseInput[]): {
   let totalSpentCents = 0;
 
   for (const exp of expenses) {
-    const participantCount = exp.participantIds.length;
+    const validParticipants = exp.participantIds.filter(
+      (id) => typeof id === 'string' && id.trim().length > 0,
+    );
+    const participantCount = validParticipants.length;
     if (!Number.isFinite(exp.amount) || participantCount === 0) {
       continue;
     }
@@ -69,7 +72,7 @@ function accumulateExpenses(expenses: readonly ExpenseInput[]): {
     // Distribute remainder (+1 cent) deterministically to the first `remainder` entries
     // so total debits equal `cents` and all member net balances strictly sum to 0.
     for (let i = 0; i < participantCount; i += 1) {
-      const participantId = exp.participantIds[i];
+      const participantId = validParticipants[i];
       if (!participantId) {
         continue;
       }

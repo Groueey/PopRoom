@@ -53,9 +53,11 @@ import {
   applyOptimisticTaskClaim,
   applyOptimisticTaskStatus,
   computeTaskCompletionStats,
+  findTaskItemInBlocks,
   formatCommentTimestamp,
   formatDueAtForInput,
   formatTaskDueAtLabel,
+  mergeTaskContentEdit,
   parseTaskDueAtInput,
   removeTaskImageUrl,
   replaceTaskItemInBlocks,
@@ -545,14 +547,19 @@ export function TaskBlock({
       dueAt: string | null;
     }) => {
       if (payload.mode === 'edit' && payload.item) {
-        const nextData: TaskItemData = {
-          ...payload.item.data,
+        const latestBlocks = queryClient.getQueryData<ParsedBlock[]>(
+          QUERY_KEYS.roomBlocks(block.room_id),
+        );
+        const latestItem =
+          findTaskItemInBlocks(latestBlocks, block.id, payload.item.id) ??
+          payload.item;
+        const nextData: TaskItemData = mergeTaskContentEdit(latestItem.data, {
           title: payload.title,
           description: payload.description,
           dueAt: payload.dueAt,
-        };
+        });
         return updateBlockItem({
-          itemId: payload.item.id,
+          itemId: latestItem.id,
           type: 'task',
           data: nextData,
         });
@@ -729,11 +736,26 @@ export function TaskBlock({
     item: ParsedBlockItem<'task'>,
     source: 'library' | 'camera',
   ) => {
-    if (!permissions.canManageTaskImages(item.created_by, item.data.assigneeIds)) {
+    if (uploadingPhoto || imagesMutation.isPending) {
+      return;
+    }
+
+    const preUploadBlocks = queryClient.getQueryData<ParsedBlock[]>(
+      QUERY_KEYS.roomBlocks(block.room_id),
+    );
+    const currentItem =
+      findTaskItemInBlocks(preUploadBlocks, block.id, item.id) ?? item;
+
+    if (
+      !permissions.canManageTaskImages(
+        currentItem.created_by,
+        currentItem.data.assigneeIds,
+      )
+    ) {
       showToast(mapRoomError(new RoomApiError('FORBIDDEN')), 'error');
       return;
     }
-    if (item.data.imageUrls.length >= MAX_TASK_IMAGES) {
+    if (currentItem.data.imageUrls.length >= MAX_TASK_IMAGES) {
       showToast(mapRoomError(new RoomApiError('MAX_IMAGES_EXCEEDED')), 'info');
       return;
     }
@@ -743,14 +765,26 @@ export function TaskBlock({
       const uploadedUrl = await pickAndUploadRoomImage({
         roomId: block.room_id,
         blockType: 'task',
-        itemId: item.id,
+        itemId: currentItem.id,
         source,
       });
       if (!uploadedUrl) {
         return;
       }
-      const nextUrls = appendTaskImageUrl(item.data.imageUrls, uploadedUrl);
-      await imagesMutation.mutateAsync({ itemId: item.id, imageUrls: nextUrls });
+      const latestBlocks = queryClient.getQueryData<ParsedBlock[]>(
+        QUERY_KEYS.roomBlocks(block.room_id),
+      );
+      const latestItem =
+        findTaskItemInBlocks(latestBlocks, block.id, currentItem.id) ??
+        currentItem;
+      const nextUrls = appendTaskImageUrl(
+        latestItem.data.imageUrls,
+        uploadedUrl,
+      );
+      await imagesMutation.mutateAsync({
+        itemId: latestItem.id,
+        imageUrls: nextUrls,
+      });
       showToast('凭证图已上传', 'success');
     } catch (err) {
       if (err instanceof MediaUploadError) {
@@ -767,13 +801,33 @@ export function TaskBlock({
     item: ParsedBlockItem<'task'>,
     targetUrl: string,
   ) => {
-    if (!permissions.canManageTaskImages(item.created_by, item.data.assigneeIds)) {
+    if (uploadingPhoto || imagesMutation.isPending) {
+      return;
+    }
+    const latestBlocks = queryClient.getQueryData<ParsedBlock[]>(
+      QUERY_KEYS.roomBlocks(block.room_id),
+    );
+    const latestItem =
+      findTaskItemInBlocks(latestBlocks, block.id, item.id) ?? item;
+
+    if (
+      !permissions.canManageTaskImages(
+        latestItem.created_by,
+        latestItem.data.assigneeIds,
+      )
+    ) {
       showToast(mapRoomError(new RoomApiError('FORBIDDEN')), 'error');
       return;
     }
     try {
-      const nextUrls = removeTaskImageUrl(item.data.imageUrls, targetUrl);
-      await imagesMutation.mutateAsync({ itemId: item.id, imageUrls: nextUrls });
+      const nextUrls = removeTaskImageUrl(
+        latestItem.data.imageUrls,
+        targetUrl,
+      );
+      await imagesMutation.mutateAsync({
+        itemId: latestItem.id,
+        imageUrls: nextUrls,
+      });
       showToast('已移除凭证图', 'success');
     } catch (err) {
       showToast(mapRoomError(err), 'error');
@@ -781,6 +835,9 @@ export function TaskBlock({
   };
 
   const handleSubmitComment = () => {
+    if (commentMutation.isPending) {
+      return;
+    }
     if (!selectedItem || !permissions.canComment) {
       return;
     }
@@ -1040,7 +1097,7 @@ export function TaskBlock({
                       key={url}
                       canonicalUrl={url}
                       canRemove={selectedCanManageImages}
-                      removing={imagesMutation.isPending}
+                      removing={uploadingPhoto || imagesMutation.isPending}
                       onRemove={() => void handleRemoveProofPhoto(selectedItem, url)}
                     />
                   ))}

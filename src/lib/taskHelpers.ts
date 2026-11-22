@@ -308,3 +308,44 @@ export function replaceTaskItemInBlocks(
     };
   });
 }
+
+/**
+ * Looks up the latest cached task item from `ParsedBlock[]` for a given `blockId` and `itemId`.
+ */
+export function findTaskItemInBlocks(
+  blocks: readonly ParsedBlock[] | undefined,
+  blockId: string,
+  itemId: string,
+): ParsedBlockItem<'task'> | null {
+  if (!blocks) {
+    return null;
+  }
+  for (const block of blocks) {
+    if (block.id !== blockId || block.type !== 'task') {
+      continue;
+    }
+    const match = block.items.find((item) => item.id === itemId);
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+}
+
+/**
+ * Merges `title`, `description`, and `dueAt` edits onto the latest cached `TaskItemData`
+ * so concurrent `status`, `assigneeIds`, and `imageUrls` updates are preserved.
+ */
+export function mergeTaskContentEdit(
+  latestData: TaskItemData,
+  patch: Pick<TaskItemData, 'title' | 'description' | 'dueAt'>,
+): TaskItemData {
+  return {
+    ...latestData,
+    assigneeIds: [...latestData.assigneeIds],
+    imageUrls: [...latestData.imageUrls],
+    title: patch.title,
+    description: patch.description,
+    dueAt: patch.dueAt,
+  };
+}

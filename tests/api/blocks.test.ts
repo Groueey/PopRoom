@@ -57,6 +57,11 @@ describe('mediaHelpers', () => {
     expect(extractMediaStoragePath('https://example.com/photo.jpg')).toBeNull();
     expect(extractMediaStoragePath('')).toBeNull();
     expect(extractMediaStoragePath('invalid-path')).toBeNull();
+    expect(
+      extractMediaStoragePath(
+        'https://demo.supabase.co/storage/v1/object/authenticated/room-media/r1/task/i1/%E0%A4%A.jpg',
+      ),
+    ).toBeNull();
   });
 
   it('enforces 5MB max image byte limit and throws IMAGE_TOO_LARGE above threshold', () => {

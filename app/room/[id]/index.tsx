@@ -1,6 +1,7 @@
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import * as Linking from 'expo-linking';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AlertTriangle,
@@ -53,6 +54,7 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { ExpenseBlock } from '../../../src/components/blocks/ExpenseBlock';
 import { PollBlock } from '../../../src/components/blocks/PollBlock';
@@ -61,7 +63,8 @@ import { TaskBlock } from '../../../src/components/blocks/TaskBlock';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { useRoomRealtime } from '../../../src/hooks/useRoomRealtime';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
-import { buildInviteLink, buildShareMessage } from '../../../src/lib/roomCode';
+import { buildShareMessage } from '../../../src/lib/roomCode';
+import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
 import type { PollTally } from '../../../src/schemas/blocks';
 import { useAuthStore } from '../../../src/stores/authStore';
@@ -139,6 +142,7 @@ export default function RoomBoardScreen() {
     data: members = [],
     isLoading: membersLoading,
     isRefetching: membersRefetching,
+    error: membersError,
     refetch: refetchMembers,
   } = useQuery({
     queryKey: QUERY_KEYS.roomMembers(roomId),
@@ -161,6 +165,7 @@ export default function RoomBoardScreen() {
   const {
     data: pollTallies = [],
     isRefetching: talliesRefetching,
+    error: talliesError,
     refetch: refetchTallies,
   } = useQuery({
     queryKey: QUERY_KEYS.roomPollTallies(roomId),
@@ -265,7 +270,9 @@ export default function RoomBoardScreen() {
       return;
     }
     try {
-      const inviteUrl = buildInviteLink(room.room_code);
+      const inviteUrl = Linking.createURL('room/join', {
+        queryParams: { code: room.room_code },
+      });
       const shareText = buildShareMessage(room.title, room.room_code, inviteUrl);
       await Clipboard.setStringAsync(shareText);
       showToast('已复制房间口令与邀请链接', 'success');
@@ -425,7 +432,25 @@ export default function RoomBoardScreen() {
     }
   };
 
-  if (roomLoading || (membersLoading && members.length === 0)) {
+  const screenState = resolveRoomScreenState({
+    mode: 'board',
+    room,
+    roomLoading,
+    roomError,
+    members,
+    membersLoading,
+    membersError,
+    myRawMembership,
+    canAccess: true,
+    blocksCount: blocks.length,
+    blocksLoading,
+    blocksError,
+    hasPollTallies: true,
+    talliesLoading: false,
+    talliesError,
+  });
+
+  if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
         <ActivityIndicator size="large" color="#F97316" />
@@ -434,29 +459,35 @@ export default function RoomBoardScreen() {
     );
   }
 
-  if (roomError || !room) {
+  if (screenState.kind === 'full_error' || !room) {
+    const errorTitle =
+      screenState.kind === 'full_error'
+        ? screenState.title
+        : '无法进入该协作房间';
     const errorMessage =
-      myRawMembership?.status === 'kicked'
-        ? mapRoomError(new RoomApiError('USER_KICKED'))
+      screenState.kind === 'full_error'
+        ? screenState.message
         : mapRoomError(roomError);
+    const canRetry =
+      screenState.kind === 'full_error' ? screenState.canRetry : true;
 
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
           <AlertTriangle size={28} color="#EF4444" />
-          <Text className="mt-3 text-base font-bold text-ink">
-            无法进入该协作房间
-          </Text>
+          <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
           <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
             {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2.5">
-            <Button
-              title="重新加载"
-              variant="secondary"
-              fullWidth
-              onPress={handleRefreshAll}
-            />
+            {canRetry ? (
+              <Button
+                title="重新加载"
+                variant="secondary"
+                fullWidth
+                onPress={handleRefreshAll}
+              />
+            ) : null}
             <Button
               title="返回活动大厅"
               variant="primary"
@@ -545,6 +576,14 @@ export default function RoomBoardScreen() {
           />
         }
       >
+        {screenState.kind === 'ready' && screenState.syncWarning ? (
+          <OfflineSyncBanner
+            message={screenState.syncWarning}
+            onRetry={handleRefreshAll}
+            retrying={isRefreshing}
+          />
+        ) : null}
+
         {permissions.isArchived ? (
           <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
             <Archive size={18} color="#B45309" />
@@ -636,23 +675,7 @@ export default function RoomBoardScreen() {
           </Pressable>
         </Card>
 
-        {blocksError ? (
-          <Card className="mb-4 border-red-200 bg-red-50">
-            <Text className="text-sm font-medium text-red-700">
-              {mapRoomError(blocksError)}
-            </Text>
-            <View className="mt-2 self-start">
-              <Button
-                title="重试加载积木"
-                size="sm"
-                variant="ghost"
-                onPress={() => void refetchBlocks()}
-              />
-            </View>
-          </Card>
-        ) : null}
-
-        {blocksLoading ? (
+        {blocksLoading && blocks.length === 0 ? (
           <View className="items-center py-12">
             <ActivityIndicator size="large" color="#F97316" />
             <Text className="mt-3 text-xs text-zinc-500">正在同步协作积木...</Text>

@@ -4,9 +4,12 @@ import {
   applyOptimisticTaskClaim,
   applyOptimisticTaskStatus,
   computeTaskCompletionStats,
+  findTaskItemInBlocks,
+  mergeTaskContentEdit,
   parseTaskDueAtInput,
   removeTaskImageUrl,
 } from '@/src/lib/taskHelpers';
+import type { ParsedBlock } from '@/src/api/blockHelpers';
 import type { TaskItemData } from '@/src/schemas/blocks';
 
 function makeTaskData(overrides: Partial<TaskItemData> = {}): TaskItemData {
@@ -196,6 +199,79 @@ describe('taskHelpers', () => {
     it('throws on invalid due date input', () => {
       expect(() => parseTaskDueAtInput('2026-02-30')).toThrow();
       expect(() => parseTaskDueAtInput('not-a-date')).toThrow();
+    });
+  });
+
+  describe('concurrent task lookup and merge helpers (Important #1)', () => {
+    it('looks up latest cached task item and preserves concurrent assigneeIds, status, and imageUrls on content edit', () => {
+      const blocks: ParsedBlock[] = [
+        {
+          id: 'b-task-1',
+          room_id: 'r1',
+          type: 'task',
+          title: '分工认领',
+          sort_order: 0,
+          config: { allowMemberCreate: true },
+          created_by: 'u1',
+          created_at: '2026-11-22T00:00:00Z',
+          updated_at: '2026-11-22T00:00:00Z',
+          items: [
+            {
+              id: 'item-1',
+              block_id: 'b-task-1',
+              room_id: 'r1',
+              type: 'task',
+              sort_order: 0,
+              is_deleted: false,
+              created_by: 'u1',
+              created_at: '2026-11-22T00:00:00Z',
+              updated_at: '2026-11-22T01:00:00Z',
+              data: makeTaskData({
+                title: '旧标题',
+                description: '旧说明',
+                status: 'done',
+                assigneeIds: ['u2', 'u3'],
+                imageUrls: ['https://example.com/concurrent.jpg'],
+              }),
+            },
+          ],
+        },
+      ];
+
+      const latest = findTaskItemInBlocks(blocks, 'b-task-1', 'item-1');
+      expect(latest).not.toBeNull();
+      expect(findTaskItemInBlocks(blocks, 'b-task-1', 'missing')).toBeNull();
+      expect(findTaskItemInBlocks(undefined, 'b-task-1', 'item-1')).toBeNull();
+
+      const merged = mergeTaskContentEdit(latest!.data, {
+        title: '新标题',
+        description: '新说明',
+        dueAt: '2026-11-28T10:00:00.000Z',
+      });
+
+      expect(merged).toEqual({
+        title: '新标题',
+        description: '新说明',
+        dueAt: '2026-11-28T10:00:00.000Z',
+        status: 'done',
+        assigneeIds: ['u2', 'u3'],
+        imageUrls: ['https://example.com/concurrent.jpg'],
+      });
+
+      const nextAfterAdd = appendTaskImageUrl(
+        latest!.data.imageUrls,
+        'https://example.com/second.jpg',
+      );
+      expect(nextAfterAdd).toEqual([
+        'https://example.com/concurrent.jpg',
+        'https://example.com/second.jpg',
+      ]);
+
+      const nextAfterRemove = removeTaskImageUrl(
+        nextAfterAdd,
+        'https://example.com/concurrent.jpg',
+      );
+      expect(nextAfterRemove).toEqual(['https://example.com/second.jpg']);
     });
   });
 });

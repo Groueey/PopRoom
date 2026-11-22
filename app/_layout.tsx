@@ -20,16 +20,20 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { asyncStoragePersister, queryClient } from '../src/lib/queryClient';
+import { clearCachedProfile, profileCache } from '../src/lib/profileCache';
 import { extractRoomCodeFromUrl } from '../src/lib/roomCode';
 import { fetchProfileByUserId, supabase } from '../src/lib/supabase';
 import {
   computeNavigationStep,
+  loadProfileWithFallback,
+  registerProfileCache,
   registerProfileFetcher,
   useAuthStore,
 } from '../src/stores/authStore';
 import { type ToastVariant, useUiStore } from '../src/stores/uiStore';
 
 registerProfileFetcher(fetchProfileByUserId);
+registerProfileCache(profileCache);
 
 const TOAST_BG_CLASSES: Record<ToastVariant, string> = {
   info: 'bg-ink',
@@ -120,24 +124,32 @@ function RootNavigator() {
         return;
       }
 
-      try {
-        const nextProfile = await fetchProfileByUserId(nextSession.user.id);
-        if (isMounted && syncId === latestSyncId) {
-          setAuthSnapshot({
-            session: nextSession,
-            profile: nextProfile,
-            initialized: true,
-          });
-        }
-      } catch {
-        if (isMounted && syncId === latestSyncId) {
-          const current = useAuthStore.getState();
-          const sameUser = current.session?.user.id === nextSession.user.id;
-          setAuthSnapshot({
-            session: nextSession,
-            profile: sameUser ? current.profile : null,
-            initialized: true,
-          });
+      const current = useAuthStore.getState();
+      const inMemoryProfile =
+        current.session?.user.id === nextSession.user.id
+          ? current.profile
+          : null;
+
+      const result = await loadProfileWithFallback(nextSession.user.id, {
+        inMemoryProfile,
+        fetcher: fetchProfileByUserId,
+        cache: profileCache,
+      });
+
+      if (!isMounted || syncId !== latestSyncId) {
+        return;
+      }
+
+      setAuthSnapshot({
+        session: nextSession,
+        profile: result.profile,
+        initialized: true,
+      });
+
+      if (result.error) {
+        if (result.usedCache) {
+          showToast('当前离线或网络受限，已加载本地缓存资料', 'info');
+        } else {
           showToast('加载个人资料失败，请检查网络连接', 'error');
         }
       }
@@ -169,7 +181,9 @@ function RootNavigator() {
         initialHandled = true;
       }
       if (event === 'SIGNED_OUT') {
+        const prevUserId = useAuthStore.getState().session?.user.id;
         queryClient.clear();
+        void clearCachedProfile(prevUserId).catch(() => undefined);
       }
       void syncSession(nextSession);
     });

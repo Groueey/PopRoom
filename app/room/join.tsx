@@ -165,36 +165,38 @@ export default function JoinRoomScreen() {
     }
   }, [handleMembershipStatus, pendingTarget, showToast, userId]);
 
+  const pendingRoomId = pendingTarget?.roomId ?? '';
+
   useEffect(() => {
-    if (phase !== 'pending' || !pendingTarget || !userId) {
+    if (phase !== 'pending' || !pendingRoomId || !userId) {
       return undefined;
     }
 
     let active = true;
-    void fetchMyRoomMembership(pendingTarget.roomId, userId)
+    void fetchMyRoomMembership(pendingRoomId, userId)
       .then((membership) => {
         if (active && membership) {
-          handleMembershipStatus(membership.status, pendingTarget.roomId);
+          handleMembershipStatus(membership.status, pendingRoomId);
         }
       })
       .catch(() => undefined);
 
     const channel = supabase
-      .channel(`join-wait:${pendingTarget.roomId}:${userId}`)
+      .channel(`join-wait:${pendingRoomId}:${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'room_members',
-          filter: `room_id=eq.${pendingTarget.roomId}`,
+          filter: `room_id=eq.${pendingRoomId}`,
         },
         (payload) => {
           const nextRow = payload.new as Partial<RoomMemberRow> | null;
           if (!nextRow || nextRow.user_id !== userId) {
             return;
           }
-          handleMembershipStatus(nextRow.status, pendingTarget.roomId);
+          handleMembershipStatus(nextRow.status, pendingRoomId);
         },
       )
       .subscribe();
@@ -203,7 +205,7 @@ export default function JoinRoomScreen() {
       active = false;
       void supabase.removeChannel(channel);
     };
-  }, [handleMembershipStatus, pendingTarget, phase, userId]);
+  }, [handleMembershipStatus, pendingRoomId, phase, userId]);
 
   const handleBack = () => {
     if (router.canGoBack()) {

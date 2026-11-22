@@ -91,6 +91,21 @@ AS $$
   );
 $$;
 
+REVOKE ALL ON FUNCTION public.is_active_member(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_active_member(UUID) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.is_room_admin(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_room_admin(UUID) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.is_room_host(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_room_host(UUID) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.is_room_active(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_room_active(UUID) TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.is_poll_anonymous(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_poll_anonymous(UUID) TO authenticated, service_role;
+
 -- ==========================================
 -- 2. Enable Row Level Security on all 8 tables
 -- ==========================================
@@ -170,6 +185,39 @@ CREATE POLICY rooms_update_admin_active
     AND status = 'active'
   );
 
+-- Enforce immutable room columns and RPC-only lifecycle/invite transitions on direct UPDATE
+CREATE OR REPLACE FUNCTION public.prevent_room_immutable_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_is_trusted_rpc BOOLEAN := COALESCE(current_setting('app.poproom_rpc', true), '') = '1';
+BEGIN
+  IF NEW.template_type IS DISTINCT FROM OLD.template_type
+     OR NEW.created_by IS DISTINCT FROM OLD.created_by THEN
+    RAISE EXCEPTION 'FORBIDDEN';
+  END IF;
+
+  IF (
+    NEW.room_code IS DISTINCT FROM OLD.room_code
+    OR NEW.status IS DISTINCT FROM OLD.status
+    OR NEW.archived_at IS DISTINCT FROM OLD.archived_at
+    OR NEW.chat_enabled IS DISTINCT FROM OLD.chat_enabled
+  ) AND NOT v_is_trusted_rpc THEN
+    RAISE EXCEPTION 'FORBIDDEN';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_rooms_immutable_cols ON public.rooms;
+CREATE TRIGGER trg_rooms_immutable_cols
+  BEFORE UPDATE ON public.rooms
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_room_immutable_update();
+
 -- ==========================================
 -- 5. room_members policies (all mutations go through RPCs)
 -- ==========================================
@@ -229,6 +277,28 @@ CREATE POLICY blocks_delete_admin
     public.is_room_active(room_id)
     AND public.is_room_admin(room_id)
   );
+
+-- Enforce room_id, type, and created_by immutability on direct blocks UPDATE
+CREATE OR REPLACE FUNCTION public.prevent_block_immutable_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.room_id IS DISTINCT FROM OLD.room_id
+     OR NEW.type IS DISTINCT FROM OLD.type
+     OR NEW.created_by IS DISTINCT FROM OLD.created_by THEN
+    RAISE EXCEPTION 'FORBIDDEN';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_blocks_immutable_cols ON public.blocks;
+CREATE TRIGGER trg_blocks_immutable_cols
+  BEFORE UPDATE ON public.blocks
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_block_immutable_update();
 
 -- ==========================================
 -- 7. block_items policies
@@ -324,25 +394,36 @@ CREATE POLICY block_items_update_creator_or_admin
     )
   );
 
--- Enforce room_id and block_id immutability on block_items UPDATE
-CREATE OR REPLACE FUNCTION public.prevent_block_item_rebind()
+-- Enforce immutable columns and RPC-only soft-delete/restore transitions on block_items UPDATE
+DROP TRIGGER IF EXISTS trg_block_items_immutable_refs ON public.block_items;
+DROP FUNCTION IF EXISTS public.prevent_block_item_rebind();
+
+CREATE OR REPLACE FUNCTION public.prevent_block_item_immutable_update()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
+DECLARE
+  v_is_trusted_rpc BOOLEAN := COALESCE(current_setting('app.poproom_rpc', true), '') = '1';
 BEGIN
-  IF NEW.room_id IS DISTINCT FROM OLD.room_id OR NEW.block_id IS DISTINCT FROM OLD.block_id THEN
+  IF NEW.room_id IS DISTINCT FROM OLD.room_id
+     OR NEW.block_id IS DISTINCT FROM OLD.block_id
+     OR NEW.created_by IS DISTINCT FROM OLD.created_by THEN
     RAISE EXCEPTION 'FORBIDDEN';
   END IF;
+
+  IF NEW.is_deleted IS DISTINCT FROM OLD.is_deleted AND NOT v_is_trusted_rpc THEN
+    RAISE EXCEPTION 'FORBIDDEN';
+  END IF;
+
   RETURN NEW;
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_block_items_immutable_refs ON public.block_items;
 CREATE TRIGGER trg_block_items_immutable_refs
   BEFORE UPDATE ON public.block_items
   FOR EACH ROW
-  EXECUTE FUNCTION public.prevent_block_item_rebind();
+  EXECUTE FUNCTION public.prevent_block_item_immutable_update();
 
 -- ==========================================
 -- 8. poll_votes policies (read-only guard; all writes via toggle_poll_vote RPC)

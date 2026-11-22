@@ -29,6 +29,10 @@ import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
 import { SheetModal } from '../../src/components/ui/SheetModal';
+import {
+  clearCachedProfile,
+  saveCachedProfile,
+} from '../../src/lib/profileCache';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
 import { supabase } from '../../src/lib/supabase';
 import { ROOM_TEMPLATES } from '../../src/lib/templates';
@@ -97,6 +101,7 @@ export default function ProfileScreen() {
         nickname: trimmedNickname,
         avatar_color: selectedColor,
       });
+      await saveCachedProfile(updated);
       setProfile(updated);
       showToast('个人资料已更新', 'success');
     } catch (err) {
@@ -109,9 +114,13 @@ export default function ProfileScreen() {
   const handleConfirmSignOut = async () => {
     setSigningOut(true);
     try {
-      setSignOutSheetVisible(false);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+      await clearCachedProfile(userId);
       queryClient.clear();
-      await supabase.auth.signOut();
+      setSignOutSheetVisible(false);
     } catch (err) {
       showToast(mapRoomError(err), 'error');
     } finally {

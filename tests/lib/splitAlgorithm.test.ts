@@ -137,6 +137,25 @@ describe('splitAlgorithm (Review Focus #2)', () => {
     expect(result.totalSpentCents).toBe(0);
   });
 
+  it('filters empty participantIds before computing participantCount and remainder', () => {
+    const result = computeMinimalTransfers([
+      {
+        amount: 100,
+        paidByUserId: 'A',
+        participantIds: ['', 'A', '   ', 'B'],
+      },
+    ]);
+    const byUser = new Map(result.balances.map((b) => [b.userId, b.netCents]));
+
+    expect(result.totalSpentCents).toBe(10000);
+    expect(byUser.get('A')).toBe(5000);
+    expect(byUser.get('B')).toBe(-5000);
+    expect(result.balances.reduce((acc, b) => acc + b.netCents, 0)).toBe(0);
+    expect(result.transfers).toEqual([
+      { fromUserId: 'B', toUserId: 'A', amountCents: 5000 },
+    ]);
+  });
+
   it('formats integer cents into currency strings cleanly', () => {
     expect(formatCents(10000)).toBe('¥100.00');
     expect(formatCents(1)).toBe('¥0.01');

@@ -487,6 +487,7 @@ DECLARE
   v_room public.rooms%ROWTYPE;
   v_caller_role TEXT;
   v_target public.room_members%ROWTYPE;
+  v_target_nickname TEXT;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'NOT_AUTHENTICATED';
@@ -541,6 +542,10 @@ BEGIN
     RAISE EXCEPTION 'FORBIDDEN';
   END IF;
 
+  SELECT nickname INTO v_target_nickname
+  FROM public.profiles
+  WHERE id = p_target_user_id;
+
   UPDATE public.room_members
   SET status = 'kicked'
   WHERE id = v_target.id;
@@ -559,7 +564,7 @@ BEGIN
     'kick_member',
     'room_members',
     v_target.id,
-    to_jsonb(v_target)
+    to_jsonb(v_target) || jsonb_build_object('nickname', v_target_nickname)
   );
 END;
 $$;
@@ -602,6 +607,8 @@ BEGIN
   END IF;
 
   v_new_code := public.generate_unique_room_code();
+
+  PERFORM set_config('app.poproom_rpc', '1', true);
 
   UPDATE public.rooms
   SET room_code = v_new_code,
@@ -1150,6 +1157,8 @@ BEGIN
     RAISE EXCEPTION 'FORBIDDEN';
   END IF;
 
+  PERFORM set_config('app.poproom_rpc', '1', true);
+
   UPDATE public.block_items
   SET is_deleted = TRUE,
       updated_at = NOW()
@@ -1245,6 +1254,8 @@ BEGIN
     RAISE EXCEPTION 'LOG_ALREADY_RESTORED';
   END IF;
 
+  PERFORM set_config('app.poproom_rpc', '1', true);
+
   UPDATE public.block_items
   SET is_deleted = FALSE,
       updated_at = NOW()
@@ -1311,6 +1322,8 @@ BEGIN
   IF NOT public.is_room_host(p_room_id) THEN
     RAISE EXCEPTION 'FORBIDDEN';
   END IF;
+
+  PERFORM set_config('app.poproom_rpc', '1', true);
 
   UPDATE public.rooms
   SET status = 'archived',

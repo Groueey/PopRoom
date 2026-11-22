@@ -469,7 +469,13 @@ export function ExpenseBlock({
 
   const handleSubmitBudget = () => {
     if (!permissions.canManageBlocks) {
-      setBudgetError(mapRoomError(new RoomApiError('FORBIDDEN')));
+      setBudgetError(
+        mapRoomError(
+          new RoomApiError(
+            permissions.isArchived ? 'ROOM_ARCHIVED' : 'FORBIDDEN',
+          ),
+        ),
+      );
       return;
     }
 
@@ -598,6 +604,9 @@ export function ExpenseBlock({
   };
 
   const handleSubmitForm = () => {
+    if (uploadingReceipt || saveExpenseMutation.isPending) {
+      return;
+    }
     if (permissions.isArchived) {
       setFormError(mapRoomError(new RoomApiError('ROOM_ARCHIVED')));
       return;
@@ -1381,6 +1390,7 @@ export function ExpenseBlock({
             variant="primary"
             size="lg"
             fullWidth
+            disabled={uploadingReceipt}
             loading={saveExpenseMutation.isPending}
             onPress={handleSubmitForm}
           />

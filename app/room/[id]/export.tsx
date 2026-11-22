@@ -45,12 +45,14 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import {
   buildRoomRecapData,
   renderRecapHtml,
 } from '../../../src/lib/recapBuilder';
+import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
 import type { TaskStatus } from '../../../src/schemas/blocks';
@@ -106,6 +108,7 @@ export default function RoomExportScreen() {
     data: members = [],
     isLoading: membersLoading,
     isRefetching: membersRefetching,
+    error: membersError,
     refetch: refetchMembers,
   } = useQuery({
     queryKey: QUERY_KEYS.roomMembers(roomId),
@@ -126,8 +129,10 @@ export default function RoomExportScreen() {
   });
 
   const {
-    data: pollTallies = [],
+    data: pollTallies,
+    isLoading: talliesLoading,
     isRefetching: talliesRefetching,
+    error: talliesError,
     refetch: refetchTallies,
   } = useQuery({
     queryKey: QUERY_KEYS.roomPollTallies(roomId),
@@ -138,6 +143,11 @@ export default function RoomExportScreen() {
   const activeMembers = useMemo(
     () => members.filter((member) => member.status === 'active'),
     [members],
+  );
+
+  const myRawMembership = useMemo(
+    () => members.find((member) => member.user_id === currentUserId) ?? null,
+    [members, currentUserId],
   );
 
   const myMembership = useMemo(
@@ -161,7 +171,7 @@ export default function RoomExportScreen() {
       room,
       members,
       blocks,
-      pollTallies,
+      pollTallies: pollTallies ?? [],
     });
   }, [room, members, blocks, pollTallies]);
 
@@ -255,12 +265,25 @@ export default function RoomExportScreen() {
     }
   };
 
-  const isInitialLoading =
-    roomLoading ||
-    (membersLoading && members.length === 0) ||
-    (blocksLoading && blocks.length === 0);
+  const screenState = resolveRoomScreenState({
+    mode: 'export',
+    room,
+    roomLoading,
+    roomError,
+    members,
+    membersLoading,
+    membersError,
+    myRawMembership,
+    canAccess: permissions.canExportRecap,
+    blocksCount: blocks.length,
+    blocksLoading,
+    blocksError,
+    hasPollTallies: pollTallies !== undefined,
+    talliesLoading,
+    talliesError,
+  });
 
-  if (isInitialLoading) {
+  if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
         <ActivityIndicator size="large" color="#F97316" />
@@ -269,24 +292,35 @@ export default function RoomExportScreen() {
     );
   }
 
-  if (roomError || !room || !recap) {
+  if (screenState.kind === 'full_error' || !room || !recap) {
+    const errorTitle =
+      screenState.kind === 'full_error'
+        ? screenState.title
+        : '无法加载活动复盘';
+    const errorMessage =
+      screenState.kind === 'full_error'
+        ? screenState.message
+        : mapRoomError(roomError);
+    const canRetry =
+      screenState.kind === 'full_error' ? screenState.canRetry : true;
+
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
           <AlertTriangle size={28} color="#EF4444" />
-          <Text className="mt-3 text-base font-bold text-ink">
-            无法加载活动复盘
-          </Text>
+          <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
           <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
-            {mapRoomError(roomError)}
+            {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2.5">
-            <Button
-              title="重新加载"
-              variant="secondary"
-              fullWidth
-              onPress={handleRefreshAll}
-            />
+            {canRetry ? (
+              <Button
+                title="重新加载"
+                variant="secondary"
+                fullWidth
+                onPress={handleRefreshAll}
+              />
+            ) : null}
             <Button
               title="返回"
               variant="primary"
@@ -299,7 +333,46 @@ export default function RoomExportScreen() {
     );
   }
 
-  if (!permissions.canExportRecap) {
+  if (screenState.kind === 'members_error') {
+    return (
+      <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
+        <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="返回上一页"
+            onPress={handleBack}
+            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+          >
+            <ChevronLeft size={20} color="#18181B" />
+          </Pressable>
+          <Text className="text-base font-bold text-ink">活动复盘与导出</Text>
+          <View className="w-9" />
+        </View>
+        <View className="flex-1 justify-center px-4">
+          <Card className="items-center p-6">
+            <AlertTriangle size={28} color="#EF4444" />
+            <Text className="mt-3 text-base font-bold text-ink">
+              成员权限加载失败
+            </Text>
+            <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+              {screenState.message}
+            </Text>
+            <View className="mt-5 w-full gap-2.5">
+              <Button
+                title="重新加载"
+                variant="secondary"
+                fullWidth
+                onPress={handleRefreshAll}
+              />
+              <Button title="返回" fullWidth onPress={handleBack} />
+            </View>
+          </Card>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screenState.kind === 'permission_denied') {
     return (
       <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
         <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
@@ -367,12 +440,12 @@ export default function RoomExportScreen() {
           />
         }
       >
-        {blocksError ? (
-          <Card className="mb-3 border-red-200 bg-red-50">
-            <Text className="text-xs font-medium text-red-700">
-              {mapRoomError(blocksError)}
-            </Text>
-          </Card>
+        {screenState.syncWarning ? (
+          <OfflineSyncBanner
+            message={screenState.syncWarning}
+            onRetry={handleRefreshAll}
+            retrying={isRefreshing}
+          />
         ) : null}
 
         <ViewShot
@@ -442,7 +515,7 @@ export default function RoomExportScreen() {
                         size="xs"
                       />
                       <Text className="text-[11px] font-medium text-zinc-700">
-                        {member.profiles?.nickname ?? '协作伙伴'}
+                        {member.profiles?.nickname?.trim() || '协作伙伴'}
                       </Text>
                     </View>
                   ))}

@@ -1,7 +1,7 @@
 # 轻橘 PopRoom — Stage 1 MVP 双机真机验收清单 (Expo Go)
 
 > **适用版本**：Stage 1 MVP (`feat/stage1-mvp`)
-> **测试环境**：2 台真机（建议 1 台 iOS + 1 台 Android，或 2 台同平台设备）安装 **Expo Go**，连接同一 Wi-Fi / Tunnel，对接已执行 `001`–`004` 迁移与 `room-media` 存储桶策略的 Supabase 实例。
+> **测试环境**：2 台真机（建议 1 台 iOS + 1 台 Android，或 2 台同平台设备）安装 **Expo Go**，连接同一 Wi-Fi / Tunnel，对接已执行 `001`–`003` 迁移与 `room-media` 存储桶策略的 Supabase 实例。
 > **设备角色约定**：
 > - **Phone A（房主 Host）**：主测试账号 A
 > - **Phone B（伙伴 Member）**：协同测试账号 B
@@ -40,7 +40,7 @@
 
 ### 1.4 未登录状态下的深链（Deep Link）拦截与自动回跳
 - [ ] **Phone B**：在「我的」页面退出登录，确认处于未登录状态（`/(auth)/login`）。
-- [ ] **Phone B**：通过系统浏览器 / 备忘录点击邀请深链 `poproom://join/<6位房间码>`（或使用 `npx uri-scheme open "poproom://join/<CODE>"` 测试）。
+- [ ] **Phone B**：通过系统浏览器 / 备忘录点击邀请深链 `/room/join?code=<6位房间码>`（独立构建 `poproom://room/join?code=<6位房间码>` / Expo Go `exp://.../--/room/join?code=<6位房间码>`，或使用 `npx.cmd uri-scheme open "poproom://room/join?code=<CODE>"` 测试）。
 - [ ] **预期结果**：
   1. App 捕获 `pendingRoomCode`，但先拦截跳转至登录页（若新号则先走 Onboarding）。
   2. Phone B 完成登录后，路由守卫自动跳转至 `/room/join?code=<CODE>` 并预填房间码，完成入房，且不会循环重复弹出。
