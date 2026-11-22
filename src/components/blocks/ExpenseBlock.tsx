@@ -5,6 +5,8 @@ import {
   ArrowRight,
   Camera,
   Check,
+  ChevronDown,
+  ChevronUp,
   Edit3,
   Image as ImageIcon,
   Plus,
@@ -67,6 +69,13 @@ export interface ExpenseBlockProps {
   members: RoomMemberWithProfile[];
   permissions: RoomPermissions;
   onRequestDeleteBlock?: (block: ParsedBlock<'expense'>) => void;
+  highlighted?: boolean;
+  reorderMode?: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  reordering?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 function padTwo(value: number): string {
@@ -274,6 +283,13 @@ export function ExpenseBlock({
   members,
   permissions,
   onRequestDeleteBlock,
+  highlighted = false,
+  reorderMode = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  reordering = false,
+  onMoveUp,
+  onMoveDown,
 }: ExpenseBlockProps) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((s) => s.session?.user.id ?? '');
@@ -693,7 +709,14 @@ export function ExpenseBlock({
   };
 
   return (
-    <Card className="mb-3.5">
+    <Card
+      className={highlighted ? 'mb-3.5 border-2 border-primary' : 'mb-3.5'}
+      style={
+        highlighted
+          ? { borderWidth: 2, borderColor: THEME_COLORS.primary }
+          : undefined
+      }
+    >
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
           <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
@@ -722,17 +745,64 @@ export function ExpenseBlock({
           </View>
         </View>
 
-        {permissions.canManageBlocks && onRequestDeleteBlock ? (
-          <MotionPressable
-            accessibilityRole="button"
-            accessibilityLabel={`删除积木 ${block.title}`}
-            onPress={() => onRequestDeleteBlock(block)}
-            scaleTo={0.9}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
-          >
-            <Trash2 size={15} color={THEME_COLORS.inkMuted} />
-          </MotionPressable>
-        ) : null}
+        <View className="flex-row items-center gap-1.5">
+          {reorderMode ? (
+            <>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`上移积木 ${block.title}`}
+                disabled={!canMoveUp || reordering}
+                onPress={onMoveUp}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveUp && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronUp
+                  size={15}
+                  color={
+                    canMoveUp && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`下移积木 ${block.title}`}
+                disabled={!canMoveDown || reordering}
+                onPress={onMoveDown}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveDown && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronDown
+                  size={15}
+                  color={
+                    canMoveDown && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+            </>
+          ) : permissions.canManageBlocks && onRequestDeleteBlock ? (
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel={`删除积木 ${block.title}`}
+              onPress={() => onRequestDeleteBlock(block)}
+              scaleTo={0.9}
+              className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
+            >
+              <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+            </MotionPressable>
+          ) : null}
+        </View>
       </View>
 
       {isBudgetMode ? (

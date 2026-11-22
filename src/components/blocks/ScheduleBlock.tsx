@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import {
   CalendarClock,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Copy,
   Edit3,
@@ -12,7 +14,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Text, View } from 'react-native';
 import {
   type ParsedBlock,
@@ -56,6 +58,13 @@ const MAX_SCHEDULE_TITLE_LENGTH = 60;
 const MAX_SCHEDULE_LOCATION_LENGTH = 100;
 const MAX_SCHEDULE_NOTES_LENGTH = 300;
 
+/** Prefill draft dispatched externally (e.g., from a chat message conversion) to open the Create sheet. */
+export interface ExternalBlockCreateDraft {
+  nonce: number;
+  title: string;
+  details: string;
+}
+
 /** Props for the Visual Schedule Timeline collaborative block. */
 export interface ScheduleBlockProps {
   block: ParsedBlock<'schedule'>;
@@ -63,6 +72,15 @@ export interface ScheduleBlockProps {
   members: RoomMemberWithProfile[];
   permissions: RoomPermissions;
   onRequestDeleteBlock?: (block: ParsedBlock<'schedule'>) => void;
+  highlighted?: boolean;
+  reorderMode?: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  reordering?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  externalCreateDraft?: ExternalBlockCreateDraft | null;
+  onConsumeExternalCreateDraft?: () => void;
 }
 
 function resolveMapPlatform(): MapPlatform {
@@ -86,6 +104,15 @@ export function ScheduleBlock({
   members,
   permissions,
   onRequestDeleteBlock,
+  highlighted = false,
+  reorderMode = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  reordering = false,
+  onMoveUp,
+  onMoveDown,
+  externalCreateDraft = null,
+  onConsumeExternalCreateDraft,
 }: ScheduleBlockProps) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((s) => s.session?.user.id ?? '');
@@ -121,6 +148,56 @@ export function ScheduleBlock({
 
   const groups = useMemo(() => groupAndSortScheduleItems(items), [items]);
   const canCreateSchedule = permissions.canCreateItem();
+  const lastConsumedDraftNonceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!externalCreateDraft) {
+      return;
+    }
+    if (lastConsumedDraftNonceRef.current === externalCreateDraft.nonce) {
+      return;
+    }
+    lastConsumedDraftNonceRef.current = externalCreateDraft.nonce;
+
+    if (!canCreateSchedule) {
+      showToast(
+        mapRoomError(
+          new RoomApiError(
+            permissions.isArchived ? 'ROOM_ARCHIVED' : 'FORBIDDEN',
+          ),
+        ),
+        permissions.isArchived ? 'info' : 'error',
+      );
+      onConsumeExternalCreateDraft?.();
+      return;
+    }
+
+    const defaultGroup =
+      groups[0]?.groupLabel ??
+      (block.config.groupBy === 'phase'
+        ? '活动中'
+        : DEFAULT_SCHEDULE_GROUP_LABEL);
+    setEditingItem(null);
+    setGroupLabelInput(defaultGroup);
+    setStartTimeInput('09:00');
+    setEndTimeInput('');
+    setTitleInput(externalCreateDraft.title);
+    setLocationNameInput('');
+    setOwnerIdInput(currentUserId || null);
+    setNotesInput(externalCreateDraft.details);
+    setFormError(null);
+    setFormVisible(true);
+    onConsumeExternalCreateDraft?.();
+  }, [
+    block.config.groupBy,
+    canCreateSchedule,
+    currentUserId,
+    externalCreateDraft,
+    groups,
+    onConsumeExternalCreateDraft,
+    permissions.isArchived,
+    showToast,
+  ]);
 
   const mapPlatform = resolveMapPlatform();
   const mapOptions = useMemo(
@@ -378,7 +455,14 @@ export function ScheduleBlock({
   };
 
   return (
-    <Card className="mb-3.5">
+    <Card
+      className={highlighted ? 'mb-3.5 border-2 border-primary' : 'mb-3.5'}
+      style={
+        highlighted
+          ? { borderWidth: 2, borderColor: THEME_COLORS.primary }
+          : undefined
+      }
+    >
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
           <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
@@ -405,17 +489,64 @@ export function ScheduleBlock({
           </View>
         </View>
 
-        {permissions.canManageBlocks && onRequestDeleteBlock ? (
-          <MotionPressable
-            accessibilityRole="button"
-            accessibilityLabel={`删除积木 ${block.title}`}
-            onPress={() => onRequestDeleteBlock(block)}
-            scaleTo={0.9}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
-          >
-            <Trash2 size={15} color={THEME_COLORS.inkMuted} />
-          </MotionPressable>
-        ) : null}
+        <View className="flex-row items-center gap-1.5">
+          {reorderMode ? (
+            <>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`上移积木 ${block.title}`}
+                disabled={!canMoveUp || reordering}
+                onPress={onMoveUp}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveUp && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronUp
+                  size={15}
+                  color={
+                    canMoveUp && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`下移积木 ${block.title}`}
+                disabled={!canMoveDown || reordering}
+                onPress={onMoveDown}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveDown && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronDown
+                  size={15}
+                  color={
+                    canMoveDown && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+            </>
+          ) : permissions.canManageBlocks && onRequestDeleteBlock ? (
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel={`删除积木 ${block.title}`}
+              onPress={() => onRequestDeleteBlock(block)}
+              scaleTo={0.9}
+              className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
+            >
+              <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+            </MotionPressable>
+          ) : null}
+        </View>
       </View>
 
       {groups.length === 0 ? (

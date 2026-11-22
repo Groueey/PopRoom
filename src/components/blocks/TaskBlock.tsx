@@ -1,9 +1,12 @@
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  BellRing,
   Camera,
   Check,
   CheckSquare,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Edit3,
   Image as ImageIcon,
@@ -16,7 +19,7 @@ import {
   UserMinus,
   X,
 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -92,6 +95,13 @@ const STATUS_BADGE_VARIANT: Record<TaskStatus, BadgeVariant> = {
   done: 'success',
 };
 
+/** Prefill draft dispatched externally (e.g., from a chat message conversion) to open the Create sheet. */
+export interface ExternalBlockCreateDraft {
+  nonce: number;
+  title: string;
+  details: string;
+}
+
 /** Props for the collaborative Task & Supply Claim block. */
 export interface TaskBlockProps {
   block: ParsedBlock<'task'>;
@@ -99,6 +109,17 @@ export interface TaskBlockProps {
   members: RoomMemberWithProfile[];
   permissions: RoomPermissions;
   onRequestDeleteBlock?: (block: ParsedBlock<'task'>) => void;
+  highlighted?: boolean;
+  reorderMode?: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  reordering?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onSendReminder?: () => void;
+  sendingReminder?: boolean;
+  externalCreateDraft?: ExternalBlockCreateDraft | null;
+  onConsumeExternalCreateDraft?: () => void;
 }
 
 interface TaskItemMutationContext {
@@ -423,6 +444,17 @@ export function TaskBlock({
   members,
   permissions,
   onRequestDeleteBlock,
+  highlighted = false,
+  reorderMode = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  reordering = false,
+  onMoveUp,
+  onMoveDown,
+  onSendReminder,
+  sendingReminder = false,
+  externalCreateDraft = null,
+  onConsumeExternalCreateDraft,
 }: TaskBlockProps) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((s) => s.session?.user.id ?? '');
@@ -459,6 +491,45 @@ export function TaskBlock({
   );
 
   const canCreateTask = permissions.canCreateItem(block.config.allowMemberCreate);
+  const lastConsumedDraftNonceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!externalCreateDraft) {
+      return;
+    }
+    if (lastConsumedDraftNonceRef.current === externalCreateDraft.nonce) {
+      return;
+    }
+    lastConsumedDraftNonceRef.current = externalCreateDraft.nonce;
+
+    if (!canCreateTask) {
+      showToast(
+        mapRoomError(
+          new RoomApiError(
+            permissions.isArchived ? 'ROOM_ARCHIVED' : 'FORBIDDEN',
+          ),
+        ),
+        permissions.isArchived ? 'info' : 'error',
+      );
+      onConsumeExternalCreateDraft?.();
+      return;
+    }
+
+    setSelectedItemId(null);
+    setEditingItem(null);
+    setTitleInput(externalCreateDraft.title);
+    setDescriptionInput(externalCreateDraft.details);
+    setDueAtInput('');
+    setFormError(null);
+    setFormVisible(true);
+    onConsumeExternalCreateDraft?.();
+  }, [
+    canCreateTask,
+    externalCreateDraft,
+    onConsumeExternalCreateDraft,
+    permissions.isArchived,
+    showToast,
+  ]);
 
   const { data: detailComments = [], isLoading: commentsLoading } = useQuery({
     queryKey: QUERY_KEYS.itemComments(selectedItem?.id ?? ''),
@@ -900,7 +971,14 @@ export function TaskBlock({
     stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
 
   return (
-    <Card className="mb-3.5">
+    <Card
+      className={highlighted ? 'mb-3.5 border-2 border-primary' : 'mb-3.5'}
+      style={
+        highlighted
+          ? { borderWidth: 2, borderColor: THEME_COLORS.primary }
+          : undefined
+      }
+    >
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
           <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
@@ -935,17 +1013,85 @@ export function TaskBlock({
           </View>
         </View>
 
-        {permissions.canManageBlocks && onRequestDeleteBlock ? (
-          <MotionPressable
-            accessibilityRole="button"
-            accessibilityLabel={`删除积木 ${block.title}`}
-            onPress={() => onRequestDeleteBlock(block)}
-            scaleTo={0.9}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
-          >
-            <Trash2 size={15} color={THEME_COLORS.inkMuted} />
-          </MotionPressable>
-        ) : null}
+        <View className="flex-row items-center gap-1.5">
+          {reorderMode ? (
+            <>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`上移积木 ${block.title}`}
+                disabled={!canMoveUp || reordering}
+                onPress={onMoveUp}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveUp && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronUp
+                  size={15}
+                  color={
+                    canMoveUp && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`下移积木 ${block.title}`}
+                disabled={!canMoveDown || reordering}
+                onPress={onMoveDown}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveDown && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronDown
+                  size={15}
+                  color={
+                    canMoveDown && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+            </>
+          ) : (
+            <>
+              {onSendReminder ? (
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel="发送催办提醒到聊天室"
+                  disabled={sendingReminder}
+                  onPress={onSendReminder}
+                  scaleTo={0.9}
+                  className="h-8 w-8 items-center justify-center rounded-xl border border-primaryBorder bg-primarySoft"
+                >
+                  {sendingReminder ? (
+                    <ActivityIndicator size="small" color={THEME_COLORS.primaryDeep} />
+                  ) : (
+                    <BellRing size={14} color={THEME_COLORS.primaryDeep} />
+                  )}
+                </MotionPressable>
+              ) : null}
+
+              {permissions.canManageBlocks && onRequestDeleteBlock ? (
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`删除积木 ${block.title}`}
+                  onPress={() => onRequestDeleteBlock(block)}
+                  scaleTo={0.9}
+                  className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
+                >
+                  <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+                </MotionPressable>
+              ) : null}
+            </>
+          )}
+        </View>
       </View>
 
       {stats.total > 0 ? (

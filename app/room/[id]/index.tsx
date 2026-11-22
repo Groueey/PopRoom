@@ -1,19 +1,19 @@
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Clipboard from 'expo-clipboard';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AlertTriangle,
   Archive,
+  ArrowUpDown,
   BarChart3,
   Calendar,
   CalendarClock,
   CheckSquare,
   ChevronLeft,
-  Copy,
   LayoutGrid,
   Megaphone,
+  MessageCircle,
   Plus,
   Settings,
   Share2,
@@ -47,7 +47,15 @@ import {
   deleteBlock,
   fetchRoomBlocksWithItems,
   fetchRoomPollTallies,
+  reorderRoomBlocks,
 } from '../../../src/api/blocks';
+import {
+  fetchMyBlockedUsers,
+  fetchRoomChatRead,
+  fetchRoomMessages,
+  markRoomChatRead,
+  sendRoomMessage,
+} from '../../../src/api/chat';
 import {
   ROLE_LABELS,
   RoomApiError,
@@ -56,6 +64,14 @@ import {
   formatRoomEventWindow,
   mapRoomError,
 } from '../../../src/api/rooms';
+import { ExpenseBlock } from '../../../src/components/blocks/ExpenseBlock';
+import { PollBlock } from '../../../src/components/blocks/PollBlock';
+import { ScheduleBlock } from '../../../src/components/blocks/ScheduleBlock';
+import {
+  type ExternalBlockCreateDraft,
+  TaskBlock,
+} from '../../../src/components/blocks/TaskBlock';
+import { ChatRoomView } from '../../../src/components/chat/ChatRoomView';
 import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
@@ -69,21 +85,34 @@ import {
 } from '../../../src/components/ui/Motion';
 import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
-import { ExpenseBlock } from '../../../src/components/blocks/ExpenseBlock';
-import { PollBlock } from '../../../src/components/blocks/PollBlock';
-import { ScheduleBlock } from '../../../src/components/blocks/ScheduleBlock';
-import { TaskBlock } from '../../../src/components/blocks/TaskBlock';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { useRoomRealtime } from '../../../src/hooks/useRoomRealtime';
+import {
+  type BlockMoveDirection,
+  applyBlockOrderToList,
+  moveBlockInOrder,
+} from '../../../src/lib/blockOrderHelpers';
+import {
+  type ParsedRoomMessage,
+  buildBlockPrefillFromMessage,
+  buildBlockReminderMessage,
+  countUnreadChatMessages,
+} from '../../../src/lib/chatHelpers';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
-import { buildShareMessage } from '../../../src/lib/roomCode';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
+import { shareRoomInvite } from '../../../src/lib/shareInvite';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
 import { FLOATING_SHADOW, THEME_COLORS } from '../../../src/lib/theme';
 import type { PollTally } from '../../../src/schemas/blocks';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
 import type { BlockType } from '../../../src/types/database';
+
+type RoomActiveTab = 'board' | 'chat';
+
+interface PendingBlockCreateDraft extends ExternalBlockCreateDraft {
+  targetBlockId: string;
+}
 
 const DEFAULT_BLOCK_TITLES: Record<BlockType, string> = {
   poll: '方案与时间投票',
@@ -187,6 +216,34 @@ export default function RoomBoardScreen() {
     enabled: Boolean(roomId),
   });
 
+  const {
+    data: messages = [],
+    isLoading: messagesLoading,
+    isRefetching: messagesRefetching,
+    refetch: refetchMessages,
+  } = useQuery({
+    queryKey: QUERY_KEYS.roomMessages(roomId),
+    queryFn: () => fetchRoomMessages(roomId),
+    enabled: Boolean(roomId && room?.chat_enabled),
+  });
+
+  const { data: lastReadAt = null, isFetched: chatReadFetched } = useQuery({
+    queryKey: QUERY_KEYS.roomChatRead(roomId, currentUserId ?? undefined),
+    queryFn: () => fetchRoomChatRead(roomId, currentUserId ?? ''),
+    enabled: Boolean(roomId && currentUserId && room?.chat_enabled),
+  });
+
+  const { data: blockedUsers = [], refetch: refetchBlockedUsers } = useQuery({
+    queryKey: QUERY_KEYS.userBlocks(currentUserId ?? undefined),
+    queryFn: () => fetchMyBlockedUsers(currentUserId ?? ''),
+    enabled: Boolean(currentUserId),
+  });
+
+  const blockedUserIds = useMemo(
+    () => new Set(blockedUsers.map((entry) => entry.blocked_id)),
+    [blockedUsers],
+  );
+
   const activeMembers = useMemo(
     () => members.filter((member) => member.status === 'active'),
     [members],
@@ -208,6 +265,7 @@ export default function RoomBoardScreen() {
     roomStatus: room?.status ?? 'active',
     currentUserId,
     allowMemberCreatePoll: room?.allow_member_create_poll ?? true,
+    chatEnabled: room?.chat_enabled ?? false,
   });
 
   const talliesByBlockId = useMemo(() => {
@@ -235,6 +293,18 @@ export default function RoomBoardScreen() {
 
   const canOpenAddBlockSheet = allowedBlockTypes.length > 0;
 
+  const [activeTab, setActiveTab] = useState<RoomActiveTab>('board');
+  const [reorderMode, setReorderMode] = useState(false);
+  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
+    null,
+  );
+  const [sendingReminderBlockId, setSendingReminderBlockId] = useState<
+    string | null
+  >(null);
+  const [pendingBlockDraft, setPendingBlockDraft] =
+    useState<PendingBlockCreateDraft | null>(null);
+  const [convertingMessage, setConvertingMessage] = useState(false);
+
   const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [selectedType, setSelectedType] = useState<BlockType>('poll');
   const [blockTitleInput, setBlockTitleInput] = useState(
@@ -256,17 +326,412 @@ export default function RoomBoardScreen() {
   const [deleteTarget, setDeleteTarget] = useState<ParsedBlock | null>(null);
   const [deletingBlock, setDeletingBlock] = useState(false);
 
-  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const boardScrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const blockOffsetsRef = useRef<Record<string, number>>({});
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMarkedReadStampRef = useRef<string | null>(null);
+
   const [justAddedBlockId, setJustAddedBlockId] = useState<string | null>(null);
   const clearJustAddedBlock = useCallback(() => {
     setJustAddedBlockId(null);
   }, []);
+  const clearPendingBlockDraft = useCallback(() => {
+    setPendingBlockDraft(null);
+  }, []);
+
+  const unreadChatCount = useMemo(() => {
+    if (!room?.chat_enabled) {
+      return 0;
+    }
+    return countUnreadChatMessages(
+      messages,
+      lastReadAt,
+      currentUserId,
+      blockedUserIds,
+    );
+  }, [room?.chat_enabled, messages, lastReadAt, currentUserId, blockedUserIds]);
+
+  const latestServerMessageStamp = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const entry = messages[i];
+      if (entry && !entry.optimistic && !entry.is_deleted) {
+        return `${entry.id}:${entry.created_at}`;
+      }
+    }
+    return null;
+  }, [messages]);
+
+  useEffect(() => {
+    setActiveTab('board');
+    setReorderMode(false);
+    setHighlightedBlockId(null);
+    setPendingBlockDraft(null);
+    blockOffsetsRef.current = {};
+    lastMarkedReadStampRef.current = null;
+  }, [roomId]);
+
+  useEffect(() => {
+    lastMarkedReadStampRef.current = null;
+  }, [currentUserId]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (room && !room.chat_enabled && activeTab === 'chat') {
+      setActiveTab('board');
+      showToast('房主已关闭聊天室', 'info');
+    }
+  }, [room, activeTab, showToast]);
+
+  useEffect(() => {
+    if (reorderMode && (!permissions.canReorderBlocks || blocks.length <= 1)) {
+      setReorderMode(false);
+    }
+  }, [reorderMode, permissions.canReorderBlocks, blocks.length]);
 
   useEffect(() => {
     if (!canOpenAddBlockSheet && addSheetVisible) {
       setAddSheetVisible(false);
     }
   }, [addSheetVisible, canOpenAddBlockSheet]);
+
+  useEffect(() => {
+    if (
+      activeTab !== 'chat' ||
+      !room?.chat_enabled ||
+      !roomId ||
+      !currentUserId ||
+      !chatReadFetched
+    ) {
+      return;
+    }
+    if (unreadChatCount <= 0) {
+      return;
+    }
+
+    const stampKey = latestServerMessageStamp ?? `unread:${unreadChatCount}`;
+    if (lastMarkedReadStampRef.current === stampKey) {
+      return;
+    }
+    lastMarkedReadStampRef.current = stampKey;
+
+    const readKey = QUERY_KEYS.roomChatRead(roomId, currentUserId);
+    const latestMsgMs = messages.reduce((maxMs, msg) => {
+      const ms = Date.parse(msg.created_at);
+      return Number.isNaN(ms) ? maxMs : Math.max(maxMs, ms);
+    }, 0);
+    const optimisticReadIso = new Date(
+      Math.max(Date.now(), latestMsgMs),
+    ).toISOString();
+
+    queryClient.setQueryData<string | null>(readKey, optimisticReadIso);
+
+    void markRoomChatRead(roomId, currentUserId)
+      .then((serverReadIso) => {
+        const serverMs = Date.parse(serverReadIso);
+        const resolvedIso =
+          !Number.isNaN(serverMs) && serverMs >= latestMsgMs
+            ? serverReadIso
+            : optimisticReadIso;
+        queryClient.setQueryData<string | null>(readKey, resolvedIso);
+      })
+      .catch(() => {
+        if (lastMarkedReadStampRef.current === stampKey) {
+          lastMarkedReadStampRef.current = null;
+        }
+      });
+  }, [
+    activeTab,
+    room?.chat_enabled,
+    roomId,
+    currentUserId,
+    chatReadFetched,
+    unreadChatCount,
+    latestServerMessageStamp,
+    messages,
+    queryClient,
+  ]);
+
+  const reorderBlocksMutation = useMutation<
+    void,
+    unknown,
+    { nextIds: string[] },
+    { previousBlocks: ParsedBlock[] | undefined }
+  >({
+    mutationFn: ({ nextIds }) => reorderRoomBlocks(roomId, nextIds),
+    onMutate: async ({ nextIds }) => {
+      const blocksKey = QUERY_KEYS.roomBlocks(roomId);
+      await queryClient.cancelQueries({ queryKey: blocksKey });
+      const previousBlocks =
+        queryClient.getQueryData<ParsedBlock[]>(blocksKey);
+      const sourceBlocks = previousBlocks ?? blocks;
+      queryClient.setQueryData<ParsedBlock[]>(
+        blocksKey,
+        applyBlockOrderToList(sourceBlocks, nextIds),
+      );
+      return { previousBlocks };
+    },
+    onError: (err, _vars, context) => {
+      const blocksKey = QUERY_KEYS.roomBlocks(roomId);
+      if (context?.previousBlocks !== undefined) {
+        queryClient.setQueryData(blocksKey, context.previousBlocks);
+      } else {
+        void queryClient.invalidateQueries({ queryKey: blocksKey });
+      }
+      showToast(mapRoomError(err), 'error');
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.roomBlocks(roomId),
+      });
+    },
+  });
+
+  const handleMoveBlock = useCallback(
+    (blockId: string, direction: BlockMoveDirection) => {
+      if (!permissions.canReorderBlocks || reorderBlocksMutation.isPending) {
+        return;
+      }
+      const currentBlocks =
+        queryClient.getQueryData<ParsedBlock[]>(
+          QUERY_KEYS.roomBlocks(roomId),
+        ) ?? blocks;
+      const nextIds = moveBlockInOrder(
+        currentBlocks.map((entry) => entry.id),
+        blockId,
+        direction,
+      );
+      if (!nextIds) {
+        return;
+      }
+      reorderBlocksMutation.mutate({ nextIds });
+    },
+    [
+      permissions.canReorderBlocks,
+      reorderBlocksMutation,
+      queryClient,
+      roomId,
+      blocks,
+    ],
+  );
+
+  const scheduleScrollToBlock = useCallback((blockId: string, delayMs = 140) => {
+    if (scrollTimerRef.current) {
+      clearTimeout(scrollTimerRef.current);
+    }
+    scrollTimerRef.current = setTimeout(() => {
+      requestAnimationFrame(() => {
+        const targetY = blockOffsetsRef.current[blockId];
+        if (typeof targetY === 'number') {
+          boardScrollRef.current?.scrollTo({
+            y: Math.max(0, targetY - 12),
+            animated: true,
+          });
+        } else {
+          boardScrollRef.current?.scrollToEnd({ animated: true });
+        }
+      });
+    }, delayMs);
+  }, []);
+
+  const triggerHighlightBlock = useCallback((blockId: string) => {
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    setHighlightedBlockId(blockId);
+    highlightTimerRef.current = setTimeout(() => {
+      setHighlightedBlockId((prev) => (prev === blockId ? null : prev));
+      highlightTimerRef.current = null;
+    }, 2000);
+  }, []);
+
+  const handleJumpToBlock = useCallback(
+    (blockId: string) => {
+      const exists = blocks.some((entry) => entry.id === blockId);
+      setActiveTab('board');
+      if (!exists) {
+        showToast('该协作积木已不存在或已被移除', 'info');
+        return;
+      }
+      triggerHighlightBlock(blockId);
+      scheduleScrollToBlock(blockId, 140);
+    },
+    [blocks, scheduleScrollToBlock, showToast, triggerHighlightBlock],
+  );
+
+  const handleSendBlockReminder = useCallback(
+    async (block: ParsedBlock<'poll' | 'task'>) => {
+      if (
+        !room ||
+        !room.chat_enabled ||
+        !permissions.canSendBlockReminder ||
+        sendingReminderBlockId !== null
+      ) {
+        return;
+      }
+      setSendingReminderBlockId(block.id);
+      try {
+        const tallies =
+          block.type === 'poll'
+            ? (talliesByBlockId.get(block.id) ?? [])
+            : undefined;
+        const payload = buildBlockReminderMessage(block, tallies);
+        await sendRoomMessage({
+          roomId: room.id,
+          msgType: 'block_card',
+          content: payload.content,
+          metadata: payload.metadata,
+        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.roomMessages(room.id),
+          }),
+          ...(currentUserId
+            ? [
+                queryClient.invalidateQueries({
+                  queryKey: QUERY_KEYS.roomChatRead(room.id, currentUserId),
+                }),
+              ]
+            : []),
+        ]);
+        showToast('已发送提醒到聊天室', 'success');
+      } catch (err) {
+        showToast(mapRoomError(err), 'error');
+      } finally {
+        setSendingReminderBlockId(null);
+      }
+    },
+    [
+      room,
+      permissions.canSendBlockReminder,
+      sendingReminderBlockId,
+      talliesByBlockId,
+      queryClient,
+      currentUserId,
+      showToast,
+    ],
+  );
+
+  const handleConvertMessageToBlock = useCallback(
+    async (message: ParsedRoomMessage, target: 'task' | 'schedule') => {
+      if (
+        !room ||
+        permissions.isArchived ||
+        permissions.isReadOnly ||
+        convertingMessage
+      ) {
+        return;
+      }
+
+      const { title, details } = buildBlockPrefillFromMessage(
+        message.content,
+        target,
+      );
+
+      let targetBlockId: string | null = null;
+      if (target === 'task') {
+        const taskBlocks = blocks.filter(
+          (entry): entry is ParsedBlock<'task'> => entry.type === 'task',
+        );
+        const writableTaskBlock = taskBlocks.find((entry) =>
+          permissions.canCreateItem(entry.config.allowMemberCreate),
+        );
+        if (writableTaskBlock) {
+          targetBlockId = writableTaskBlock.id;
+        } else if (taskBlocks.length > 0) {
+          showToast('当前分工积木仅允许管理员新增任务', 'info');
+          return;
+        }
+      } else {
+        const scheduleBlock = blocks.find(
+          (entry): entry is ParsedBlock<'schedule'> =>
+            entry.type === 'schedule',
+        );
+        if (scheduleBlock) {
+          targetBlockId = scheduleBlock.id;
+        }
+      }
+
+      if (!targetBlockId) {
+        if (!permissions.canManageBlocks) {
+          showToast('房间暂未添加分工/日程积木，请联系房主添加后再转换', 'info');
+          return;
+        }
+
+        setConvertingMessage(true);
+        try {
+          const created =
+            target === 'task'
+              ? await createBlock({
+                  roomId: room.id,
+                  type: 'task',
+                  title: DEFAULT_BLOCK_TITLES.task,
+                  sortOrder: blocks.length,
+                  createdBy: currentUserId,
+                  config: { allowMemberCreate: true },
+                })
+              : await createBlock({
+                  roomId: room.id,
+                  type: 'schedule',
+                  title: DEFAULT_BLOCK_TITLES.schedule,
+                  sortOrder: blocks.length,
+                  createdBy: currentUserId,
+                  config: { groupBy: 'day' },
+                });
+
+          targetBlockId = created.id;
+          setJustAddedBlockId(created.id);
+          queryClient.setQueryData<ParsedBlock[]>(
+            QUERY_KEYS.roomBlocks(room.id),
+            (old = []) =>
+              old.some((entry) => entry.id === created.id)
+                ? old
+                : [...old, created],
+          );
+          await queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.roomBlocks(room.id),
+          });
+        } catch (err) {
+          showToast(mapRoomError(err), 'error');
+          return;
+        } finally {
+          setConvertingMessage(false);
+        }
+      }
+
+      setReorderMode(false);
+      setActiveTab('board');
+      triggerHighlightBlock(targetBlockId);
+      scheduleScrollToBlock(targetBlockId, 180);
+      setPendingBlockDraft({
+        targetBlockId,
+        nonce: Date.now(),
+        title,
+        details,
+      });
+    },
+    [
+      room,
+      permissions,
+      convertingMessage,
+      blocks,
+      currentUserId,
+      queryClient,
+      showToast,
+      triggerHighlightBlock,
+      scheduleScrollToBlock,
+    ],
+  );
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -282,10 +747,26 @@ export default function RoomBoardScreen() {
       refetchMembers(),
       refetchBlocks(),
       refetchTallies(),
+      ...(room?.chat_enabled ? [refetchMessages()] : []),
     ]);
   };
 
-  const handleCopyRoomCode = async () => {
+  const handleRefreshChat = useCallback(() => {
+    void Promise.all([
+      refetchMessages(),
+      refetchRoom(),
+      refetchMembers(),
+      ...(currentUserId ? [refetchBlockedUsers()] : []),
+    ]);
+  }, [
+    refetchMessages,
+    refetchRoom,
+    refetchMembers,
+    currentUserId,
+    refetchBlockedUsers,
+  ]);
+
+  const handleShareRoomInvite = async () => {
     if (!room) {
       return;
     }
@@ -293,11 +774,16 @@ export default function RoomBoardScreen() {
       const inviteUrl = Linking.createURL('room/join', {
         queryParams: { code: room.room_code },
       });
-      const shareText = buildShareMessage(room.title, room.room_code, inviteUrl);
-      await Clipboard.setStringAsync(shareText);
-      showToast('已复制房间口令与邀请链接', 'success');
+      const outcome = await shareRoomInvite({
+        title: room.title,
+        roomCode: room.room_code,
+        inviteUrl,
+      });
+      if (outcome === 'copied') {
+        showToast('已复制房间口令与邀请链接', 'success');
+      }
     } catch {
-      showToast('复制失败，请前往房间设置复制', 'error');
+      showToast('分享失败，请前往房间设置复制', 'error');
     }
   };
 
@@ -424,7 +910,7 @@ export default function RoomBoardScreen() {
         }),
       ]);
       setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+        boardScrollRef.current?.scrollToEnd({ animated: true });
       }, 180);
       showToast('已添加新积木', 'success');
     } catch (err) {
@@ -532,8 +1018,14 @@ export default function RoomBoardScreen() {
   const isRefreshing =
     roomRefetching || membersRefetching || blocksRefetching || talliesRefetching;
 
+  const isChatVisible = room.chat_enabled && activeTab === 'chat';
+  const unreadBadgeText = unreadChatCount > 99 ? '99+' : String(unreadChatCount);
+
   return (
-    <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
+    <SafeAreaView
+      className="flex-1 bg-surface"
+      edges={isChatVisible ? ['top'] : ['top', 'bottom']}
+    >
       <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
         <View className="flex-1 flex-row items-center gap-2.5 pr-2">
           <MotionPressable
@@ -556,15 +1048,15 @@ export default function RoomBoardScreen() {
               </Text>
               <MotionPressable
                 accessibilityRole="button"
-                accessibilityLabel={`复制房间码 ${room.room_code}`}
-                onPress={handleCopyRoomCode}
+                accessibilityLabel={`分享或复制房间码 ${room.room_code}`}
+                onPress={() => void handleShareRoomInvite()}
                 scaleTo={0.94}
                 className="flex-row items-center gap-1 rounded-full border border-primaryBorder bg-primarySoft px-2 py-0.5"
               >
                 <Text className="text-[11px] font-bold tracking-wider text-primaryDeep">
                   {room.room_code}
                 </Text>
-                <Copy size={10} color={THEME_COLORS.primaryDeep} />
+                <Share2 size={10} color={THEME_COLORS.primaryDeep} />
               </MotionPressable>
             </View>
           </View>
@@ -592,19 +1084,111 @@ export default function RoomBoardScreen() {
         </View>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        className="flex-1 px-4 pt-4"
-        contentContainerStyle={{ paddingBottom: 36 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing && !blocksLoading}
-            onRefresh={handleRefreshAll}
-            tintColor={THEME_COLORS.primary}
-            colors={[THEME_COLORS.primary]}
+      {room.chat_enabled ? (
+        <View className="border-b border-line bg-white px-4 py-2">
+          <View className="flex-row gap-1 rounded-2xl border border-lineSoft bg-surface p-1">
+            <MotionPressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'board' }}
+              accessibilityLabel="协作看板"
+              onPress={() => setActiveTab('board')}
+              flex
+              scaleTo={0.97}
+              className={`flex-row items-center justify-center gap-1.5 rounded-xl py-2 ${
+                activeTab === 'board' ? 'bg-primary' : 'bg-transparent'
+              }`}
+            >
+              <LayoutGrid
+                size={14}
+                color={
+                  activeTab === 'board' ? '#FFFFFF' : THEME_COLORS.inkMuted
+                }
+              />
+              <Text
+                className={`text-xs font-bold ${
+                  activeTab === 'board' ? 'text-white' : 'text-inkMuted'
+                }`}
+              >
+                协作看板
+              </Text>
+            </MotionPressable>
+
+            <MotionPressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'chat' }}
+              accessibilityLabel={
+                activeTab === 'board' && unreadChatCount > 0
+                  ? `聊天室，${unreadBadgeText} 条未读消息`
+                  : '聊天室'
+              }
+              onPress={() => {
+                setReorderMode(false);
+                setActiveTab('chat');
+              }}
+              flex
+              scaleTo={0.97}
+              className={`flex-row items-center justify-center gap-1.5 rounded-xl py-2 ${
+                activeTab === 'chat' ? 'bg-primary' : 'bg-transparent'
+              }`}
+            >
+              <MessageCircle
+                size={14}
+                color={activeTab === 'chat' ? '#FFFFFF' : THEME_COLORS.inkMuted}
+              />
+              <Text
+                className={`text-xs font-bold ${
+                  activeTab === 'chat' ? 'text-white' : 'text-inkMuted'
+                }`}
+              >
+                聊天室
+              </Text>
+              {activeTab === 'board' && unreadChatCount > 0 ? (
+                <View
+                  style={{ backgroundColor: THEME_COLORS.danger }}
+                  className="min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5"
+                >
+                  <Text className="text-[10px] font-bold leading-3 text-white">
+                    {unreadBadgeText}
+                  </Text>
+                </View>
+              ) : null}
+            </MotionPressable>
+          </View>
+        </View>
+      ) : null}
+
+      {isChatVisible ? (
+        <View className="flex-1">
+          <ChatRoomView
+            roomId={room.id}
+            messages={messages}
+            blockedUserIds={blockedUserIds}
+            members={activeMembers}
+            permissions={permissions}
+            loading={messagesLoading}
+            refreshing={messagesRefetching}
+            onRefresh={handleRefreshChat}
+            onJumpToBlock={handleJumpToBlock}
+            onConvertMessageToBlock={(msg, target) =>
+              void handleConvertMessageToBlock(msg, target)
+            }
           />
-        }
-      >
+        </View>
+      ) : (
+        <>
+          <ScrollView
+            ref={boardScrollRef}
+            className="flex-1 px-4 pt-4"
+            contentContainerStyle={{ paddingBottom: 36 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing && !blocksLoading}
+                onRefresh={handleRefreshAll}
+                tintColor={THEME_COLORS.primary}
+                colors={[THEME_COLORS.primary]}
+              />
+            }
+          >
         {screenState.kind === 'ready' && screenState.syncWarning ? (
           <OfflineSyncBanner
             message={screenState.syncWarning}
@@ -729,102 +1313,206 @@ export default function RoomBoardScreen() {
             </Text>
           </Card>
         ) : (
-          <LayoutAnimationConfig skipEntering>
-            {blocks.map((block) => {
-              const isNewlyAdded = block.id === justAddedBlockId;
-              const blockContent = (() => {
-                switch (block.type) {
-                  case 'poll':
-                    return (
-                      <PollBlock
-                        block={block}
-                        items={block.items}
-                        tallies={talliesByBlockId.get(block.id) ?? []}
-                        members={activeMembers}
-                        permissions={permissions}
-                        onRequestDeleteBlock={
-                          permissions.canManageBlocks
-                            ? setDeleteTarget
-                            : undefined
-                        }
-                      />
-                    );
-                  case 'task':
-                    return (
-                      <TaskBlock
-                        block={block}
-                        items={block.items}
-                        members={activeMembers}
-                        permissions={permissions}
-                        onRequestDeleteBlock={
-                          permissions.canManageBlocks
-                            ? setDeleteTarget
-                            : undefined
-                        }
-                      />
-                    );
-                  case 'schedule':
-                    return (
-                      <ScheduleBlock
-                        block={block}
-                        items={block.items}
-                        members={activeMembers}
-                        permissions={permissions}
-                        onRequestDeleteBlock={
-                          permissions.canManageBlocks
-                            ? setDeleteTarget
-                            : undefined
-                        }
-                      />
-                    );
-                  case 'expense':
-                    return (
-                      <ExpenseBlock
-                        block={block}
-                        items={block.items}
-                        members={activeMembers}
-                        permissions={permissions}
-                        onRequestDeleteBlock={
-                          permissions.canManageBlocks
-                            ? setDeleteTarget
-                            : undefined
-                        }
-                      />
-                    );
-                }
-              })();
-
-              return (
-                <AnimatedBlockShell
-                  key={block.id}
-                  isNewlyAdded={isNewlyAdded}
-                  onHighlightEnd={
-                    isNewlyAdded ? clearJustAddedBlock : undefined
-                  }
+          <>
+            <View className="mb-3 flex-row items-center justify-between gap-2 px-0.5">
+              <Text className="text-xs font-semibold text-inkMuted">
+                {reorderMode
+                  ? '点击积木右上角箭头调整展示顺序'
+                  : `协作积木 · ${blocks.length} 个模块`}
+              </Text>
+              {permissions.canReorderBlocks && blocks.length > 1 ? (
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={reorderMode ? '完成排序' : '调整顺序'}
+                  onPress={() => setReorderMode((prev) => !prev)}
+                  scaleTo={0.95}
+                  className={`flex-row items-center gap-1 rounded-full border px-3 py-1.5 ${
+                    reorderMode
+                      ? 'border-primary bg-primarySoft'
+                      : 'border-line bg-white'
+                  }`}
                 >
-                  {blockContent}
-                </AnimatedBlockShell>
-              );
-            })}
-          </LayoutAnimationConfig>
-        )}
-      </ScrollView>
+                  <ArrowUpDown
+                    size={12}
+                    color={
+                      reorderMode
+                        ? THEME_COLORS.primaryDeep
+                        : THEME_COLORS.inkMuted
+                    }
+                  />
+                  <Text
+                    className={`text-xs font-semibold ${
+                      reorderMode ? 'text-primaryDeep' : 'text-inkMuted'
+                    }`}
+                  >
+                    {reorderMode ? '完成排序' : '调整顺序'}
+                  </Text>
+                </MotionPressable>
+              ) : null}
+            </View>
 
-      {canOpenAddBlockSheet ? (
-        <View
-          style={FLOATING_SHADOW}
-          className="border-t border-line bg-white px-4 pb-3 pt-2.5"
-        >
-          <Button
-            title={permissions.canManageBlocks ? '添加积木' : '发起新投票'}
-            variant="primary"
-            size="lg"
-            fullWidth
-            leftIcon={<Plus size={18} color="#FFFFFF" strokeWidth={2.5} />}
-            onPress={handleOpenAddSheet}
-          />
-        </View>
-      ) : null}
+            <LayoutAnimationConfig skipEntering>
+              {blocks.map((block, index) => {
+                const isNewlyAdded = block.id === justAddedBlockId;
+                const isHighlighted = highlightedBlockId === block.id;
+                const canMoveUp = index > 0;
+                const canMoveDown = index < blocks.length - 1;
+                const reordering = reorderBlocksMutation.isPending;
+                const blockContent = (() => {
+                  switch (block.type) {
+                    case 'poll':
+                      return (
+                        <PollBlock
+                          block={block}
+                          items={block.items}
+                          tallies={talliesByBlockId.get(block.id) ?? []}
+                          members={activeMembers}
+                          permissions={permissions}
+                          onRequestDeleteBlock={
+                            permissions.canManageBlocks
+                              ? setDeleteTarget
+                              : undefined
+                          }
+                          highlighted={isHighlighted}
+                          reorderMode={reorderMode}
+                          canMoveUp={canMoveUp}
+                          canMoveDown={canMoveDown}
+                          reordering={reordering}
+                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
+                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
+                          onSendReminder={
+                            permissions.canSendBlockReminder
+                              ? () => void handleSendBlockReminder(block)
+                              : undefined
+                          }
+                          sendingReminder={sendingReminderBlockId === block.id}
+                        />
+                      );
+                    case 'task':
+                      return (
+                        <TaskBlock
+                          block={block}
+                          items={block.items}
+                          members={activeMembers}
+                          permissions={permissions}
+                          onRequestDeleteBlock={
+                            permissions.canManageBlocks
+                              ? setDeleteTarget
+                              : undefined
+                          }
+                          highlighted={isHighlighted}
+                          reorderMode={reorderMode}
+                          canMoveUp={canMoveUp}
+                          canMoveDown={canMoveDown}
+                          reordering={reordering}
+                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
+                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
+                          onSendReminder={
+                            permissions.canSendBlockReminder
+                              ? () => void handleSendBlockReminder(block)
+                              : undefined
+                          }
+                          sendingReminder={sendingReminderBlockId === block.id}
+                          externalCreateDraft={
+                            pendingBlockDraft?.targetBlockId === block.id
+                              ? pendingBlockDraft
+                              : null
+                          }
+                          onConsumeExternalCreateDraft={clearPendingBlockDraft}
+                        />
+                      );
+                    case 'schedule':
+                      return (
+                        <ScheduleBlock
+                          block={block}
+                          items={block.items}
+                          members={activeMembers}
+                          permissions={permissions}
+                          onRequestDeleteBlock={
+                            permissions.canManageBlocks
+                              ? setDeleteTarget
+                              : undefined
+                          }
+                          highlighted={isHighlighted}
+                          reorderMode={reorderMode}
+                          canMoveUp={canMoveUp}
+                          canMoveDown={canMoveDown}
+                          reordering={reordering}
+                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
+                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
+                          externalCreateDraft={
+                            pendingBlockDraft?.targetBlockId === block.id
+                              ? pendingBlockDraft
+                              : null
+                          }
+                          onConsumeExternalCreateDraft={clearPendingBlockDraft}
+                        />
+                      );
+                    case 'expense':
+                      return (
+                        <ExpenseBlock
+                          block={block}
+                          items={block.items}
+                          members={activeMembers}
+                          permissions={permissions}
+                          onRequestDeleteBlock={
+                            permissions.canManageBlocks
+                              ? setDeleteTarget
+                              : undefined
+                          }
+                          highlighted={isHighlighted}
+                          reorderMode={reorderMode}
+                          canMoveUp={canMoveUp}
+                          canMoveDown={canMoveDown}
+                          reordering={reordering}
+                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
+                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
+                        />
+                      );
+                  }
+                })();
+
+                return (
+                  <View
+                    key={block.id}
+                    onLayout={(event) => {
+                      blockOffsetsRef.current[block.id] =
+                        event.nativeEvent.layout.y;
+                    }}
+                  >
+                    <AnimatedBlockShell
+                      isNewlyAdded={isNewlyAdded}
+                      onHighlightEnd={
+                        isNewlyAdded ? clearJustAddedBlock : undefined
+                      }
+                    >
+                      {blockContent}
+                    </AnimatedBlockShell>
+                  </View>
+                );
+              })}
+            </LayoutAnimationConfig>
+          </>
+        )}
+          </ScrollView>
+
+          {canOpenAddBlockSheet && !reorderMode ? (
+            <View
+              style={FLOATING_SHADOW}
+              className="border-t border-line bg-white px-4 pb-3 pt-2.5"
+            >
+              <Button
+                title={permissions.canManageBlocks ? '添加积木' : '发起新投票'}
+                variant="primary"
+                size="lg"
+                fullWidth
+                leftIcon={<Plus size={18} color="#FFFFFF" strokeWidth={2.5} />}
+                onPress={handleOpenAddSheet}
+              />
+            </View>
+          ) : null}
+        </>
+      )}
 
       <SheetModal
         visible={addSheetVisible}

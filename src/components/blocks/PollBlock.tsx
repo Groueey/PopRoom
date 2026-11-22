@@ -2,8 +2,11 @@ import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
+  BellRing,
   CalendarDays,
   Check,
+  ChevronDown,
+  ChevronUp,
   EyeOff,
   Flame,
   Lock,
@@ -12,7 +15,7 @@ import {
   Unlock,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import {
   type ParsedBlock,
   type ParsedBlockItem,
@@ -82,6 +85,15 @@ export interface PollBlockProps {
   members: RoomMemberWithProfile[];
   permissions: RoomPermissions;
   onRequestDeleteBlock?: (block: ParsedBlock<'poll'>) => void;
+  highlighted?: boolean;
+  reorderMode?: boolean;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  reordering?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onSendReminder?: () => void;
+  sendingReminder?: boolean;
 }
 
 interface VoteMutationContext {
@@ -116,6 +128,15 @@ export function PollBlock({
   members,
   permissions,
   onRequestDeleteBlock,
+  highlighted = false,
+  reorderMode = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  reordering = false,
+  onMoveUp,
+  onMoveDown,
+  onSendReminder,
+  sendingReminder = false,
 }: PollBlockProps) {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((s) => s.session?.user.id ?? '');
@@ -765,7 +786,14 @@ export function PollBlock({
   };
 
   return (
-    <Card className="mb-3.5">
+    <Card
+      className={highlighted ? 'mb-3.5 border-2 border-primary' : 'mb-3.5'}
+      style={
+        highlighted
+          ? { borderWidth: 2, borderColor: THEME_COLORS.primary }
+          : undefined
+      }
+    >
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
           <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
@@ -814,45 +842,111 @@ export function PollBlock({
         </View>
 
         <View className="flex-row items-center gap-1.5">
-          {permissions.canLockPoll ? (
-            <MotionPressable
-              accessibilityRole="button"
-              accessibilityLabel={isLocked ? '解锁投票' : '锁定投票'}
-              disabled={lockMutation.isPending}
-              onPress={() => lockMutation.mutate(!isLocked)}
-              scaleTo={0.94}
-              className={`h-8 flex-row items-center gap-1 rounded-xl border px-2.5 ${
-                isLocked
-                  ? 'border-[#F5DFB3] bg-[#FEF7E8]'
-                  : 'border-line bg-surface'
-              }`}
-            >
-              {isLocked ? (
-                <Unlock size={13} color={THEME_COLORS.warning} />
-              ) : (
-                <Lock size={13} color={THEME_COLORS.inkMuted} />
-              )}
-              <Text
-                className={`text-[11px] font-semibold ${
-                  isLocked ? 'text-[#A66214]' : 'text-inkMuted'
+          {reorderMode ? (
+            <>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`上移积木 ${block.title}`}
+                disabled={!canMoveUp || reordering}
+                onPress={onMoveUp}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveUp && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
                 }`}
               >
-                {isLocked ? '解锁' : '锁定'}
-              </Text>
-            </MotionPressable>
-          ) : null}
+                <ChevronUp
+                  size={15}
+                  color={
+                    canMoveUp && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={`下移积木 ${block.title}`}
+                disabled={!canMoveDown || reordering}
+                onPress={onMoveDown}
+                scaleTo={0.9}
+                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                  canMoveDown && !reordering
+                    ? 'border-primaryBorder bg-primarySoft'
+                    : 'border-line bg-surface opacity-45'
+                }`}
+              >
+                <ChevronDown
+                  size={15}
+                  color={
+                    canMoveDown && !reordering
+                      ? THEME_COLORS.primaryDeep
+                      : THEME_COLORS.inkSubtle
+                  }
+                />
+              </MotionPressable>
+            </>
+          ) : (
+            <>
+              {onSendReminder ? (
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel="发送催办提醒到聊天室"
+                  disabled={sendingReminder}
+                  onPress={onSendReminder}
+                  scaleTo={0.9}
+                  className="h-8 w-8 items-center justify-center rounded-xl border border-primaryBorder bg-primarySoft"
+                >
+                  {sendingReminder ? (
+                    <ActivityIndicator size="small" color={THEME_COLORS.primaryDeep} />
+                  ) : (
+                    <BellRing size={14} color={THEME_COLORS.primaryDeep} />
+                  )}
+                </MotionPressable>
+              ) : null}
 
-          {permissions.canManageBlocks && onRequestDeleteBlock ? (
-            <MotionPressable
-              accessibilityRole="button"
-              accessibilityLabel={`删除积木 ${block.title}`}
-              onPress={() => onRequestDeleteBlock(block)}
-              scaleTo={0.9}
-              className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
-            >
-              <Trash2 size={15} color={THEME_COLORS.inkMuted} />
-            </MotionPressable>
-          ) : null}
+              {permissions.canLockPoll ? (
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isLocked ? '解锁投票' : '锁定投票'}
+                  disabled={lockMutation.isPending}
+                  onPress={() => lockMutation.mutate(!isLocked)}
+                  scaleTo={0.94}
+                  className={`h-8 flex-row items-center gap-1 rounded-xl border px-2.5 ${
+                    isLocked
+                      ? 'border-[#F5DFB3] bg-[#FEF7E8]'
+                      : 'border-line bg-surface'
+                  }`}
+                >
+                  {isLocked ? (
+                    <Unlock size={13} color={THEME_COLORS.warning} />
+                  ) : (
+                    <Lock size={13} color={THEME_COLORS.inkMuted} />
+                  )}
+                  <Text
+                    className={`text-[11px] font-semibold ${
+                      isLocked ? 'text-[#A66214]' : 'text-inkMuted'
+                    }`}
+                  >
+                    {isLocked ? '解锁' : '锁定'}
+                  </Text>
+                </MotionPressable>
+              ) : null}
+
+              {permissions.canManageBlocks && onRequestDeleteBlock ? (
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`删除积木 ${block.title}`}
+                  onPress={() => onRequestDeleteBlock(block)}
+                  scaleTo={0.9}
+                  className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
+                >
+                  <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+                </MotionPressable>
+              ) : null}
+            </>
+          )}
         </View>
       </View>
 
