@@ -79,11 +79,11 @@ BEGIN
     RAISE EXCEPTION 'INVALID_INPUT';
   END IF;
 
-  IF p_template_type NOT IN ('campus', 'travel', 'party', 'custom') THEN
+  IF p_template_type IS NULL OR p_template_type NOT IN ('campus', 'travel', 'party', 'custom') THEN
     RAISE EXCEPTION 'INVALID_INPUT';
   END IF;
 
-  IF p_join_mode NOT IN ('passcode', 'approval') THEN
+  IF p_join_mode IS NULL OR p_join_mode NOT IN ('passcode', 'approval') THEN
     RAISE EXCEPTION 'INVALID_INPUT';
   END IF;
 
@@ -259,7 +259,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE room_code = v_code;
+  WHERE room_code = v_code
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -360,7 +361,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = p_room_id;
+  WHERE id = p_room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -420,13 +422,14 @@ BEGIN
     RAISE EXCEPTION 'NOT_AUTHENTICATED';
   END IF;
 
-  IF p_role NOT IN ('admin', 'member') THEN
+  IF p_role IS NULL OR p_role NOT IN ('admin', 'member') THEN
     RAISE EXCEPTION 'INVALID_INPUT';
   END IF;
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = p_room_id;
+  WHERE id = p_room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -491,7 +494,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = p_room_id;
+  WHERE id = p_room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -662,7 +666,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = v_item.room_id;
+  WHERE id = v_item.room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -857,7 +862,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = v_item.room_id;
+  WHERE id = v_item.room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -871,11 +877,11 @@ BEGIN
     RAISE EXCEPTION 'NOT_A_MEMBER';
   END IF;
 
-  SELECT COALESCE(
-    ARRAY(SELECT jsonb_array_elements_text(COALESCE(v_item.data->'assigneeIds', '[]'::jsonb))),
-    '{}'::TEXT[]
-  )
-  INTO v_assignees;
+  v_assignees := CASE
+    WHEN jsonb_typeof(v_item.data->'assigneeIds') = 'array'
+      THEN ARRAY(SELECT jsonb_array_elements_text(v_item.data->'assigneeIds'))
+    ELSE '{}'::TEXT[]
+  END;
 
   v_status := COALESCE(v_item.data->>'status', 'unclaimed');
   v_user_text := v_user_id::text;
@@ -930,7 +936,7 @@ BEGIN
     RAISE EXCEPTION 'NOT_AUTHENTICATED';
   END IF;
 
-  IF p_status NOT IN ('unclaimed', 'in_progress', 'done') THEN
+  IF p_status IS NULL OR p_status NOT IN ('unclaimed', 'in_progress', 'done') THEN
     RAISE EXCEPTION 'INVALID_INPUT';
   END IF;
 
@@ -954,7 +960,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = v_item.room_id;
+  WHERE id = v_item.room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -968,11 +975,11 @@ BEGIN
     RAISE EXCEPTION 'NOT_A_MEMBER';
   END IF;
 
-  SELECT COALESCE(
-    ARRAY(SELECT jsonb_array_elements_text(COALESCE(v_item.data->'assigneeIds', '[]'::jsonb))),
-    '{}'::TEXT[]
-  )
-  INTO v_assignees;
+  v_assignees := CASE
+    WHEN jsonb_typeof(v_item.data->'assigneeIds') = 'array'
+      THEN ARRAY(SELECT jsonb_array_elements_text(v_item.data->'assigneeIds'))
+    ELSE '{}'::TEXT[]
+  END;
 
   IF NOT (
     public.is_room_admin(v_item.room_id)
@@ -1052,7 +1059,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = v_item.room_id;
+  WHERE id = v_item.room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -1066,11 +1074,11 @@ BEGIN
     RAISE EXCEPTION 'NOT_A_MEMBER';
   END IF;
 
-  SELECT COALESCE(
-    ARRAY(SELECT jsonb_array_elements_text(COALESCE(v_item.data->'assigneeIds', '[]'::jsonb))),
-    '{}'::TEXT[]
-  )
-  INTO v_assignees;
+  v_assignees := CASE
+    WHEN jsonb_typeof(v_item.data->'assigneeIds') = 'array'
+      THEN ARRAY(SELECT jsonb_array_elements_text(v_item.data->'assigneeIds'))
+    ELSE '{}'::TEXT[]
+  END;
 
   IF NOT (
     public.is_room_admin(v_item.room_id)
@@ -1123,7 +1131,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = v_item.room_id;
+  WHERE id = v_item.room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';
@@ -1200,7 +1209,8 @@ BEGIN
 
   SELECT * INTO v_room
   FROM public.rooms
-  WHERE id = v_log.room_id;
+  WHERE id = v_log.room_id
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND';

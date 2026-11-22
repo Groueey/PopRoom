@@ -152,15 +152,37 @@ describe('Supabase migration contracts', () => {
         expect(policy[0]).toMatch(/is_room_active\s*\(/i);
       }
 
-      // block_items UPDATE restricted to created_by = auth.uid() OR is_room_admin(room_id)
+      // block_items UPDATE restricted to active members (creator or admin), active room, and valid parent block
       const blockItemUpdateMatch = sql.match(
         /CREATE\s+POLICY\s+\S+\s+ON\s+(?:public\.)?block_items\s+FOR\s+UPDATE\b[\s\S]*?;/i,
       );
       expect(blockItemUpdateMatch).not.toBeNull();
       const blockItemUpdateSql = blockItemUpdateMatch?.[0] ?? '';
+      expect(blockItemUpdateSql).toMatch(/USING\s*\([\s\S]*?is_active_member\s*\(\s*room_id\s*\)[\s\S]*?\)\s*WITH\s+CHECK/i);
+      expect(blockItemUpdateSql).toMatch(/WITH\s+CHECK\s*\([\s\S]*?is_active_member\s*\(\s*room_id\s*\)/i);
       expect(blockItemUpdateSql).toMatch(/is_room_active\s*\(\s*room_id\s*\)/i);
       expect(blockItemUpdateSql).toMatch(/created_by\s*=\s*auth\.uid\(\)/i);
       expect(blockItemUpdateSql).toMatch(/is_room_admin\s*\(\s*room_id\s*\)/i);
+      expect(blockItemUpdateSql).toMatch(
+        /EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+(?:public\.)?blocks\s+b\s+WHERE\s+b\.id\s*=\s*block_id\s+AND\s+b\.room_id\s*=\s*block_items\.room_id/i,
+      );
+      expect(blockItemUpdateSql).toMatch(/isLocked/i);
+
+      // room_id and block_id immutability trigger on block_items UPDATE
+      const rebindFn = extractFunctionBody(sql, 'prevent_block_item_rebind');
+      expect(rebindFn).toMatch(/NEW\.room_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.room_id/i);
+      expect(rebindFn).toMatch(/NEW\.block_id\s+IS\s+DISTINCT\s+FROM\s+OLD\.block_id/i);
+      expect(sql).toMatch(
+        /CREATE\s+TRIGGER\s+trg_block_items_immutable_refs\s+BEFORE\s+UPDATE\s+ON\s+(?:public\.)?block_items/i,
+      );
+
+      // item_comments DELETE must block kicked/inactive members
+      const commentDeleteMatch = sql.match(
+        /CREATE\s+POLICY\s+\S+\s+ON\s+(?:public\.)?item_comments\s+FOR\s+DELETE\b[\s\S]*?;/i,
+      );
+      expect(commentDeleteMatch).not.toBeNull();
+      expect(commentDeleteMatch?.[0]).toMatch(/is_active_member\s*\(\s*room_id\s*\)/i);
+      expect(commentDeleteMatch?.[0]).toMatch(/is_room_active\s*\(\s*room_id\s*\)/i);
 
       // No direct DELETE policy on block_items
       expect(sql).not.toMatch(/ON\s+(?:public\.)?block_items\s+FOR\s+DELETE\b/i);
@@ -293,6 +315,29 @@ describe('Supabase migration contracts', () => {
         const body = extractFunctionBody(sql, rpc);
         expect(body).toContain('ROOM_ARCHIVED');
       }
+
+      // Prevent concurrent archive_room race via FOR SHARE on rooms row in all 10 room-mutating RPCs
+      const shareLockedRpcs = [
+        'join_room_by_code',
+        'review_member_application',
+        'update_member_role',
+        'kick_room_member',
+        'toggle_poll_vote',
+        'toggle_task_claim',
+        'set_task_status',
+        'update_task_images',
+        'soft_delete_block_item',
+        'restore_deleted_item',
+      ];
+      for (const rpc of shareLockedRpcs) {
+        const body = extractFunctionBody(sql, rpc);
+        expect(body).toMatch(/FROM\s+(?:public\.)?rooms[\s\S]*?FOR\s+SHARE/i);
+      }
+
+      for (const rpc of ['reset_room_code', 'archive_room']) {
+        const body = extractFunctionBody(sql, rpc);
+        expect(body).toMatch(/FROM\s+(?:public\.)?rooms[\s\S]*?FOR\s+UPDATE/i);
+      }
     });
 
     it('masks voter_ids when anonymous = true in poll RPCs (Review Focus #3)', () => {
@@ -317,7 +362,20 @@ describe('Supabase migration contracts', () => {
         const body = extractFunctionBody(sql, rpc);
         expect(body).toMatch(/FROM\s+public\.block_items[\s\S]*?is_deleted\s*=\s*FALSE[\s\S]*?FOR\s+UPDATE/i);
         expect(body).toMatch(/type\s*<>\s*'task'|type\s*=\s*'task'/i);
+        expect(body).toMatch(/jsonb_typeof\s*\(\s*v_item\.data->'assigneeIds'\s*\)\s*=\s*'array'/i);
+        expect(body).not.toMatch(/jsonb_array_elements_text\s*\(\s*COALESCE\s*\(/i);
       }
+
+      // Guard against SQL NULL bypassing NOT IN (...) validation
+      expect(extractFunctionBody(sql, 'set_task_status')).toMatch(
+        /p_status\s+IS\s+NULL\s+OR\s+p_status\s+NOT\s+IN/i,
+      );
+      expect(extractFunctionBody(sql, 'update_member_role')).toMatch(
+        /p_role\s+IS\s+NULL\s+OR\s+p_role\s+NOT\s+IN/i,
+      );
+      const createRoomBody = extractFunctionBody(sql, 'create_room_with_template');
+      expect(createRoomBody).toMatch(/p_template_type\s+IS\s+NULL\s+OR\s+p_template_type\s+NOT\s+IN/i);
+      expect(createRoomBody).toMatch(/p_join_mode\s+IS\s+NULL\s+OR\s+p_join_mode\s+NOT\s+IN/i);
 
       const updateImages = extractFunctionBody(sql, 'update_task_images');
       expect(updateImages).toContain('MAX_IMAGES_EXCEEDED');

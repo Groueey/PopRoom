@@ -284,12 +284,65 @@ CREATE POLICY block_items_update_creator_or_admin
   FOR UPDATE
   USING (
     public.is_room_active(room_id)
+    AND public.is_active_member(room_id)
     AND (created_by = auth.uid() OR public.is_room_admin(room_id))
   )
   WITH CHECK (
     public.is_room_active(room_id)
+    AND public.is_active_member(room_id)
     AND (created_by = auth.uid() OR public.is_room_admin(room_id))
+    AND EXISTS (
+      SELECT 1
+      FROM public.blocks b
+      WHERE b.id = block_id
+        AND b.room_id = block_items.room_id
+        AND (
+          public.is_room_admin(block_items.room_id)
+          OR b.type IN ('schedule', 'expense')
+          OR (
+            b.type = 'task'
+            AND CASE
+              WHEN jsonb_typeof(b.config->'allowMemberCreate') = 'boolean'
+                THEN (b.config->>'allowMemberCreate')::boolean
+              ELSE TRUE
+            END
+          )
+          OR (
+            b.type = 'poll'
+            AND CASE
+              WHEN jsonb_typeof(b.config->'allowAddOption') = 'boolean'
+                THEN (b.config->>'allowAddOption')::boolean
+              ELSE TRUE
+            END
+            AND NOT CASE
+              WHEN jsonb_typeof(b.config->'isLocked') = 'boolean'
+                THEN (b.config->>'isLocked')::boolean
+              ELSE FALSE
+            END
+          )
+        )
+    )
   );
+
+-- Enforce room_id and block_id immutability on block_items UPDATE
+CREATE OR REPLACE FUNCTION public.prevent_block_item_rebind()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.room_id IS DISTINCT FROM OLD.room_id OR NEW.block_id IS DISTINCT FROM OLD.block_id THEN
+    RAISE EXCEPTION 'FORBIDDEN';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_block_items_immutable_refs ON public.block_items;
+CREATE TRIGGER trg_block_items_immutable_refs
+  BEFORE UPDATE ON public.block_items
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_block_item_rebind();
 
 -- ==========================================
 -- 8. poll_votes policies (read-only guard; all writes via toggle_poll_vote RPC)
@@ -334,6 +387,7 @@ CREATE POLICY item_comments_delete_author_or_admin
   FOR DELETE
   USING (
     public.is_room_active(room_id)
+    AND public.is_active_member(room_id)
     AND (user_id = auth.uid() OR public.is_room_admin(room_id))
   );
 
