@@ -56,6 +56,7 @@ import { Badge, type BadgeVariant } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
+import { PollBlock } from '../../../src/components/blocks/PollBlock';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { useRoomRealtime } from '../../../src/hooks/useRoomRealtime';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
@@ -869,15 +870,36 @@ export default function RoomBoardScreen() {
             </Text>
           </Card>
         ) : (
-          blocks.map((block) => (
-            <BlockShellCard
-              key={block.id}
-              block={block}
-              talliesForBlock={talliesByBlockId.get(block.id) ?? []}
-              canManageBlocks={permissions.canManageBlocks}
-              onRequestDelete={setDeleteTarget}
-            />
-          ))
+          blocks.map((block) => {
+            switch (block.type) {
+              case 'poll':
+                return (
+                  <PollBlock
+                    key={block.id}
+                    block={block}
+                    items={block.items}
+                    tallies={talliesByBlockId.get(block.id) ?? []}
+                    members={activeMembers}
+                    permissions={permissions}
+                    onRequestDeleteBlock={
+                      permissions.canManageBlocks ? setDeleteTarget : undefined
+                    }
+                  />
+                );
+              case 'task':
+              case 'schedule':
+              case 'expense':
+                return (
+                  <BlockShellCard
+                    key={block.id}
+                    block={block}
+                    talliesForBlock={talliesByBlockId.get(block.id) ?? []}
+                    canManageBlocks={permissions.canManageBlocks}
+                    onRequestDelete={setDeleteTarget}
+                  />
+                );
+            }
+          })
         )}
       </ScrollView>
 
