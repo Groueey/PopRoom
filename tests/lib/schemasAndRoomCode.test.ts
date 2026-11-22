@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { ZodError } from 'zod';
 import {
+  ChatMessageMetadataSchema,
   ExpenseConfigSchema,
   ExpenseItemDataSchema,
   PollConfigSchema,
@@ -11,7 +13,18 @@ import {
   TaskItemDataSchema,
   parseBlockConfig,
   parseBlockItemData,
+  parseChatMessageMetadata,
 } from '@/src/schemas/blocks';
+import type {
+  ActivityAction,
+  BlockedUserWithProfile,
+  ChatMessageType,
+  MessageReportRow,
+  RoomChatReadRow,
+  RoomMessageRow,
+  RoomMessageWithSender,
+  UserBlockRow,
+} from '@/src/types/database';
 import {
   ROOM_CODE_ALPHABET,
   buildInviteLink,
@@ -234,18 +247,116 @@ describe('Zod block schemas', () => {
     const pollItem = parseBlockItemData('poll', { label: '火锅' });
     expect(pollItem.label).toBe('火锅');
   });
+
+  it('validates ChatMessageMetadataSchema and safely defaults null/undefined/non-object via parseChatMessageMetadata', () => {
+    expect(parseChatMessageMetadata(null)).toEqual({
+      mentionAll: false,
+      mentionUserIds: [],
+    });
+    expect(parseChatMessageMetadata(undefined)).toEqual({
+      mentionAll: false,
+      mentionUserIds: [],
+    });
+    expect(parseChatMessageMetadata('plain-text')).toEqual({
+      mentionAll: false,
+      mentionUserIds: [],
+    });
+    expect(parseChatMessageMetadata(123)).toEqual({
+      mentionAll: false,
+      mentionUserIds: [],
+    });
+
+    const parsed = parseChatMessageMetadata({
+      mentionAll: true,
+      mentionUserIds: ['user-1', 'user-2'],
+      linkedBlockId: 'block-1',
+      linkedItemId: 'item-1',
+      linkedBlockType: 'task',
+      linkedTitle: '买矿泉水',
+    });
+    expect(parsed).toEqual({
+      mentionAll: true,
+      mentionUserIds: ['user-1', 'user-2'],
+      linkedBlockId: 'block-1',
+      linkedItemId: 'item-1',
+      linkedBlockType: 'task',
+      linkedTitle: '买矿泉水',
+    });
+
+    expect(
+      ChatMessageMetadataSchema.safeParse({ linkedBlockType: 'poll' }).success,
+    ).toBe(true);
+    expect(() =>
+      parseChatMessageMetadata({ linkedBlockType: 'chat' }),
+    ).toThrow(ZodError);
+    expect(() =>
+      parseChatMessageMetadata({ mentionAll: 'yes' }),
+    ).toThrow(ZodError);
+    expect(() =>
+      parseChatMessageMetadata({ mentionUserIds: [''] }),
+    ).toThrow(ZodError);
+
+    // Compile-time check for Stage 2 database row types
+    const action: ActivityAction = 'delete_message';
+    const leaveAction: ActivityAction = 'leave_room';
+    const msgType: ChatMessageType = 'block_card';
+    const msgRow: RoomMessageRow = {
+      id: 'm1',
+      room_id: 'r1',
+      sender_id: 'u1',
+      msg_type: msgType,
+      content: 'hi',
+      metadata: parsed,
+      is_deleted: false,
+      created_at: '2026-11-22T00:00:00Z',
+    };
+    const msgWithSender: RoomMessageWithSender = { ...msgRow, profiles: null };
+    const reportRow: MessageReportRow = {
+      id: 'rep1',
+      message_id: 'm1',
+      room_id: 'r1',
+      reporter_id: 'u2',
+      reason: 'spam',
+      created_at: '2026-11-22T00:00:00Z',
+    };
+    const blockRow: UserBlockRow = {
+      blocker_id: 'u2',
+      blocked_id: 'u1',
+      created_at: '2026-11-22T00:00:00Z',
+    };
+    const blockedWithProfile: BlockedUserWithProfile = {
+      ...blockRow,
+      profiles: null,
+    };
+    const readRow: RoomChatReadRow = {
+      room_id: 'r1',
+      user_id: 'u1',
+      last_read_at: '2026-11-22T00:00:00Z',
+    };
+    expect([
+      action,
+      leaveAction,
+      msgWithSender.id,
+      reportRow.id,
+      blockedWithProfile.blocked_id,
+      readRow.room_id,
+    ]).toHaveLength(6);
+  });
 });
 
 describe('ROOM_TEMPLATES preset definitions', () => {
-  it('exposes all 4 templates in TEMPLATE_LIST with chatEnabled: false', () => {
+  it('exposes all 4 templates in TEMPLATE_LIST with Stage 2 chatEnabled defaults', () => {
     expect(TEMPLATE_LIST.map((t) => t.type)).toEqual([
       'campus',
       'travel',
       'party',
       'custom',
     ]);
+    expect(ROOM_TEMPLATES.campus.chatEnabled).toBe(true);
+    expect(ROOM_TEMPLATES.travel.chatEnabled).toBe(true);
+    expect(ROOM_TEMPLATES.party.chatEnabled).toBe(false);
+    expect(ROOM_TEMPLATES.custom.chatEnabled).toBe(false);
     for (const preset of TEMPLATE_LIST) {
-      expect(preset.chatEnabled).toBe(false);
       for (const block of preset.blocks) {
         expect(() => parseBlockConfig(block.type, block.config)).not.toThrow();
       }

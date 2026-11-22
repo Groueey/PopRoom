@@ -25,6 +25,22 @@ describe('mapRoomError', () => {
     expect(mapRoomError(new Error('NOT_AUTHENTICATED'))).toContain('登录');
     expect(mapRoomError(new Error('PROFILE_REQUIRED'))).toContain('昵称');
     expect(mapRoomError(new Error('NOT_A_MEMBER'))).toContain('成员');
+    expect(mapRoomError(new Error('CHAT_DISABLED'))).toBe('该房间未开启聊天室');
+    expect(mapRoomError({ message: 'HOST_CANNOT_LEAVE' })).toBe(
+      '房主无法直接退出房间，你可以选择归档活动',
+    );
+    expect(
+      mapRoomError({ code: 'P0001', message: 'ERROR: CANNOT_BLOCK_SELF' }),
+    ).toBe('不能屏蔽自己');
+    expect(mapRoomError(new RoomApiError('CHAT_DISABLED'))).toBe(
+      '该房间未开启聊天室',
+    );
+    expect(mapRoomError(new RoomApiError('HOST_CANNOT_LEAVE'))).toBe(
+      '房主无法直接退出房间，你可以选择归档活动',
+    );
+    expect(mapRoomError(new RoomApiError('CANNOT_BLOCK_SELF'))).toBe(
+      '不能屏蔽自己',
+    );
   });
 
   it('preserves custom validation messages on RoomApiError(INVALID_INPUT) and falls back cleanly on unknown errors', () => {
@@ -56,6 +72,25 @@ describe('validateCreateRoomInput', () => {
     expect(validated.announcement).toBe('请带上防晒和帐篷');
     expect(validated.eventStartAt).not.toBeNull();
     expect(validated.eventEndAt).not.toBeNull();
+    expect(validated.chatEnabled).toBeUndefined();
+
+    expect(
+      validateCreateRoomInput({
+        title: '社团纳新',
+        templateType: 'campus',
+        joinMode: 'passcode',
+        chatEnabled: true,
+      }).chatEnabled,
+    ).toBe(true);
+
+    expect(
+      validateCreateRoomInput({
+        title: '社团纳新',
+        templateType: 'campus',
+        joinMode: 'passcode',
+        chatEnabled: false,
+      }).chatEnabled,
+    ).toBe(false);
   });
 
   it('rejects empty title and title exceeding 40 characters', () => {
@@ -150,12 +185,15 @@ describe('prepareJoinPayload', () => {
 });
 
 describe('validateUpdateRoomMetadataInput', () => {
-  it('validates partial room metadata updates cleanly', () => {
+  it('validates partial room metadata updates cleanly including chat_enabled and event timestamps', () => {
     const patch = validateUpdateRoomMetadataInput({
       title: '  新标题  ',
       announcement: '  周日出发  ',
       join_mode: 'approval',
       allow_member_create_poll: false,
+      chat_enabled: true,
+      event_start_at: '2026-11-28 09:00',
+      event_end_at: '2026-11-29T18:00:00.000Z',
     });
 
     expect(patch).toEqual({
@@ -163,10 +201,38 @@ describe('validateUpdateRoomMetadataInput', () => {
       announcement: '周日出发',
       join_mode: 'approval',
       allow_member_create_poll: false,
+      chat_enabled: true,
+      event_start_at: expect.any(String),
+      event_end_at: '2026-11-29T18:00:00.000Z',
+    });
+
+    expect(
+      validateUpdateRoomMetadataInput({
+        chat_enabled: false,
+        event_start_at: null,
+        event_end_at: null,
+      }),
+    ).toEqual({
+      chat_enabled: false,
+      event_start_at: null,
+      event_end_at: null,
     });
 
     expect(() => validateUpdateRoomMetadataInput({ title: '  ' })).toThrow(
       RoomApiError,
+    );
+
+    expect(() =>
+      validateUpdateRoomMetadataInput({ event_start_at: 'not-a-date' }),
+    ).toThrow(RoomApiError);
+
+    expect(() =>
+      validateUpdateRoomMetadataInput({
+        event_start_at: '2026-11-29T18:00:00Z',
+        event_end_at: '2026-11-28T09:00:00Z',
+      }),
+    ).toThrow(
+      new RoomApiError('INVALID_INPUT', '活动结束时间不能早于开始时间'),
     );
   });
 });

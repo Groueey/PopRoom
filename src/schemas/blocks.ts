@@ -165,3 +165,21 @@ export function parseBlockItemData(
       return ExpenseItemDataSchema.parse(raw);
   }
 }
+
+/** Payload metadata schema stored in `room_messages.metadata`. */
+export const ChatMessageMetadataSchema = z.object({
+  mentionAll: z.boolean().default(false),
+  mentionUserIds: z.array(z.string().min(1)).default([]),
+  linkedBlockId: z.string().min(1).optional(),
+  linkedItemId: z.string().min(1).optional(),
+  linkedBlockType: z.enum(['poll', 'task', 'schedule', 'expense']).optional(),
+  linkedTitle: z.string().min(1).optional(),
+});
+export type ChatMessageMetadata = z.infer<typeof ChatMessageMetadataSchema>;
+
+/** Safely parses a raw `room_messages.metadata` payload or returns defaults for null/undefined/non-object inputs. */
+export function parseChatMessageMetadata(raw: unknown): ChatMessageMetadata {
+  return ChatMessageMetadataSchema.parse(
+    raw && typeof raw === 'object' ? raw : {},
+  );
+}

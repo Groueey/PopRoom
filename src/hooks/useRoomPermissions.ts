@@ -7,6 +7,7 @@ export interface RoomPermissionsInput {
   roomStatus: RoomStatus;
   currentUserId: string | null;
   allowMemberCreatePoll: boolean;
+  chatEnabled?: boolean;
 }
 
 /** Computed capability flags and item-level authorization helpers matching Spec Section 5.6. */
@@ -36,6 +37,14 @@ export interface RoomPermissions {
   canManageAdmins: boolean;
   canArchiveRoom: boolean;
   canEditRoomSettings: boolean;
+  canSendChatMessage: boolean;
+  canMentionAll: boolean;
+  canSendBlockReminder: boolean;
+  canDeleteChatMessage: (senderId: string) => boolean;
+  canReportChatMessage: (senderId: string) => boolean;
+  canBlockUser: (targetUserId: string) => boolean;
+  canReorderBlocks: boolean;
+  canLeaveRoom: boolean;
 }
 
 /**
@@ -45,7 +54,13 @@ export interface RoomPermissions {
 export function computeRoomPermissions(
   input: RoomPermissionsInput,
 ): RoomPermissions {
-  const { role, roomStatus, currentUserId, allowMemberCreatePoll } = input;
+  const {
+    role,
+    roomStatus,
+    currentUserId,
+    allowMemberCreatePoll,
+    chatEnabled = false,
+  } = input;
   const isArchived = roomStatus === 'archived';
   const hasMembership = role !== null;
   const isHost = role === 'host';
@@ -117,6 +132,18 @@ export function computeRoomPermissions(
     canManageAdmins: isActiveMember && isHost,
     canArchiveRoom: isActiveMember && isHost,
     canEditRoomSettings: isActiveMember && isAdminOrHost,
+    canSendChatMessage: isActiveMember && chatEnabled,
+    canMentionAll: isActiveMember && chatEnabled && isAdminOrHost,
+    canSendBlockReminder: isActiveMember && chatEnabled && isAdminOrHost,
+    canDeleteChatMessage: (senderId) =>
+      isActiveMember &&
+      (isAdminOrHost || (currentUserId !== null && senderId === currentUserId)),
+    canReportChatMessage: (senderId) =>
+      hasMembership && currentUserId !== null && senderId !== currentUserId,
+    canBlockUser: (targetUserId) =>
+      hasMembership && currentUserId !== null && targetUserId !== currentUserId,
+    canReorderBlocks: isActiveMember && isAdminOrHost,
+    canLeaveRoom: isActiveMember && !isHost,
   };
 }
 
@@ -124,7 +151,13 @@ export function computeRoomPermissions(
 export function useRoomPermissions(
   input: RoomPermissionsInput,
 ): RoomPermissions {
-  const { role, roomStatus, currentUserId, allowMemberCreatePoll } = input;
+  const {
+    role,
+    roomStatus,
+    currentUserId,
+    allowMemberCreatePoll,
+    chatEnabled = false,
+  } = input;
   return useMemo(
     () =>
       computeRoomPermissions({
@@ -132,7 +165,8 @@ export function useRoomPermissions(
         roomStatus,
         currentUserId,
         allowMemberCreatePoll,
+        chatEnabled,
       }),
-    [role, roomStatus, currentUserId, allowMemberCreatePoll],
+    [role, roomStatus, currentUserId, allowMemberCreatePoll, chatEnabled],
   );
 }

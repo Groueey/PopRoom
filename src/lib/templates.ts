@@ -18,7 +18,7 @@ export interface TemplatePreset {
   type: TemplateType;
   name: string;
   description: string;
-  /** Reserved Stage 2 hook; forced `false` across all Stage 1 templates. */
+  /** Whether the room chatroom is enabled by default for this scenario template. */
   chatEnabled: boolean;
   blocks: TemplateBlockPreset[];
 }
@@ -29,7 +29,7 @@ export const ROOM_TEMPLATES: Record<TemplateType, TemplatePreset> = {
     type: 'campus',
     name: '校园 / 社团活动',
     description: '时间热力图投票 + 分工认领 + 活动日程轴 + 社团预算报销',
-    chatEnabled: false,
+    chatEnabled: true,
     blocks: [
       {
         type: 'poll',
@@ -78,7 +78,7 @@ export const ROOM_TEMPLATES: Record<TemplateType, TemplatePreset> = {
     type: 'travel',
     name: '多人出游 / 野营',
     description: '方案目的地投票 + 每日行程轴 + 行李物资分工 + AA 分账器',
-    chatEnabled: false,
+    chatEnabled: true,
     blocks: [
       {
         type: 'poll',

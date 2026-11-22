@@ -4,6 +4,7 @@ import {
   filterActivityLogs,
   formatActivityLogEntry,
   formatActivityLogTimestamp,
+  getActivityActionMeta,
 } from '@/src/lib/activityLogHelpers';
 import type { ActivityLogRow } from '@/src/types/database';
 
@@ -296,6 +297,51 @@ describe('activityLogHelpers', () => {
       expect(emptySnapshot.summary).toContain('小橘');
       expect(emptySnapshot.detail.length).toBeGreaterThan(0);
       expect(emptySnapshot.canRestore).toBe(true);
+    });
+
+    it('formats Stage 2 delete_message and leave_room entries and metadata cleanly', () => {
+      expect(getActivityActionMeta('delete_message')).toEqual({
+        label: '撤回消息',
+        badgeVariant: 'danger',
+      });
+      expect(getActivityActionMeta('leave_room')).toEqual({
+        label: '退出房间',
+        badgeVariant: 'warning',
+      });
+
+      const deletedMsg = formatActivityLogEntry(
+        makeLog({
+          id: 'log-dm',
+          action: 'delete_message',
+          target_table: 'room_messages',
+          before_snapshot: {
+            content: '记得周六早上九点在东门集合',
+            msg_type: 'text',
+          },
+        }),
+        '房主A',
+        true,
+      );
+      expect(deletedMsg.canRestore).toBe(false);
+      expect(deletedMsg.summary).toContain('房主A');
+      expect(deletedMsg.detail).toContain('记得周六早上九点在东门集合');
+
+      const leftRoom = formatActivityLogEntry(
+        makeLog({
+          id: 'log-lr',
+          action: 'leave_room',
+          target_table: 'room_members',
+          before_snapshot: {
+            role: 'member',
+            nickname: '小李',
+          },
+        }),
+        '小李',
+        true,
+      );
+      expect(leftRoom.canRestore).toBe(false);
+      expect(leftRoom.summary).toContain('小李');
+      expect(leftRoom.detail).toContain('成员');
     });
   });
 

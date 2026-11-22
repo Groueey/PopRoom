@@ -96,6 +96,10 @@ export function getActivityActionMeta(action: ActivityAction): {
       return { label: '移出成员', badgeVariant: 'warning' };
     case 'update_room':
       return { label: '房间设置', badgeVariant: 'neutral' };
+    case 'delete_message':
+      return { label: '撤回消息', badgeVariant: 'danger' };
+    case 'leave_room':
+      return { label: '退出房间', badgeVariant: 'warning' };
   }
 }
 
@@ -299,6 +303,45 @@ function formatUpdateRoomEntry(
   };
 }
 
+function formatDeleteMessageEntry(
+  log: ActivityLogRow,
+  safeActor: string,
+): FormattedActivityLog {
+  const snapshot = isRecord(log.before_snapshot) ? log.before_snapshot : null;
+  const content = readNonEmptyString(snapshot, 'content');
+
+  return {
+    id: log.id,
+    summary: `${safeActor} 撤回了一条聊天消息`,
+    detail: content
+      ? `原消息内容：${truncateText(content, 40)}`
+      : '该聊天消息已被删除',
+    canRestore: false,
+    isRestored: log.restored_at !== null,
+    createdAt: log.created_at,
+  };
+}
+
+function formatLeaveRoomEntry(
+  log: ActivityLogRow,
+  safeActor: string,
+): FormattedActivityLog {
+  const snapshot = isRecord(log.before_snapshot) ? log.before_snapshot : null;
+  const rawRole = readNonEmptyString(snapshot, 'role');
+  const roleLabel = rawRole ? (MEMBER_ROLE_LABELS[rawRole] ?? rawRole) : null;
+
+  return {
+    id: log.id,
+    summary: `${safeActor} 退出了房间`,
+    detail: roleLabel
+      ? `原身份：${roleLabel} · 已主动离开该活动房间`
+      : '成员已主动离开该活动房间',
+    canRestore: false,
+    isRestored: log.restored_at !== null,
+    createdAt: log.created_at,
+  };
+}
+
 /**
  * Formats an `activity_logs` row into Chinese summary/detail strings and computes restore eligibility.
  * Gracefully handles partial or null `before_snapshot` payloads across all action types.
@@ -319,6 +362,10 @@ export function formatActivityLogEntry(
       return formatKickMemberEntry(log, safeActor);
     case 'update_room':
       return formatUpdateRoomEntry(log, safeActor);
+    case 'delete_message':
+      return formatDeleteMessageEntry(log, safeActor);
+    case 'leave_room':
+      return formatLeaveRoomEntry(log, safeActor);
   }
 }
 

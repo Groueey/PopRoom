@@ -35,6 +35,9 @@ export type RoomErrorCode =
   | 'POLL_EXPIRED'
   | 'MAX_IMAGES_EXCEEDED'
   | 'LOG_ALREADY_RESTORED'
+  | 'CHAT_DISABLED'
+  | 'HOST_CANNOT_LEAVE'
+  | 'CANNOT_BLOCK_SELF'
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';
 
@@ -66,6 +69,9 @@ const ROOM_ERROR_MESSAGES: Record<RoomErrorCode, string> = {
   POLL_EXPIRED: '该投票已过截止时间',
   MAX_IMAGES_EXCEEDED: '最多只能上传 3 张图片',
   LOG_ALREADY_RESTORED: '该条目已恢复，无需重复操作',
+  CHAT_DISABLED: '该房间未开启聊天室',
+  HOST_CANNOT_LEAVE: '房主无法直接退出房间，你可以选择归档活动',
+  CANNOT_BLOCK_SELF: '不能屏蔽自己',
   NETWORK_ERROR: '网络连接异常，请检查网络后重试',
   UNKNOWN_ERROR: '操作失败，请稍后重试',
 };
@@ -85,6 +91,9 @@ const ERROR_TOKEN_RULES: ReadonlyArray<readonly [string, RoomErrorCode]> = [
   ['POLL_EXPIRED', 'POLL_EXPIRED'],
   ['MAX_IMAGES_EXCEEDED', 'MAX_IMAGES_EXCEEDED'],
   ['LOG_ALREADY_RESTORED', 'LOG_ALREADY_RESTORED'],
+  ['CHAT_DISABLED', 'CHAT_DISABLED'],
+  ['HOST_CANNOT_LEAVE', 'HOST_CANNOT_LEAVE'],
+  ['CANNOT_BLOCK_SELF', 'CANNOT_BLOCK_SELF'],
   ['INVALID_INPUT', 'INVALID_INPUT'],
   ['PGRST116', 'ROOM_NOT_FOUND'],
   ['42501', 'FORBIDDEN'],
@@ -248,6 +257,7 @@ export interface CreateRoomInput {
   announcement?: string;
   eventStartAt?: string | null;
   eventEndAt?: string | null;
+  chatEnabled?: boolean;
 }
 
 /** Validated and normalized room creation payload ready for `create_room_with_template`. */
@@ -258,6 +268,7 @@ export interface ValidatedCreateRoomInput {
   announcement: string;
   eventStartAt: string | null;
   eventEndAt: string | null;
+  chatEnabled?: boolean;
 }
 
 /** Validates and normalizes room creation input before invoking the RPC. */
@@ -294,6 +305,9 @@ export function validateCreateRoomInput(
     announcement,
     eventStartAt,
     eventEndAt,
+    ...(input.chatEnabled !== undefined
+      ? { chatEnabled: Boolean(input.chatEnabled) }
+      : {}),
   };
 }
 
@@ -303,6 +317,7 @@ export interface UpdateRoomMetadataInput {
   announcement?: string;
   join_mode?: JoinMode;
   allow_member_create_poll?: boolean;
+  chat_enabled?: boolean;
   event_start_at?: string | null;
   event_end_at?: string | null;
 }
@@ -328,6 +343,9 @@ export function validateUpdateRoomMetadataInput(
   if (input.allow_member_create_poll !== undefined) {
     patch.allow_member_create_poll = Boolean(input.allow_member_create_poll);
   }
+  if (input.chat_enabled !== undefined) {
+    patch.chat_enabled = Boolean(input.chat_enabled);
+  }
   if (input.event_start_at !== undefined) {
     patch.event_start_at = parseOptionalDateInput(input.event_start_at);
   }
@@ -340,7 +358,7 @@ export function validateUpdateRoomMetadataInput(
     patch.event_end_at &&
     Date.parse(patch.event_end_at) < Date.parse(patch.event_start_at)
   ) {
-    throw new RoomApiError('INVALID_INPUT', '结束时间不能早于开始时间');
+    throw new RoomApiError('INVALID_INPUT', '活动结束时间不能早于开始时间');
   }
 
   return patch;

@@ -21,7 +21,12 @@ export type ActivityAction =
   | 'delete_item'
   | 'restore_item'
   | 'update_room'
-  | 'kick_member';
+  | 'kick_member'
+  | 'delete_message'
+  | 'leave_room';
+
+/** Supported message kinds stored in `public.room_messages`. */
+export type ChatMessageType = 'text' | 'block_card' | 'system';
 
 /** Row shape for `public.profiles`. */
 export interface ProfileRow {
@@ -165,4 +170,53 @@ export interface JoinRoomResult {
   room_id: string;
   status: MemberStatus;
   title: string;
+}
+
+/**
+ * Row shape for `public.room_messages`.
+ * `metadata` is typed as `unknown` and must pass through `ChatMessageMetadataSchema` (`src/schemas/blocks.ts`).
+ */
+export interface RoomMessageRow {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  msg_type: ChatMessageType;
+  content: string;
+  metadata: unknown;
+  is_deleted: boolean;
+  created_at: string;
+}
+
+/** Joined `room_messages` row including the sender's public profile summary. */
+export interface RoomMessageWithSender extends RoomMessageRow {
+  profiles: ProfileSummary | null;
+}
+
+/** Row shape for `public.message_reports`. */
+export interface MessageReportRow {
+  id: string;
+  message_id: string;
+  room_id: string;
+  reporter_id: string;
+  reason: string;
+  created_at: string;
+}
+
+/** Row shape for `public.user_blocks`. */
+export interface UserBlockRow {
+  blocker_id: string;
+  blocked_id: string;
+  created_at: string;
+}
+
+/** Joined `user_blocks` row including the blocked user's public profile summary. */
+export interface BlockedUserWithProfile extends UserBlockRow {
+  profiles: ProfileSummary | null;
+}
+
+/** Row shape for `public.room_chat_reads`. */
+export interface RoomChatReadRow {
+  room_id: string;
+  user_id: string;
+  last_read_at: string;
 }
