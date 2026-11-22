@@ -1,5 +1,7 @@
 # PopRoom Supabase Setup Guide (Stage 1 MVP)
 
+English | [简体中文](./README.zh.md)
+
 Follow these steps to initialize the PostgreSQL schema, Row Level Security (RLS) policies, private `room-media` storage bucket, Realtime publication, and atomic RPCs in a new Supabase project.
 
 ## 1. Create a Supabase Project
