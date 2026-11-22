@@ -19,7 +19,6 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   Text,
   View,
 } from 'react-native';
@@ -49,7 +48,14 @@ import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import {
+  AnimatedItemRow,
+  AnimatedProgressBar,
+  LayoutAnimationConfig,
+  MotionPressable,
+} from '../ui/Motion';
 import { SheetModal } from '../ui/SheetModal';
+import { THEME_COLORS } from '../../lib/theme';
 
 const MAX_EXPENSE_TITLE_LENGTH = 60;
 const MAX_EXPENSE_AMOUNT_YUAN = 1_000_000;
@@ -194,31 +200,35 @@ function ReceiptThumbnail({
 
   const containerClass =
     size === 'lg'
-      ? 'relative h-72 w-full overflow-hidden rounded-2xl border border-zinc-200 bg-surface'
-      : 'relative h-14 w-14 overflow-hidden rounded-xl border border-zinc-200 bg-surface';
+      ? 'relative h-72 w-full overflow-hidden rounded-2xl border border-line bg-surface'
+      : 'relative h-14 w-14 overflow-hidden rounded-xl border border-line bg-surface';
 
   return (
     <View className={containerClass}>
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="small" color="#F97316" />
+          <ActivityIndicator size="small" color={THEME_COLORS.primary} />
         </View>
       ) : isError || imageLoadFailed || !signedUrl ? (
-        <Pressable
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="重新加载票据图片"
           onPress={handleRetry}
-          className="flex-1 items-center justify-center gap-0.5 px-1 active:bg-zinc-100"
+          flex
+          scaleTo={0.94}
+          className="flex-1 items-center justify-center gap-0.5 px-1"
         >
-          <ImageIcon size={size === 'lg' ? 24 : 15} color="#A1A1AA" />
-          <Text className="text-[10px] font-medium text-zinc-400">重试</Text>
-        </Pressable>
+          <ImageIcon size={size === 'lg' ? 24 : 15} color={THEME_COLORS.inkSubtle} />
+          <Text className="text-[10px] font-medium text-inkSubtle">重试</Text>
+        </MotionPressable>
       ) : onPress ? (
-        <Pressable
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="放大查看票据照片"
           onPress={onPress}
-          className="h-full w-full active:opacity-85"
+          flex
+          scaleTo={0.95}
+          className="h-full w-full"
         >
           <Image
             source={{ uri: signedUrl }}
@@ -226,7 +236,7 @@ function ReceiptThumbnail({
             resizeMode="cover"
             onError={() => setImageLoadFailed(true)}
           />
-        </Pressable>
+        </MotionPressable>
       ) : (
         <Image
           source={{ uri: signedUrl }}
@@ -237,14 +247,16 @@ function ReceiptThumbnail({
       )}
 
       {canRemove && onRemove ? (
-        <Pressable
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="移除票据照片"
           onPress={onRemove}
-          className="absolute right-1 top-1 h-5 w-5 items-center justify-center rounded-full bg-black/65 active:bg-black/80"
+          scaleTo={0.88}
+          containerStyle={{ position: 'absolute', right: 4, top: 4 }}
+          className="h-5 w-5 items-center justify-center rounded-full bg-black/60"
         >
           <X size={11} color="#FFFFFF" />
-        </Pressable>
+        </MotionPressable>
       ) : null}
     </View>
   );
@@ -684,15 +696,15 @@ export function ExpenseBlock({
     <Card className="mb-3.5">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
-            <Wallet size={18} color="#F97316" />
+          <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
+            <Wallet size={18} color={THEME_COLORS.primary} />
           </View>
 
           <View className="flex-1">
             <View className="mb-1 flex-row flex-wrap items-center gap-1.5">
               <Badge
                 label={isBudgetMode ? '预算报销' : 'AA 分账'}
-                variant="success"
+                variant="primary"
               />
               <Badge label={currency} variant="neutral" />
               {isBudgetMode && isOverspent ? (
@@ -703,7 +715,7 @@ export function ExpenseBlock({
             <Text className="text-base font-bold text-ink" numberOfLines={2}>
               {block.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               {items.length} 笔账目 · 累计消费{' '}
               {formatCents(totalSpentCents, currency)}
             </Text>
@@ -711,14 +723,15 @@ export function ExpenseBlock({
         </View>
 
         {permissions.canManageBlocks && onRequestDeleteBlock ? (
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel={`删除积木 ${block.title}`}
             onPress={() => onRequestDeleteBlock(block)}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-zinc-200 bg-surface active:bg-red-50"
+            scaleTo={0.9}
+            className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
           >
-            <Trash2 size={15} color="#71717A" />
-          </Pressable>
+            <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+          </MotionPressable>
         ) : null}
       </View>
 
@@ -726,55 +739,56 @@ export function ExpenseBlock({
         <View
           className={`mt-3.5 rounded-2xl border p-3.5 ${
             isOverspent
-              ? 'border-red-200 bg-red-50/70'
-              : 'border-zinc-200 bg-surface'
+              ? 'border-[#FAD2D0] bg-[#FEF2F2]/80'
+              : 'border-line bg-primaryMist'
           }`}
         >
           <View className="flex-row items-center justify-between gap-2">
             <Text className="text-xs font-bold text-ink">社团 / 活动预算总览</Text>
             {permissions.canManageBlocks ? (
-              <Pressable
+              <MotionPressable
                 accessibilityRole="button"
                 accessibilityLabel={
                   totalBudgetCents !== null ? '编辑预算' : '设置预算'
                 }
                 onPress={handleOpenBudgetModal}
-                className="flex-row items-center gap-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1 active:bg-zinc-100"
+                scaleTo={0.94}
+                className="flex-row items-center gap-1 rounded-xl border border-primaryBorder bg-white px-2.5 py-1"
               >
-                <Settings2 size={12} color="#F97316" />
-                <Text className="text-[11px] font-semibold text-primary">
+                <Settings2 size={12} color={THEME_COLORS.primaryDeep} />
+                <Text className="text-[11px] font-semibold text-primaryDeep">
                   {totalBudgetCents !== null ? '编辑预算' : '设置预算'}
                 </Text>
-              </Pressable>
+              </MotionPressable>
             ) : null}
           </View>
 
           <View className="mt-3 flex-row gap-2">
-            <View className="flex-1 rounded-xl bg-white p-2.5 border border-zinc-200/70">
-              <Text className="text-[10px] text-zinc-400">总预算</Text>
+            <View className="flex-1 rounded-xl border border-lineSoft bg-white p-2.5">
+              <Text className="text-[10px] text-inkSubtle">总预算</Text>
               <Text className="mt-0.5 text-sm font-bold text-ink">
                 {totalBudgetCents !== null
                   ? formatCents(totalBudgetCents, currency)
                   : '未设置'}
               </Text>
             </View>
-            <View className="flex-1 rounded-xl bg-white p-2.5 border border-zinc-200/70">
-              <Text className="text-[10px] text-zinc-400">已支出</Text>
+            <View className="flex-1 rounded-xl border border-lineSoft bg-white p-2.5">
+              <Text className="text-[10px] text-inkSubtle">已支出</Text>
               <Text className="mt-0.5 text-sm font-bold text-ink">
                 {formatCents(totalSpentCents, currency)}
               </Text>
             </View>
-            <View className="flex-1 rounded-xl bg-white p-2.5 border border-zinc-200/70">
-              <Text className="text-[10px] text-zinc-400">
+            <View className="flex-1 rounded-xl border border-lineSoft bg-white p-2.5">
+              <Text className="text-[10px] text-inkSubtle">
                 {isOverspent ? '超出预算' : '剩余预算'}
               </Text>
               <Text
                 className={`mt-0.5 text-sm font-bold ${
                   remainingCents === null
-                    ? 'text-zinc-400'
+                    ? 'text-inkSubtle'
                     : isOverspent
-                      ? 'text-red-600'
-                      : 'text-emerald-600'
+                      ? 'text-[#C94545]'
+                      : 'text-[#287B5B]'
                 }`}
               >
                 {remainingCents === null
@@ -788,22 +802,22 @@ export function ExpenseBlock({
 
           {totalBudgetCents !== null ? (
             <View className="mt-3">
-              <View className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200">
-                <View
-                  style={{ width: `${budgetProgressPercent}%` }}
-                  className={`h-full rounded-full ${
-                    isOverspent
-                      ? 'bg-red-500'
-                      : budgetProgressPercent >= 85
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500'
-                  }`}
-                />
-              </View>
+              <AnimatedProgressBar
+                percent={budgetProgressPercent}
+                height={9}
+                fillColor={
+                  isOverspent
+                    ? THEME_COLORS.danger
+                    : budgetProgressPercent >= 85
+                      ? THEME_COLORS.warning
+                      : THEME_COLORS.primary
+                }
+                trackColor={THEME_COLORS.line}
+              />
               <View className="mt-1.5 flex-row items-center justify-between">
                 <Text
                   className={`text-[11px] font-medium ${
-                    isOverspent ? 'text-red-600' : 'text-zinc-500'
+                    isOverspent ? 'text-[#C94545]' : 'text-inkMuted'
                   }`}
                 >
                   {isOverspent
@@ -814,8 +828,8 @@ export function ExpenseBlock({
                 </Text>
                 {isOverspent ? (
                   <View className="flex-row items-center gap-1">
-                    <AlertTriangle size={12} color="#DC2626" />
-                    <Text className="text-[11px] font-bold text-red-600">
+                    <AlertTriangle size={12} color={THEME_COLORS.danger} />
+                    <Text className="text-[11px] font-bold text-[#C94545]">
                       注意控费
                     </Text>
                   </View>
@@ -823,7 +837,7 @@ export function ExpenseBlock({
               </View>
             </View>
           ) : (
-            <Text className="mt-2.5 text-[11px] text-zinc-500">
+            <Text className="mt-2.5 text-[11px] text-inkMuted">
               {permissions.canManageBlocks
                 ? '点击右上角「设置预算」配置经费上限与超支提醒'
                 : '房主或管理员尚未设置预算上限'}
@@ -831,16 +845,16 @@ export function ExpenseBlock({
           )}
         </View>
       ) : (
-        <View className="mt-3.5 rounded-2xl border border-zinc-200 bg-surface p-3.5">
+        <View className="mt-3.5 rounded-2xl border border-line bg-primaryMist p-3.5">
           <View className="flex-row items-center justify-between">
             <Text className="text-xs font-bold text-ink">成员净收支（AA 汇总）</Text>
-            <Text className="text-xs font-bold text-primary">
+            <Text className="text-xs font-bold text-primaryDeep">
               共 {formatCents(totalSpentCents, currency)}
             </Text>
           </View>
 
           {splitSummary.balances.length === 0 ? (
-            <Text className="mt-2 text-xs text-zinc-400">
+            <Text className="mt-2 text-xs text-inkSubtle">
               记入第一笔账目后，将自动计算成员应收应付及最少转账方案
             </Text>
           ) : (
@@ -857,10 +871,10 @@ export function ExpenseBlock({
                       key={`bal-${balance.userId}`}
                       className={`flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 ${
                         isPositive
-                          ? 'border-emerald-200 bg-emerald-50'
+                          ? 'border-[#CBEAD9] bg-[#EEF8F3]'
                           : isNegative
-                            ? 'border-orange-200 bg-primarySoft'
-                            : 'border-zinc-200 bg-white'
+                            ? 'border-primaryBorder bg-primarySoft'
+                            : 'border-line bg-white'
                       }`}
                     >
                       <Avatar
@@ -875,10 +889,10 @@ export function ExpenseBlock({
                       <Text
                         className={`text-xs font-bold ${
                           isPositive
-                            ? 'text-emerald-700'
+                            ? 'text-[#287B5B]'
                             : isNegative
-                              ? 'text-primary'
-                              : 'text-zinc-500'
+                              ? 'text-primaryDeep'
+                              : 'text-inkMuted'
                         }`}
                       >
                         {isPositive
@@ -892,12 +906,12 @@ export function ExpenseBlock({
                 })}
               </View>
 
-              <View className="mt-3 border-t border-zinc-200/80 pt-3">
+              <View className="mt-3 border-t border-lineSoft pt-3">
                 <Text className="mb-2 text-xs font-bold text-ink">
                   最少转账结算方案
                 </Text>
                 {splitSummary.transfers.length === 0 ? (
-                  <Text className="text-xs text-emerald-700">
+                  <Text className="text-xs text-[#287B5B]">
                     当前账目已全员平账，无需额外转账
                   </Text>
                 ) : (
@@ -917,7 +931,7 @@ export function ExpenseBlock({
                       return (
                         <View
                           key={`tx-${transfer.fromUserId}-${transfer.toUserId}-${idx}`}
-                          className="flex-row items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-white px-3 py-2"
+                          className="flex-row items-center justify-between gap-2 rounded-xl border border-line bg-white px-3 py-2"
                         >
                           <View className="flex-1 flex-row items-center gap-1.5">
                             <Avatar
@@ -931,12 +945,12 @@ export function ExpenseBlock({
                               numberOfLines={2}
                             >
                               {fromName} 应向 {toName} 转账{' '}
-                              <Text className="font-bold text-primary">
+                              <Text className="font-bold text-primaryDeep">
                                 {amountText}
                               </Text>
                             </Text>
                           </View>
-                          <ArrowRight size={13} color="#F97316" />
+                          <ArrowRight size={13} color={THEME_COLORS.primary} />
                           <Avatar
                             nickname={toName}
                             color={toProfile?.avatar_color}
@@ -955,118 +969,121 @@ export function ExpenseBlock({
       )}
 
       {sortedItems.length === 0 ? (
-        <View className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-surface/70 px-4 py-4">
-          <Text className="text-center text-xs text-zinc-400">
+        <View className="mt-3 rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-4">
+          <Text className="text-center text-xs text-inkSubtle">
             暂无消费明细{canCreateExpense ? '，点击下方按钮记入第一笔账目' : ''}
           </Text>
         </View>
       ) : (
-        <View className="mt-3 gap-2.5">
-          {sortedItems.map((item) => {
-            const payerProfile = memberProfileMap.get(item.data.paidByUserId);
-            const payerName = payerProfile?.nickname ?? '成员';
-            const dateLabel = formatExpenseDateLabel(item.data.spentAt);
-            const canEditOrDelete = permissions.canEditOrDeleteItem(
-              item.created_by,
-            );
-            const itemCents = Math.round(item.data.amount * 100);
+        <LayoutAnimationConfig skipEntering>
+          <View className="mt-3 gap-2.5">
+            {sortedItems.map((item) => {
+              const payerProfile = memberProfileMap.get(item.data.paidByUserId);
+              const payerName = payerProfile?.nickname ?? '成员';
+              const dateLabel = formatExpenseDateLabel(item.data.spentAt);
+              const canEditOrDelete = permissions.canEditOrDeleteItem(
+                item.created_by,
+              );
+              const itemCents = Math.round(item.data.amount * 100);
 
-            return (
-              <View
-                key={item.id}
-                className="rounded-2xl border border-zinc-200 bg-surface p-3.5"
-              >
-                <View className="flex-row items-start justify-between gap-2.5">
-                  <View className="flex-1">
-                    <View className="flex-row items-center justify-between gap-2">
-                      <Text
-                        className="flex-1 text-sm font-bold text-ink"
-                        numberOfLines={2}
-                      >
-                        {item.data.title}
-                      </Text>
-                      <Text className="text-base font-bold text-primary">
-                        {formatCents(itemCents, currency)}
-                      </Text>
-                    </View>
+              return (
+                <AnimatedItemRow key={item.id}>
+                  <View className="rounded-2xl border border-line bg-primaryMist p-3.5">
+                    <View className="flex-row items-start justify-between gap-2.5">
+                      <View className="flex-1">
+                        <View className="flex-row items-center justify-between gap-2">
+                          <Text
+                            className="flex-1 text-sm font-bold text-ink"
+                            numberOfLines={2}
+                          >
+                            {item.data.title}
+                          </Text>
+                          <Text className="text-base font-bold text-primaryDeep">
+                            {formatCents(itemCents, currency)}
+                          </Text>
+                        </View>
 
-                    <View className="mt-2 flex-row flex-wrap items-center gap-2">
-                      <View className="flex-row items-center gap-1.5">
-                        <Avatar
-                          nickname={payerName}
-                          color={payerProfile?.avatar_color}
-                          imageUrl={payerProfile?.avatar_url}
-                          size="xs"
+                        <View className="mt-2 flex-row flex-wrap items-center gap-2">
+                          <View className="flex-row items-center gap-1.5">
+                            <Avatar
+                              nickname={payerName}
+                              color={payerProfile?.avatar_color}
+                              imageUrl={payerProfile?.avatar_url}
+                              size="xs"
+                            />
+                            <Text className="text-xs font-medium text-ink/80">
+                              {payerName} 垫付
+                            </Text>
+                          </View>
+
+                          <View className="flex-row items-center gap-1 rounded-full border border-line bg-white px-2 py-0.5">
+                            <Users size={10} color={THEME_COLORS.inkMuted} />
+                            <Text className="text-[10px] font-medium text-inkMuted">
+                              {item.data.participantIds.length} 人分摊
+                            </Text>
+                          </View>
+
+                          {dateLabel ? (
+                            <Text className="text-[11px] text-inkSubtle">
+                              {dateLabel}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+
+                      {item.data.receiptUrl ? (
+                        <ReceiptThumbnail
+                          key={item.data.receiptUrl}
+                          canonicalUrl={item.data.receiptUrl}
+                          onPress={() => setPreviewReceiptUrl(item.data.receiptUrl)}
                         />
-                        <Text className="text-xs font-medium text-zinc-700">
-                          {payerName} 垫付
-                        </Text>
-                      </View>
-
-                      <View className="flex-row items-center gap-1 rounded-full bg-white px-2 py-0.5 border border-zinc-200">
-                        <Users size={10} color="#71717A" />
-                        <Text className="text-[10px] font-medium text-zinc-600">
-                          {item.data.participantIds.length} 人分摊
-                        </Text>
-                      </View>
-
-                      {dateLabel ? (
-                        <Text className="text-[11px] text-zinc-400">
-                          {dateLabel}
-                        </Text>
                       ) : null}
                     </View>
-                  </View>
 
-                  {item.data.receiptUrl ? (
-                    <ReceiptThumbnail
-                      key={item.data.receiptUrl}
-                      canonicalUrl={item.data.receiptUrl}
-                      onPress={() => setPreviewReceiptUrl(item.data.receiptUrl)}
-                    />
-                  ) : null}
-                </View>
-
-                {canEditOrDelete ? (
-                  <View className="mt-2.5 flex-row justify-end gap-2 border-t border-zinc-200/70 pt-2">
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`编辑消费 ${item.data.title}`}
-                      onPress={() => handleOpenEditForm(item)}
-                      className="flex-row items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 active:bg-zinc-100"
-                    >
-                      <Edit3 size={12} color="#52525B" />
-                      <Text className="text-[11px] font-semibold text-zinc-600">
-                        编辑
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`删除消费 ${item.data.title}`}
-                      onPress={() => setDeleteItemTarget(item)}
-                      className="flex-row items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 active:bg-red-50"
-                    >
-                      <Trash2 size={12} color="#EF4444" />
-                      <Text className="text-[11px] font-semibold text-red-600">
-                        删除
-                      </Text>
-                    </Pressable>
+                    {canEditOrDelete ? (
+                      <View className="mt-2.5 flex-row justify-end gap-2 border-t border-lineSoft pt-2">
+                        <MotionPressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`编辑消费 ${item.data.title}`}
+                          onPress={() => handleOpenEditForm(item)}
+                          scaleTo={0.94}
+                          className="flex-row items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1"
+                        >
+                          <Edit3 size={12} color={THEME_COLORS.inkMuted} />
+                          <Text className="text-[11px] font-semibold text-inkMuted">
+                            编辑
+                          </Text>
+                        </MotionPressable>
+                        <MotionPressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`删除消费 ${item.data.title}`}
+                          onPress={() => setDeleteItemTarget(item)}
+                          scaleTo={0.94}
+                          className="flex-row items-center gap-1 rounded-lg border border-[#FAD2D0] bg-white px-2.5 py-1"
+                        >
+                          <Trash2 size={12} color={THEME_COLORS.danger} />
+                          <Text className="text-[11px] font-semibold text-[#C94545]">
+                            删除
+                          </Text>
+                        </MotionPressable>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
+                </AnimatedItemRow>
+              );
+            })}
+          </View>
+        </LayoutAnimationConfig>
       )}
 
       {canCreateExpense ? (
-        <View className="mt-3 border-t border-zinc-100 pt-3">
+        <View className="mt-3.5 border-t border-lineSoft pt-3">
           <Button
             title="记一笔消费"
             variant="secondary"
             size="sm"
             fullWidth
-            leftIcon={<Plus size={14} color="#F97316" />}
+            leftIcon={<Plus size={14} color={THEME_COLORS.primaryDeep} />}
             onPress={handleOpenCreateForm}
           />
         </View>
@@ -1081,7 +1098,7 @@ export function ExpenseBlock({
         title="设置活动总预算"
       >
         <View className="mb-4">
-          <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+          <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
             总预算金额（人民币 元，留空则清除预算上限）
           </Text>
           <BottomSheetTextInput
@@ -1094,14 +1111,14 @@ export function ExpenseBlock({
             }}
             keyboardType="decimal-pad"
             placeholder="例如：1500"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         {budgetError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">{budgetError}</Text>
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">{budgetError}</Text>
           </View>
         ) : null}
 
@@ -1126,10 +1143,10 @@ export function ExpenseBlock({
       >
         <View className="mb-3.5">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               消费内容（必填）
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(titleInput.trim()).length}/{MAX_EXPENSE_TITLE_LENGTH}
             </Text>
           </View>
@@ -1143,14 +1160,14 @@ export function ExpenseBlock({
             }}
             maxLength={MAX_EXPENSE_TITLE_LENGTH}
             placeholder="例如：露营食材采购 / 景区门票"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         <View className="mb-3.5 flex-row gap-2.5">
           <View className="flex-1">
-            <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+            <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
               金额（元，CNY）
             </Text>
             <BottomSheetTextInput
@@ -1163,12 +1180,12 @@ export function ExpenseBlock({
               }}
               keyboardType="decimal-pad"
               placeholder="0.00"
-              placeholderTextColor="#A1A1AA"
-              className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+              placeholderTextColor={THEME_COLORS.inkSubtle}
+              className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
             />
           </View>
           <View className="flex-1">
-            <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+            <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
               消费日期（YYYY-MM-DD）
             </Text>
             <BottomSheetTextInput
@@ -1180,14 +1197,14 @@ export function ExpenseBlock({
                 }
               }}
               placeholder="2026-11-22"
-              placeholderTextColor="#A1A1AA"
-              className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+              placeholderTextColor={THEME_COLORS.inkSubtle}
+              className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
             />
           </View>
         </View>
 
         <View className="mb-3.5">
-          <Text className="mb-2 text-xs font-semibold text-zinc-600">
+          <Text className="mb-2 text-xs font-semibold text-inkMuted">
             付款人（谁垫付的）
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -1195,10 +1212,11 @@ export function ExpenseBlock({
               const selected = paidByUserIdInput === entry.userId;
               const label = entry.profile?.nickname ?? '成员';
               return (
-                <Pressable
+                <MotionPressable
                   key={`payer-${entry.userId}`}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
+                  scaleTo={0.95}
                   onPress={() => {
                     setPaidByUserIdInput(entry.userId);
                     if (formError) {
@@ -1208,7 +1226,7 @@ export function ExpenseBlock({
                   className={`flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 ${
                     selected
                       ? 'border-primary bg-primarySoft'
-                      : 'border-zinc-200 bg-surface'
+                      : 'border-line bg-surface'
                   }`}
                 >
                   <Avatar
@@ -1219,12 +1237,12 @@ export function ExpenseBlock({
                   />
                   <Text
                     className={`text-xs font-semibold ${
-                      selected ? 'text-primary' : 'text-zinc-700'
+                      selected ? 'text-primaryDeep' : 'text-inkMuted'
                     }`}
                   >
                     {label}
                   </Text>
-                </Pressable>
+                </MotionPressable>
               );
             })}
           </View>
@@ -1232,33 +1250,35 @@ export function ExpenseBlock({
 
         <View className="mb-3.5">
           <View className="mb-2 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               参与分摊成员（已选 {participantIdsInput.length} 人）
             </Text>
             <View className="flex-row items-center gap-2">
-              <Pressable
+              <MotionPressable
                 accessibilityRole="button"
+                scaleTo={0.94}
                 onPress={() =>
                   setParticipantIdsInput(
                     selectableMembers.map((entry) => entry.userId),
                   )
                 }
-                className="rounded-lg bg-primarySoft px-2 py-1 active:opacity-80"
+                className="rounded-lg bg-primarySoft px-2 py-1"
               >
-                <Text className="text-[11px] font-semibold text-primary">
+                <Text className="text-[11px] font-semibold text-primaryDeep">
                   全选
                 </Text>
-              </Pressable>
+              </MotionPressable>
               {paidByUserIdInput ? (
-                <Pressable
+                <MotionPressable
                   accessibilityRole="button"
+                  scaleTo={0.94}
                   onPress={() => setParticipantIdsInput([paidByUserIdInput])}
-                  className="rounded-lg bg-zinc-100 px-2 py-1 active:bg-zinc-200"
+                  className="rounded-lg bg-surface px-2 py-1"
                 >
-                  <Text className="text-[11px] font-semibold text-zinc-600">
+                  <Text className="text-[11px] font-semibold text-inkMuted">
                     仅付款人
                   </Text>
-                </Pressable>
+                </MotionPressable>
               ) : null}
             </View>
           </View>
@@ -1268,15 +1288,16 @@ export function ExpenseBlock({
               const selected = participantIdsInput.includes(entry.userId);
               const label = entry.profile?.nickname ?? '成员';
               return (
-                <Pressable
+                <MotionPressable
                   key={`part-${entry.userId}`}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: selected }}
+                  scaleTo={0.95}
                   onPress={() => handleToggleParticipant(entry.userId)}
                   className={`flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 ${
                     selected
                       ? 'border-primary bg-primarySoft'
-                      : 'border-zinc-200 bg-surface'
+                      : 'border-line bg-surface'
                   }`}
                 >
                   <Avatar
@@ -1287,29 +1308,29 @@ export function ExpenseBlock({
                   />
                   <Text
                     className={`text-xs font-semibold ${
-                      selected ? 'text-primary' : 'text-zinc-700'
+                      selected ? 'text-primaryDeep' : 'text-inkMuted'
                     }`}
                   >
                     {label}
                   </Text>
                   {selected ? (
-                    <Check size={12} color="#F97316" strokeWidth={3} />
+                    <Check size={12} color={THEME_COLORS.primaryDeep} strokeWidth={3} />
                   ) : null}
-                </Pressable>
+                </MotionPressable>
               );
             })}
           </View>
         </View>
 
-        <View className="mb-4 rounded-2xl border border-zinc-200/80 bg-surface p-3.5">
+        <View className="mb-4 rounded-2xl border border-line bg-primaryMist p-3.5">
           <View className="mb-2 flex-row items-center justify-between">
             <View className="flex-row items-center gap-1.5">
-              <Receipt size={14} color="#F97316" />
-              <Text className="text-xs font-semibold text-zinc-600">
+              <Receipt size={14} color={THEME_COLORS.primary} />
+              <Text className="text-xs font-semibold text-inkMuted">
                 票据 / 小票照片（选填）
               </Text>
             </View>
-            <Text className="text-[11px] text-zinc-400">单张不超过 5MB</Text>
+            <Text className="text-[11px] text-inkSubtle">单张不超过 5MB</Text>
           </View>
 
           {receiptUrlInput ? (
@@ -1326,15 +1347,17 @@ export function ExpenseBlock({
                       setExpandFormReceipt(false);
                     }}
                   />
-                  <Pressable
+                  <MotionPressable
                     accessibilityRole="button"
+                    scaleTo={0.95}
                     onPress={() => setExpandFormReceipt(false)}
-                    className="self-end rounded-lg bg-white px-2.5 py-1 border border-zinc-200"
+                    containerStyle={{ alignSelf: 'flex-end' }}
+                    className="rounded-lg border border-line bg-white px-2.5 py-1"
                   >
-                    <Text className="text-[11px] font-semibold text-zinc-600">
+                    <Text className="text-[11px] font-semibold text-inkMuted">
                       收起大图
                     </Text>
-                  </Pressable>
+                  </MotionPressable>
                 </View>
               ) : (
                 <View className="flex-row items-center gap-3">
@@ -1348,7 +1371,7 @@ export function ExpenseBlock({
                     }}
                     onPress={() => setExpandFormReceipt(true)}
                   />
-                  <Text className="flex-1 text-xs text-zinc-500">
+                  <Text className="flex-1 text-xs text-inkMuted">
                     已关联票据照片，点击缩略图可展开预览或重新上传替换
                   </Text>
                 </View>
@@ -1361,7 +1384,7 @@ export function ExpenseBlock({
               title={receiptUrlInput ? '更换相册照片' : '相册上传'}
               variant="secondary"
               size="sm"
-              leftIcon={<ImageIcon size={14} color="#F97316" />}
+              leftIcon={<ImageIcon size={14} color={THEME_COLORS.primaryDeep} />}
               loading={uploadingReceipt}
               onPress={() => void handleUploadReceipt('library')}
               className="flex-1"
@@ -1370,17 +1393,17 @@ export function ExpenseBlock({
               title="拍照上传"
               variant="ghost"
               size="sm"
-              leftIcon={<Camera size={14} color="#18181B" />}
+              leftIcon={<Camera size={14} color={THEME_COLORS.ink} />}
               loading={uploadingReceipt}
               onPress={() => void handleUploadReceipt('camera')}
-              className="flex-1 border border-zinc-200 bg-white"
+              className="flex-1 border border-line bg-white"
             />
           </View>
         </View>
 
         {formError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">{formError}</Text>
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">{formError}</Text>
           </View>
         ) : null}
 
@@ -1432,7 +1455,7 @@ export function ExpenseBlock({
         onClose={() => setDeleteItemTarget(null)}
         title="确认删除该笔账目？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           确定删除「{deleteItemTarget?.data.title ?? ''}
           」吗？管理员后续可在房间操作日志中恢复该记录。
         </Text>

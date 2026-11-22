@@ -13,16 +13,19 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { MotionPressable } from '../src/components/ui/Motion';
 import { asyncStoragePersister, queryClient } from '../src/lib/queryClient';
 import { clearCachedProfile, profileCache } from '../src/lib/profileCache';
 import { extractRoomCodeFromUrl } from '../src/lib/roomCode';
 import { fetchProfileByUserId, supabase } from '../src/lib/supabase';
+import { FLOATING_SHADOW, THEME_COLORS } from '../src/lib/theme';
 import {
   computeNavigationStep,
   loadProfileWithFallback,
@@ -35,23 +38,39 @@ import { type ToastVariant, useUiStore } from '../src/stores/uiStore';
 registerProfileFetcher(fetchProfileByUserId);
 registerProfileCache(profileCache);
 
-const TOAST_BG_CLASSES: Record<ToastVariant, string> = {
-  info: 'bg-ink',
-  success: 'bg-emerald-600',
-  error: 'bg-red-600',
+const TOAST_STYLE_MAP: Record<
+  ToastVariant,
+  { container: string; iconBg: string; iconColor: string }
+> = {
+  info: {
+    container: 'bg-white border border-primaryBorder',
+    iconBg: 'bg-primarySoft',
+    iconColor: THEME_COLORS.primaryDeep,
+  },
+  success: {
+    container: 'bg-white border border-[#CBEAD9]',
+    iconBg: 'bg-[#EEF8F3]',
+    iconColor: THEME_COLORS.success,
+  },
+  error: {
+    container: 'bg-white border border-[#FAD2D0]',
+    iconBg: 'bg-[#FEF2F2]',
+    iconColor: THEME_COLORS.danger,
+  },
 };
 
 function ToastIcon({ type }: { type: ToastVariant }) {
+  const color = TOAST_STYLE_MAP[type].iconColor;
   if (type === 'success') {
-    return <CheckCircle2 size={18} color="#FFFFFF" />;
+    return <CheckCircle2 size={16} color={color} />;
   }
   if (type === 'error') {
-    return <AlertCircle size={18} color="#FFFFFF" />;
+    return <AlertCircle size={16} color={color} />;
   }
-  return <Info size={18} color="#FFFFFF" />;
+  return <Info size={16} color={color} />;
 }
 
-/** Global top toast banner overlay reading from `useUiStore`. */
+/** Global top toast banner overlay reading from `useUiStore` with spring slide animation. */
 function ToastOverlay() {
   const insets = useSafeAreaInsets();
   const toast = useUiStore((s) => s.toast);
@@ -71,24 +90,35 @@ function ToastOverlay() {
     return null;
   }
 
+  const variantStyle = TOAST_STYLE_MAP[toast.type];
+
   return (
-    <View
+    <Animated.View
+      key={toast.id}
+      entering={FadeInUp.duration(260).springify().damping(18).stiffness(260)}
+      exiting={FadeOutUp.duration(180)}
       pointerEvents="box-none"
       style={{ top: insets.top + 8 }}
       className="absolute left-4 right-4 z-50"
     >
-      <Pressable
+      <MotionPressable
         accessibilityRole="alert"
+        scaleTo={0.98}
         onPress={() => dismissToast(toast.id)}
-        className={`flex-row items-center gap-2.5 rounded-2xl px-4 py-3 shadow-md ${TOAST_BG_CLASSES[toast.type]}`}
+        style={FLOATING_SHADOW}
+        className={`flex-row items-center gap-2.5 rounded-2xl px-3.5 py-3 ${variantStyle.container}`}
       >
-        <ToastIcon type={toast.type} />
-        <Text className="flex-1 text-sm font-medium text-white">
+        <View
+          className={`h-7 w-7 items-center justify-center rounded-full ${variantStyle.iconBg}`}
+        >
+          <ToastIcon type={toast.type} />
+        </View>
+        <Text className="flex-1 text-sm font-semibold text-ink">
           {toast.message}
         </Text>
-        <X size={16} color="#FFFFFF" />
-      </Pressable>
-    </View>
+        <X size={15} color={THEME_COLORS.inkSubtle} />
+      </MotionPressable>
+    </Animated.View>
   );
 }
 
@@ -266,13 +296,13 @@ function RootNavigator() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#F8FAFC' },
+          contentStyle: { backgroundColor: THEME_COLORS.surface },
         }}
       />
       {!initialized ? (
         <View className="absolute inset-0 items-center justify-center bg-surface">
-          <ActivityIndicator size="large" color="#F97316" />
-          <Text className="mt-3 text-sm font-medium text-zinc-500">
+          <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+          <Text className="mt-3 text-sm font-medium text-inkMuted">
             正在进入轻橘 PopRoom...
           </Text>
         </View>

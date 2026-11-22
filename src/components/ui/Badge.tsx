@@ -18,24 +18,24 @@ export interface BadgeProps {
 }
 
 const CONTAINER_VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  primary: 'bg-primarySoft border border-orange-200',
-  neutral: 'bg-zinc-100 border border-zinc-200',
-  success: 'bg-emerald-50 border border-emerald-200',
-  warning: 'bg-amber-50 border border-amber-200',
-  danger: 'bg-red-50 border border-red-200',
+  primary: 'bg-primarySoft border border-primaryBorder',
+  neutral: 'bg-surface border border-line',
+  success: 'bg-[#EEF8F3] border border-[#CBEAD9]',
+  warning: 'bg-[#FEF7E8] border border-[#F5DFB3]',
+  danger: 'bg-[#FEF2F2] border border-[#FAD2D0]',
 };
 
 const TEXT_VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  primary: 'text-primary',
-  neutral: 'text-zinc-700',
-  success: 'text-emerald-700',
-  warning: 'text-amber-800',
-  danger: 'text-red-700',
+  primary: 'text-primaryDeep',
+  neutral: 'text-inkMuted',
+  success: 'text-[#287B5B]',
+  warning: 'text-[#A66214]',
+  danger: 'text-[#C94545]',
 };
 
 const SIZE_CLASSES: Record<BadgeSize, string> = {
-  sm: 'px-2 py-0.5',
-  md: 'px-2.5 py-1',
+  sm: 'px-2.5 py-0.5',
+  md: 'px-3 py-1',
 };
 
 const TEXT_SIZE_CLASSES: Record<BadgeSize, string> = {
@@ -43,7 +43,7 @@ const TEXT_SIZE_CLASSES: Record<BadgeSize, string> = {
   md: 'text-xs',
 };
 
-/** Compact rounded pill badge for room templates, member roles, and item statuses. */
+/** Gentle warm pill badge for room templates, member roles, and item statuses. */
 export function Badge({
   label,
   children,

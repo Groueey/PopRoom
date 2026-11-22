@@ -13,7 +13,6 @@ import {
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -35,6 +34,7 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import { MotionPressable } from '../../../src/components/ui/Motion';
 import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
@@ -48,6 +48,7 @@ import {
 } from '../../../src/lib/activityLogHelpers';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
+import { THEME_COLORS } from '../../../src/lib/theme';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
 import type { ProfileSummary } from '../../../src/types/database';
@@ -234,8 +235,8 @@ export default function RoomLogsScreen() {
   if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
-        <ActivityIndicator size="large" color="#F97316" />
-        <Text className="mt-3 text-xs text-zinc-500">正在加载操作日志...</Text>
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+        <Text className="mt-3 text-xs text-inkMuted">正在加载操作日志...</Text>
       </SafeAreaView>
     );
   }
@@ -255,9 +256,9 @@ export default function RoomLogsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
-          <AlertTriangle size={28} color="#EF4444" />
+          <AlertTriangle size={28} color={THEME_COLORS.danger} />
           <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
-          <Text className="mt-1.5 text-center text-xs text-zinc-500">
+          <Text className="mt-1.5 text-center text-xs text-inkMuted">
             {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2">
@@ -280,18 +281,19 @@ export default function RoomLogsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
-      <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-        <Pressable
+      <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="返回上一页"
+          scaleTo={0.92}
           onPress={handleBack}
-          className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+          className="h-9 w-9 items-center justify-center rounded-full bg-surface"
         >
-          <ChevronLeft size={20} color="#18181B" />
-        </Pressable>
+          <ChevronLeft size={20} color={THEME_COLORS.ink} />
+        </MotionPressable>
         <View className="items-center">
           <Text className="text-base font-bold text-ink">操作日志</Text>
-          <Text className="text-[11px] text-zinc-400" numberOfLines={1}>
+          <Text className="text-[11px] text-inkSubtle" numberOfLines={1}>
             {room.title}
           </Text>
         </View>
@@ -301,11 +303,11 @@ export default function RoomLogsScreen() {
       {screenState.kind === 'members_error' ? (
         <View className="flex-1 justify-center px-4">
           <Card className="items-center p-6">
-            <AlertTriangle size={28} color="#EF4444" />
+            <AlertTriangle size={28} color={THEME_COLORS.danger} />
             <Text className="mt-3 text-base font-bold text-ink">
               成员权限加载失败
             </Text>
-            <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+            <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
               {screenState.message}
             </Text>
             <View className="mt-5 w-full gap-2">
@@ -322,13 +324,13 @@ export default function RoomLogsScreen() {
       ) : screenState.kind === 'permission_denied' ? (
         <View className="flex-1 justify-center px-4">
           <Card className="items-center p-6">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-amber-50">
-              <ShieldAlert size={24} color="#D97706" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-[#FEF7E8]">
+              <ShieldAlert size={24} color={THEME_COLORS.warning} />
             </View>
             <Text className="mt-3 text-base font-bold text-ink">
               仅房主与管理员可查看操作日志
             </Text>
-            <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+            <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
               当前账号为只读普通成员视角，暂不开放操作审计记录与误删撤销功能。如需恢复误删内容，请联系房主或管理员。
             </Text>
             <View className="mt-5 w-full">
@@ -344,8 +346,8 @@ export default function RoomLogsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefreshAll}
-              tintColor="#F97316"
-              colors={['#F97316']}
+              tintColor={THEME_COLORS.primary}
+              colors={[THEME_COLORS.primary]}
             />
           }
         >
@@ -357,25 +359,25 @@ export default function RoomLogsScreen() {
             />
           ) : null}
           {permissions.isArchived ? (
-            <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <Archive size={18} color="#B45309" />
+            <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-[#F5DFB3] bg-[#FEF7E8] px-4 py-3">
+              <Archive size={18} color={THEME_COLORS.warning} />
               <View className="flex-1">
-                <Text className="text-xs font-bold text-amber-900">
+                <Text className="text-xs font-bold text-[#8C5210]">
                   活动已归档 · 只读查看日志
                 </Text>
-                <Text className="mt-0.5 text-xs text-amber-700">
+                <Text className="mt-0.5 text-xs text-[#A66214]">
                   当前仅支持浏览历史操作记录，归档房间不支持一键恢复条目
                 </Text>
               </View>
             </View>
           ) : (
-            <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-orange-200 bg-primarySoft px-4 py-3">
-              <RotateCcw size={17} color="#F97316" />
+            <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-primaryBorder bg-primarySoft px-4 py-3">
+              <RotateCcw size={17} color={THEME_COLORS.primaryDeep} />
               <View className="flex-1">
                 <Text className="text-xs font-bold text-ink">
                   防手滑撤销保护已开启
                 </Text>
-                <Text className="mt-0.5 text-xs text-zinc-600">
+                <Text className="mt-0.5 text-xs text-inkMuted">
                   误删的任务、投票选项、日程或账单都会保留快照，可随时一键恢复
                 </Text>
               </View>
@@ -394,43 +396,44 @@ export default function RoomLogsScreen() {
             ).map((option) => {
               const selected = filterMode === option.key;
               return (
-                <Pressable
+                <MotionPressable
                   key={option.key}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
+                  scaleTo={0.95}
                   onPress={() => setFilterMode(option.key)}
                   className={`rounded-full border px-3.5 py-1.5 ${
                     selected
                       ? 'border-primary bg-primarySoft'
-                      : 'border-zinc-200 bg-white'
+                      : 'border-line bg-white'
                   }`}
                 >
                   <Text
                     className={`text-xs font-semibold ${
-                      selected ? 'text-primary' : 'text-zinc-600'
+                      selected ? 'text-primaryDeep' : 'text-inkMuted'
                     }`}
                   >
                     {option.label}
                   </Text>
-                </Pressable>
+                </MotionPressable>
               );
             })}
           </View>
 
           {logsLoading && logs.length === 0 ? (
             <Card className="items-center py-10">
-              <ActivityIndicator size="small" color="#F97316" />
-              <Text className="mt-2.5 text-xs text-zinc-500">
+              <ActivityIndicator size="small" color={THEME_COLORS.primary} />
+              <Text className="mt-2.5 text-xs text-inkMuted">
                 正在读取审计日志...
               </Text>
             </Card>
           ) : logsError && logs.length === 0 ? (
             <Card className="items-center p-6">
-              <AlertTriangle size={24} color="#EF4444" />
+              <AlertTriangle size={24} color={THEME_COLORS.danger} />
               <Text className="mt-2.5 text-sm font-bold text-ink">
                 日志加载失败
               </Text>
-              <Text className="mt-1 text-center text-xs text-zinc-500">
+              <Text className="mt-1 text-center text-xs text-inkMuted">
                 {mapRoomError(logsError)}
               </Text>
               <View className="mt-4">
@@ -444,8 +447,8 @@ export default function RoomLogsScreen() {
             </Card>
           ) : visibleLogs.length === 0 ? (
             <Card className="items-center py-10">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100">
-                <FileText size={20} color="#71717A" />
+              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-surface">
+                <FileText size={20} color={THEME_COLORS.inkMuted} />
               </View>
               <Text className="mt-3 text-sm font-bold text-ink">
                 {filterMode === 'restorable'
@@ -454,7 +457,7 @@ export default function RoomLogsScreen() {
                     : '暂无可撤销的删除记录'
                   : '暂无房间操作日志'}
               </Text>
-              <Text className="mt-1 text-center text-xs text-zinc-500">
+              <Text className="mt-1 text-center text-xs text-inkMuted">
                 {filterMode === 'restorable'
                   ? '所有删除记录都已恢复，或尚未发生条目删除'
                   : '成员删除积木条目或管理员移出成员时会自动记录在此'}
@@ -498,16 +501,16 @@ export default function RoomLogsScreen() {
                           {formatted.isRestored ? (
                             <Badge variant="success">
                               <View className="flex-row items-center gap-1">
-                                <CheckCircle2 size={11} color="#15803D" />
-                                <Text className="text-[11px] font-semibold text-emerald-700">
+                                <CheckCircle2 size={11} color={THEME_COLORS.success} />
+                                <Text className="text-[11px] font-semibold text-[#287B5B]">
                                   已恢复
                                 </Text>
                               </View>
                             </Badge>
                           ) : null}
                           <View className="ml-auto flex-row items-center gap-1">
-                            <Clock size={11} color="#A1A1AA" />
-                            <Text className="text-[11px] text-zinc-400">
+                            <Clock size={11} color={THEME_COLORS.inkSubtle} />
+                            <Text className="text-[11px] text-inkSubtle">
                               {timeLabel}
                             </Text>
                           </View>
@@ -516,7 +519,7 @@ export default function RoomLogsScreen() {
                         <Text className="mt-2 text-sm font-semibold leading-5 text-ink">
                           {formatted.summary}
                         </Text>
-                        <Text className="mt-1 text-xs leading-5 text-zinc-500">
+                        <Text className="mt-1 text-xs leading-5 text-inkMuted">
                           {formatted.detail}
                         </Text>
 
@@ -527,7 +530,7 @@ export default function RoomLogsScreen() {
                               size="sm"
                               variant="secondary"
                               leftIcon={
-                                <RotateCcw size={14} color="#F97316" />
+                                <RotateCcw size={14} color={THEME_COLORS.primaryDeep} />
                               }
                               onPress={() =>
                                 setRestoreTarget({
@@ -560,16 +563,16 @@ export default function RoomLogsScreen() {
       >
         {restoreTarget ? (
           <View>
-            <View className="mb-4 rounded-2xl border border-zinc-200 bg-surface p-3.5">
+            <View className="mb-4 rounded-2xl border border-line bg-primaryMist p-3.5">
               <Text className="text-sm font-semibold text-ink">
                 {restoreTarget.summary}
               </Text>
-              <Text className="mt-1 text-xs leading-5 text-zinc-500">
+              <Text className="mt-1 text-xs leading-5 text-inkMuted">
                 {restoreTarget.detail}
               </Text>
             </View>
 
-            <Text className="mb-5 text-sm leading-6 text-zinc-600">
+            <Text className="mb-5 text-sm leading-6 text-inkMuted">
               恢复后该条目会立即重新出现在原积木中，原有的投票、认领或评论关联也会一并还原。
             </Text>
 

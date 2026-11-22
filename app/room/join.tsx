@@ -12,7 +12,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -27,9 +26,11 @@ import {
 import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import { MotionPressable } from '../../src/components/ui/Motion';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
 import { isValidRoomCode, normalizeRoomCode } from '../../src/lib/roomCode';
 import { supabase } from '../../src/lib/supabase';
+import { THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
 import type { MemberStatus, RoomMemberRow } from '../../src/types/database';
@@ -260,15 +261,16 @@ export default function JoinRoomScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-          <Pressable
+        <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回"
+            scaleTo={0.92}
             onPress={handleBack}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <ChevronLeft size={20} color="#18181B" />
-          </Pressable>
+            <ChevronLeft size={20} color={THEME_COLORS.ink} />
+          </MotionPressable>
           <Text className="text-base font-bold text-ink">加入协作房间</Text>
           <View className="w-9" />
         </View>
@@ -281,13 +283,13 @@ export default function JoinRoomScreen() {
           {phase === 'form' ? (
             <>
               <View className="mb-6 items-center">
-                <View className="mb-3 h-14 w-14 items-center justify-center rounded-3xl bg-primarySoft">
-                  <KeyRound size={26} color="#F97316" />
+                <View className="mb-3 h-14 w-14 items-center justify-center rounded-3xl border border-primaryBorder bg-primarySoft">
+                  <KeyRound size={26} color={THEME_COLORS.primary} />
                 </View>
                 <Text className="text-xl font-bold text-ink">
                   输入 6 位房间码进房
                 </Text>
-                <Text className="mt-1 text-center text-xs text-zinc-500">
+                <Text className="mt-1 text-center text-xs text-inkMuted">
                   支持直接粘贴口令或带短横线的房间码，自动过滤空格与大小写
                 </Text>
               </View>
@@ -295,7 +297,7 @@ export default function JoinRoomScreen() {
               <Card className="p-5">
                 <View className="mb-4">
                   <View className="mb-1.5 flex-row items-center justify-between">
-                    <Text className="text-xs font-semibold text-zinc-700">
+                    <Text className="text-xs font-semibold text-inkMuted">
                       6 位房间码
                     </Text>
                     {normalizedPreview.length > 0 ? (
@@ -318,34 +320,34 @@ export default function JoinRoomScreen() {
                       }
                     }}
                     placeholder="K7M3P9"
-                    placeholderTextColor="#A1A1AA"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
                     autoCapitalize="characters"
                     autoCorrect={false}
                     maxLength={12}
                     returnKeyType="next"
-                    className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3.5 text-center text-2xl font-bold tracking-[6px] text-ink"
+                    className="rounded-2xl border border-line bg-surface px-4 py-3.5 text-center text-2xl font-bold tracking-[6px] text-ink"
                   />
                 </View>
 
                 <View className="mb-5">
-                  <Text className="mb-1.5 text-xs font-semibold text-zinc-700">
+                  <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
                     进房备注（审批房间展示给房主，选填）
                   </Text>
                   <TextInput
                     value={applyNote}
                     onChangeText={setApplyNote}
                     placeholder="例如：我是小明，来参加周末出游"
-                    placeholderTextColor="#A1A1AA"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
                     maxLength={60}
                     returnKeyType="done"
                     onSubmitEditing={handleSubmitJoin}
-                    className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+                    className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
                   />
                 </View>
 
                 {errorText ? (
-                  <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-                    <Text className="text-xs font-medium text-red-700">
+                  <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+                    <Text className="text-xs font-medium text-[#C94545]">
                       {errorText}
                     </Text>
                   </View>
@@ -364,14 +366,14 @@ export default function JoinRoomScreen() {
 
           {phase === 'pending' && pendingTarget ? (
             <Card className="items-center p-6">
-              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primarySoft">
-                <Clock size={30} color="#F97316" />
+              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full border border-primaryBorder bg-primarySoft">
+                <Clock size={30} color={THEME_COLORS.primary} />
               </View>
               <Badge label="等待房主审批" variant="warning" size="md" />
               <Text className="mt-3 text-center text-xl font-bold text-ink">
                 {pendingTarget.title}
               </Text>
-              <Text className="mt-2 text-center text-sm leading-6 text-zinc-500">
+              <Text className="mt-2 text-center text-sm leading-6 text-inkMuted">
                 你的入房申请已发送。房主或管理员点击通过后，本页面将自动为你跳转进入房间。
               </Text>
 
@@ -381,7 +383,7 @@ export default function JoinRoomScreen() {
                   variant="secondary"
                   fullWidth
                   loading={checkingStatus}
-                  leftIcon={<RefreshCw size={16} color="#F97316" />}
+                  leftIcon={<RefreshCw size={16} color={THEME_COLORS.primaryDeep} />}
                   onPress={syncPendingStatus}
                 />
                 <Button
@@ -405,13 +407,13 @@ export default function JoinRoomScreen() {
 
           {phase === 'rejected' ? (
             <Card className="items-center p-6">
-              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-red-50">
-                <XCircle size={32} color="#EF4444" />
+              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-[#FEF2F2]">
+                <XCircle size={32} color={THEME_COLORS.danger} />
               </View>
               <Text className="text-lg font-bold text-ink">
                 入房申请未通过
               </Text>
-              <Text className="mt-2 text-center text-sm leading-6 text-zinc-500">
+              <Text className="mt-2 text-center text-sm leading-6 text-inkMuted">
                 房主或管理员暂未通过你加入「{pendingTarget?.title ?? '该房间'}
                 」的申请。你可以补充备注后重新提交申请。
               </Text>
@@ -438,11 +440,11 @@ export default function JoinRoomScreen() {
 
           {phase === 'kicked' ? (
             <Card className="items-center p-6">
-              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-red-50">
-                <AlertCircle size={32} color="#EF4444" />
+              <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-[#FEF2F2]">
+                <AlertCircle size={32} color={THEME_COLORS.danger} />
               </View>
               <Text className="text-lg font-bold text-ink">无法加入房间</Text>
-              <Text className="mt-2 text-center text-sm leading-6 text-zinc-500">
+              <Text className="mt-2 text-center text-sm leading-6 text-inkMuted">
                 你已被移出「{pendingTarget?.title ?? '该房间'}
                 」，当前无法再次通过房间码进入。
               </Text>

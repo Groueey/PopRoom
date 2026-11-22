@@ -12,7 +12,7 @@ import {
   Unlock,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import {
   type ParsedBlock,
   type ParsedBlockItem,
@@ -46,23 +46,31 @@ import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import {
+  AnimatedCheckBadge,
+  AnimatedItemRow,
+  AnimatedProgressBar,
+  LayoutAnimationConfig,
+  MotionPressable,
+} from '../ui/Motion';
 import { SheetModal } from '../ui/SheetModal';
+import { THEME_COLORS } from '../../lib/theme';
 
 const MAX_OPTION_LABEL_LENGTH = 60;
 
 const HEATMAP_CELL_CLASSES: Record<0 | 1 | 2 | 3 | 4, string> = {
-  0: 'bg-zinc-50 border-zinc-200',
-  1: 'bg-orange-50 border-orange-200',
-  2: 'bg-orange-100 border-orange-300',
-  3: 'bg-orange-300 border-orange-400',
+  0: 'bg-surface border-line',
+  1: 'bg-[#FFF5EC] border-[#FDE2CA]',
+  2: 'bg-[#FFE7D1] border-[#FBCA9F]',
+  3: 'bg-[#F8BA85] border-[#F29A52]',
   4: 'bg-primary border-primary',
 };
 
 const HEATMAP_TEXT_CLASSES: Record<0 | 1 | 2 | 3 | 4, string> = {
-  0: 'text-zinc-500',
-  1: 'text-orange-700',
-  2: 'text-orange-800',
-  3: 'text-orange-950',
+  0: 'text-inkMuted',
+  1: 'text-primaryDeep',
+  2: 'text-[#B85114]',
+  3: 'text-[#6B2D08]',
   4: 'text-white',
 };
 
@@ -455,8 +463,8 @@ export function PollBlock({
   const renderOptionMode = () => {
     if (items.length === 0) {
       return (
-        <View className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-surface/70 px-4 py-4">
-          <Text className="text-center text-xs text-zinc-400">
+        <View className="mt-3 rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-4">
+          <Text className="text-center text-xs text-inkSubtle">
             暂无投票候选项{canAddOption ? '，点击下方按钮添加第一个选项' : ''}
           </Text>
         </View>
@@ -464,134 +472,134 @@ export function PollBlock({
     }
 
     return (
-      <View className="mt-3 gap-2.5">
-        {items.map((item) => {
-          const tally = sanitizedTallyMap.get(item.id);
-          const voteCount = tally?.vote_count ?? 0;
-          const myVoted = tally?.my_voted ?? false;
-          const percent = formatPollPercentage(voteCount, totalVotes);
-          const voterIds = isAnonymous ? [] : (tally?.voter_ids ?? []);
-          const canDeleteItem = permissions.canEditOrDeleteItem(item.created_by);
+      <LayoutAnimationConfig skipEntering>
+        <View className="mt-3 gap-2.5">
+          {items.map((item) => {
+            const tally = sanitizedTallyMap.get(item.id);
+            const voteCount = tally?.vote_count ?? 0;
+            const myVoted = tally?.my_voted ?? false;
+            const percent = formatPollPercentage(voteCount, totalVotes);
+            const voterIds = isAnonymous ? [] : (tally?.voter_ids ?? []);
+            const canDeleteItem = permissions.canEditOrDeleteItem(item.created_by);
 
-          return (
-            <View
-              key={item.id}
-              className={`overflow-hidden rounded-2xl border ${
-                myVoted
-                  ? 'border-primary bg-primarySoft/40'
-                  : 'border-zinc-200 bg-surface'
-              }`}
-            >
-              <View
-                pointerEvents="none"
-                style={{ width: `${percent}%` }}
-                className={`absolute bottom-0 left-0 top-0 ${
-                  myVoted ? 'bg-orange-100/80' : 'bg-zinc-200/50'
-                }`}
-              />
-
-              <View className="flex-row items-center justify-between px-3.5 py-3">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    selected: myVoted,
-                    disabled: votingDisabled,
-                  }}
-                  accessibilityLabel={`为 ${item.data.label} 投票，当前 ${voteCount} 票`}
-                  onPress={() => handleVotePress(item.id)}
-                  className="flex-1 flex-row items-center gap-2.5 pr-2 active:opacity-80"
+            return (
+              <AnimatedItemRow key={item.id}>
+                <View
+                  className={`overflow-hidden rounded-2xl border ${
+                    myVoted
+                      ? 'border-primary bg-primarySoft/60'
+                      : 'border-line bg-primaryMist'
+                  }`}
                 >
-                  <View
-                    className={`h-5 w-5 items-center justify-center rounded-full border ${
+                  <AnimatedProgressBar
+                    percent={percent}
+                    variant="backgroundFill"
+                    fillColor={
                       myVoted
-                        ? 'border-primary bg-primary'
-                        : 'border-zinc-300 bg-white'
-                    }`}
-                  >
-                    {myVoted ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
-                  </View>
+                        ? 'rgba(242, 132, 58, 0.16)'
+                        : 'rgba(225, 214, 203, 0.42)'
+                    }
+                  />
 
-                  <View className="flex-1">
-                    <Text
-                      className={`text-sm font-semibold ${
-                        myVoted ? 'text-ink' : 'text-zinc-800'
-                      }`}
-                    >
-                      {item.data.label}
-                    </Text>
-
-                    {!isAnonymous && voterIds.length > 0 ? (
-                      <View className="mt-1.5 flex-row items-center gap-2">
-                        <View className="flex-row items-center">
-                          {voterIds.slice(0, 5).map((voterId, idx) => {
-                            const profile = memberProfileMap.get(voterId);
-                            return (
-                              <View
-                                key={`${item.id}-voter-${voterId}`}
-                                style={{ marginLeft: idx === 0 ? 0 : -6 }}
-                                className="rounded-full border border-white"
-                              >
-                                <Avatar
-                                  nickname={profile?.nickname}
-                                  color={profile?.avatar_color}
-                                  imageUrl={profile?.avatar_url}
-                                  size="xs"
-                                />
-                              </View>
-                            );
-                          })}
-                        </View>
-                        <Text
-                          className="flex-1 text-[11px] text-zinc-500"
-                          numberOfLines={1}
-                        >
-                          {voterIds
-                            .slice(0, 3)
-                            .map((id) => memberProfileMap.get(id)?.nickname ?? '成员')
-                            .join('、')}
-                          {voterIds.length > 3 ? ` 等 ${voterIds.length} 人` : ''}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </Pressable>
-
-                <View className="flex-row items-center gap-2">
-                  <View className="items-end">
-                    <Text
-                      className={`text-xs font-bold ${
-                        myVoted ? 'text-primary' : 'text-zinc-700'
-                      }`}
-                    >
-                      {voteCount} 票
-                    </Text>
-                    <Text className="text-[10px] text-zinc-400">{percent}%</Text>
-                  </View>
-
-                  {canDeleteItem ? (
-                    <Pressable
+                  <View className="flex-row items-center justify-between px-3.5 py-3">
+                    <MotionPressable
                       accessibilityRole="button"
-                      accessibilityLabel={`删除选项 ${item.data.label}`}
-                      onPress={() => setDeleteItemTarget(item)}
-                      className="h-7 w-7 items-center justify-center rounded-lg bg-white/80 active:bg-red-50"
+                      accessibilityState={{
+                        selected: myVoted,
+                        disabled: votingDisabled,
+                      }}
+                      accessibilityLabel={`为 ${item.data.label} 投票，当前 ${voteCount} 票`}
+                      onPress={() => handleVotePress(item.id)}
+                      flex
+                      scaleTo={0.985}
+                      className="flex-row items-center gap-2.5 pr-2"
                     >
-                      <Trash2 size={13} color="#71717A" />
-                    </Pressable>
-                  ) : null}
+                      <AnimatedCheckBadge checked={myVoted} size={20} iconSize={12} />
+
+                      <View className="flex-1">
+                        <Text
+                          className={`text-sm font-semibold ${
+                            myVoted ? 'text-ink' : 'text-ink/85'
+                          }`}
+                        >
+                          {item.data.label}
+                        </Text>
+
+                        {!isAnonymous && voterIds.length > 0 ? (
+                          <View className="mt-1.5 flex-row items-center gap-2">
+                            <View className="flex-row items-center">
+                              {voterIds.slice(0, 5).map((voterId, idx) => {
+                                const profile = memberProfileMap.get(voterId);
+                                return (
+                                  <View
+                                    key={`${item.id}-voter-${voterId}`}
+                                    style={{ marginLeft: idx === 0 ? 0 : -6 }}
+                                    className="rounded-full border border-white"
+                                  >
+                                    <Avatar
+                                      nickname={profile?.nickname}
+                                      color={profile?.avatar_color}
+                                      imageUrl={profile?.avatar_url}
+                                      size="xs"
+                                    />
+                                  </View>
+                                );
+                              })}
+                            </View>
+                            <Text
+                              className="flex-1 text-[11px] text-inkMuted"
+                              numberOfLines={1}
+                            >
+                              {voterIds
+                                .slice(0, 3)
+                                .map((id) => memberProfileMap.get(id)?.nickname ?? '成员')
+                                .join('、')}
+                              {voterIds.length > 3 ? ` 等 ${voterIds.length} 人` : ''}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </MotionPressable>
+
+                    <View className="flex-row items-center gap-2">
+                      <View className="items-end">
+                        <Text
+                          className={`text-xs font-bold ${
+                            myVoted ? 'text-primaryDeep' : 'text-ink'
+                          }`}
+                        >
+                          {voteCount} 票
+                        </Text>
+                        <Text className="text-[10px] text-inkSubtle">{percent}%</Text>
+                      </View>
+
+                      {canDeleteItem ? (
+                        <MotionPressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`删除选项 ${item.data.label}`}
+                          onPress={() => setDeleteItemTarget(item)}
+                          scaleTo={0.9}
+                          className="h-7 w-7 items-center justify-center rounded-lg bg-white/90"
+                        >
+                          <Trash2 size={13} color={THEME_COLORS.inkMuted} />
+                        </MotionPressable>
+                      ) : null}
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
-          );
-        })}
-      </View>
+              </AnimatedItemRow>
+            );
+          })}
+        </View>
+      </LayoutAnimationConfig>
     );
   };
 
   const renderAvailabilityMode = () => {
     if (availabilityDates.length === 0) {
       return (
-        <View className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-surface/70 px-4 py-4">
-          <Text className="text-center text-xs text-zinc-400">
+        <View className="mt-3 rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-4">
+          <Text className="text-center text-xs text-inkSubtle">
             尚未设置候选日期与时段
             {canAddOption ? '，点击下方按钮添加日期后即可点选空闲时间' : ''}
           </Text>
@@ -606,19 +614,19 @@ export function PollBlock({
     return (
       <View className="mt-3">
         <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-[11px] text-zinc-500">
-            点击时段格子打卡有空时间（橙色越深代表越多人合适）
+          <Text className="text-[11px] text-inkMuted">
+            点击时段格子打卡有空时间（橘色越深代表越多人合适）
           </Text>
         </View>
 
-        <View className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-          <View className="flex-row border-b border-zinc-100 bg-surface px-2 py-2">
+        <View className="overflow-hidden rounded-2xl border border-line bg-white">
+          <View className="flex-row border-b border-lineSoft bg-primaryMist px-2 py-2.5">
             <View className="w-20 justify-center px-1">
-              <Text className="text-[11px] font-semibold text-zinc-500">日期</Text>
+              <Text className="text-[11px] font-semibold text-inkMuted">日期</Text>
             </View>
             {activeSlots.map((slot) => (
               <View key={slot} className="flex-1 items-center justify-center">
-                <Text className="text-[11px] font-semibold text-zinc-600">
+                <Text className="text-[11px] font-semibold text-inkMuted">
                   {POLL_TIME_SLOT_LABELS[slot]}
                 </Text>
               </View>
@@ -631,13 +639,13 @@ export function PollBlock({
               <View
                 key={dateStr}
                 className={`flex-row items-stretch px-2 py-2 ${
-                  rowIdx > 0 ? 'border-t border-zinc-100' : ''
+                  rowIdx > 0 ? 'border-t border-lineSoft' : ''
                 }`}
               >
                 <View className="w-20 justify-center px-1">
                   <Text className="text-xs font-bold text-ink">{shortDate}</Text>
                   {weekday ? (
-                    <Text className="text-[10px] text-zinc-400">{weekday}</Text>
+                    <Text className="text-[10px] text-inkSubtle">{weekday}</Text>
                   ) : null}
                 </View>
 
@@ -649,17 +657,18 @@ export function PollBlock({
                   if (!item) {
                     return (
                       <View key={`${dateStr}-${slot}`} className="flex-1 px-1">
-                        <Pressable
+                        <MotionPressable
                           accessibilityRole="button"
                           accessibilityLabel={`补充 ${shortDate} ${POLL_TIME_SLOT_LABELS[slot]} 候选项`}
                           disabled={!canAddOption}
                           onPress={() => handleOpenAddAvailability(dateStr, slot)}
-                          className="h-12 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 active:bg-zinc-100"
+                          scaleTo={0.94}
+                          className="h-12 items-center justify-center rounded-xl border border-dashed border-line bg-surface/70"
                         >
-                          <Text className="text-xs text-zinc-300">
+                          <Text className="text-xs text-inkSubtle">
                             {canAddOption ? '+' : '-'}
                           </Text>
-                        </Pressable>
+                        </MotionPressable>
                       </View>
                     );
                   }
@@ -670,7 +679,7 @@ export function PollBlock({
 
                   return (
                     <View key={item.id} className="flex-1 px-1">
-                      <Pressable
+                      <MotionPressable
                         accessibilityRole="button"
                         accessibilityState={{
                           selected: myVoted,
@@ -678,7 +687,8 @@ export function PollBlock({
                         }}
                         accessibilityLabel={`${shortDate} ${POLL_TIME_SLOT_LABELS[slot]}，${voteCount} 人有空`}
                         onPress={() => handleVotePress(item.id)}
-                        className={`h-12 items-center justify-center rounded-xl border px-1 active:opacity-85 ${
+                        scaleTo={0.93}
+                        className={`h-12 items-center justify-center rounded-xl border px-1 ${
                           HEATMAP_CELL_CLASSES[tier]
                         } ${myVoted ? 'border-2 border-primary' : ''}`}
                       >
@@ -686,7 +696,7 @@ export function PollBlock({
                           {isTop ? (
                             <Flame
                               size={11}
-                              color={tier === 4 ? '#FFFFFF' : '#F97316'}
+                              color={tier === 4 ? '#FFFFFF' : THEME_COLORS.primary}
                             />
                           ) : null}
                           <Text
@@ -700,12 +710,12 @@ export function PollBlock({
                           <View className="mt-0.5 flex-row items-center gap-0.5">
                             <Check
                               size={10}
-                              color={tier === 4 ? '#FFFFFF' : '#F97316'}
+                              color={tier === 4 ? '#FFFFFF' : THEME_COLORS.primaryDeep}
                               strokeWidth={3}
                             />
                             <Text
                               className={`text-[9px] font-semibold ${
-                                tier === 4 ? 'text-white/90' : 'text-primary'
+                                tier === 4 ? 'text-white/95' : 'text-primaryDeep'
                               }`}
                             >
                               已选
@@ -714,13 +724,13 @@ export function PollBlock({
                         ) : isTop ? (
                           <Text
                             className={`mt-0.5 text-[9px] font-semibold ${
-                              tier === 4 ? 'text-white/90' : 'text-primary'
+                              tier === 4 ? 'text-white/95' : 'text-primaryDeep'
                             }`}
                           >
                             推荐
                           </Text>
                         ) : null}
-                      </Pressable>
+                      </MotionPressable>
                     </View>
                   );
                 })}
@@ -730,9 +740,9 @@ export function PollBlock({
         </View>
 
         {availabilityMatrix.topItemIds.length > 0 ? (
-          <View className="mt-2.5 flex-row flex-wrap items-center gap-1.5 rounded-xl bg-primarySoft px-3 py-2">
-            <Flame size={13} color="#F97316" />
-            <Text className="text-[11px] font-semibold text-primary">
+          <View className="mt-2.5 flex-row flex-wrap items-center gap-1.5 rounded-2xl border border-primaryBorder bg-primarySoft px-3 py-2">
+            <Flame size={13} color={THEME_COLORS.primary} />
+            <Text className="text-[11px] font-semibold text-primaryDeep">
               最佳时段（{availabilityMatrix.maxVotes} 人有空）：
             </Text>
             {availabilityMatrix.topItemIds.slice(0, 3).map((topId) => {
@@ -758,11 +768,11 @@ export function PollBlock({
     <Card className="mb-3.5">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
+          <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
             {block.config.mode === 'availability' ? (
-              <CalendarDays size={18} color="#F97316" />
+              <CalendarDays size={18} color={THEME_COLORS.primary} />
             ) : (
-              <BarChart3 size={18} color="#F97316" />
+              <BarChart3 size={18} color={THEME_COLORS.primary} />
             )}
           </View>
 
@@ -794,7 +804,7 @@ export function PollBlock({
             <Text className="text-base font-bold text-ink" numberOfLines={2}>
               {block.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               {block.config.mode === 'availability'
                 ? `${availabilityDates.length} 个候选日期 · ${members.length} 位成员`
                 : `${items.length} 个候选项 · 共 ${totalVotes} 票`}
@@ -805,49 +815,51 @@ export function PollBlock({
 
         <View className="flex-row items-center gap-1.5">
           {permissions.canLockPoll ? (
-            <Pressable
+            <MotionPressable
               accessibilityRole="button"
               accessibilityLabel={isLocked ? '解锁投票' : '锁定投票'}
               disabled={lockMutation.isPending}
               onPress={() => lockMutation.mutate(!isLocked)}
+              scaleTo={0.94}
               className={`h-8 flex-row items-center gap-1 rounded-xl border px-2.5 ${
                 isLocked
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-zinc-200 bg-surface'
-              } active:opacity-80`}
+                  ? 'border-[#F5DFB3] bg-[#FEF7E8]'
+                  : 'border-line bg-surface'
+              }`}
             >
               {isLocked ? (
-                <Unlock size={13} color="#B45309" />
+                <Unlock size={13} color={THEME_COLORS.warning} />
               ) : (
-                <Lock size={13} color="#52525B" />
+                <Lock size={13} color={THEME_COLORS.inkMuted} />
               )}
               <Text
                 className={`text-[11px] font-semibold ${
-                  isLocked ? 'text-amber-800' : 'text-zinc-600'
+                  isLocked ? 'text-[#A66214]' : 'text-inkMuted'
                 }`}
               >
                 {isLocked ? '解锁' : '锁定'}
               </Text>
-            </Pressable>
+            </MotionPressable>
           ) : null}
 
           {permissions.canManageBlocks && onRequestDeleteBlock ? (
-            <Pressable
+            <MotionPressable
               accessibilityRole="button"
               accessibilityLabel={`删除积木 ${block.title}`}
               onPress={() => onRequestDeleteBlock(block)}
-              className="h-8 w-8 items-center justify-center rounded-xl border border-zinc-200 bg-surface active:bg-red-50"
+              scaleTo={0.9}
+              className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
             >
-              <Trash2 size={15} color="#71717A" />
-            </Pressable>
+              <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+            </MotionPressable>
           ) : null}
         </View>
       </View>
 
       {isAnonymous ? (
-        <View className="mt-2.5 flex-row items-center gap-1.5 rounded-xl bg-zinc-100 px-3 py-1.5">
-          <EyeOff size={12} color="#52525B" />
-          <Text className="text-[11px] text-zinc-600">
+        <View className="mt-2.5 flex-row items-center gap-1.5 rounded-xl bg-surface px-3 py-1.5">
+          <EyeOff size={12} color={THEME_COLORS.inkMuted} />
+          <Text className="text-[11px] text-inkMuted">
             匿名投票已开启，投票人头像与身份对所有人保密
           </Text>
         </View>
@@ -858,7 +870,7 @@ export function PollBlock({
         : renderOptionMode()}
 
       {canAddOption || (block.config.mode === 'availability' && hasDeletableItems) ? (
-        <View className="mt-3 flex-row items-center gap-2 border-t border-zinc-100 pt-3">
+        <View className="mt-3.5 flex-row items-center gap-2 border-t border-lineSoft pt-3">
           {canAddOption ? (
             <Button
               title={
@@ -866,7 +878,7 @@ export function PollBlock({
               }
               variant="secondary"
               size="sm"
-              leftIcon={<Plus size={14} color="#F97316" />}
+              leftIcon={<Plus size={14} color={THEME_COLORS.primaryDeep} />}
               onPress={() =>
                 block.config.mode === 'availability'
                   ? handleOpenAddAvailability()
@@ -894,8 +906,8 @@ export function PollBlock({
       >
         <View className="mb-4">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">选项内容</Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs font-semibold text-inkMuted">选项内容</Text>
+            <Text className="text-xs text-inkSubtle">
               {Array.from(optionLabelInput.trim()).length}/{MAX_OPTION_LABEL_LENGTH}
             </Text>
           </View>
@@ -909,14 +921,14 @@ export function PollBlock({
             }}
             maxLength={MAX_OPTION_LABEL_LENGTH}
             placeholder="例如：川西四姑娘山 / 周六晚海底捞"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         {optionError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">{optionError}</Text>
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">{optionError}</Text>
           </View>
         ) : null}
 
@@ -935,7 +947,7 @@ export function PollBlock({
         onClose={() => setAddAvailabilityVisible(false)}
         title="添加候选日期与时段"
       >
-        <Text className="mb-2 text-xs font-semibold text-zinc-600">
+        <Text className="mb-2 text-xs font-semibold text-inkMuted">
           快捷选择近期日期
         </Text>
         <View className="mb-3 flex-row flex-wrap gap-2">
@@ -943,8 +955,9 @@ export function PollBlock({
             const { shortDate, weekday } = formatAvailabilityDateLabel(candidate);
             const selected = dateInput.trim() === candidate;
             return (
-              <Pressable
+              <MotionPressable
                 key={candidate}
+                scaleTo={0.95}
                 onPress={() => {
                   setDateInput(candidate);
                   setAvailabilityError(null);
@@ -952,23 +965,23 @@ export function PollBlock({
                 className={`rounded-xl border px-3 py-2 ${
                   selected
                     ? 'border-primary bg-primarySoft'
-                    : 'border-zinc-200 bg-surface'
+                    : 'border-line bg-surface'
                 }`}
               >
                 <Text
                   className={`text-xs font-semibold ${
-                    selected ? 'text-primary' : 'text-zinc-700'
+                    selected ? 'text-primaryDeep' : 'text-inkMuted'
                   }`}
                 >
                   {shortDate} {weekday}
                 </Text>
-              </Pressable>
+              </MotionPressable>
             );
           })}
         </View>
 
         <View className="mb-4">
-          <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+          <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
             日期（YYYY-MM-DD）
           </Text>
           <BottomSheetTextInput
@@ -980,42 +993,44 @@ export function PollBlock({
               }
             }}
             placeholder="例如：2026-11-28"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
-        <Text className="mb-2 text-xs font-semibold text-zinc-600">
+        <Text className="mb-2 text-xs font-semibold text-inkMuted">
           开放投票的时间段
         </Text>
         <View className="mb-4 flex-row gap-2">
           {activeSlots.map((slot) => {
             const selected = selectedSlots.includes(slot);
             return (
-              <Pressable
+              <MotionPressable
                 key={slot}
+                flex
+                scaleTo={0.95}
                 onPress={() => handleToggleSlotChoice(slot)}
-                className={`flex-1 items-center rounded-xl border py-2.5 ${
+                className={`items-center rounded-xl border py-2.5 ${
                   selected
                     ? 'border-primary bg-primarySoft'
-                    : 'border-zinc-200 bg-surface'
+                    : 'border-line bg-surface'
                 }`}
               >
                 <Text
                   className={`text-xs font-semibold ${
-                    selected ? 'text-primary' : 'text-zinc-600'
+                    selected ? 'text-primaryDeep' : 'text-inkMuted'
                   }`}
                 >
                   {POLL_TIME_SLOT_LABELS[slot]}
                 </Text>
-              </Pressable>
+              </MotionPressable>
             );
           })}
         </View>
 
         {availabilityError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">
               {availabilityError}
             </Text>
           </View>
@@ -1037,7 +1052,7 @@ export function PollBlock({
         title="管理候选时段"
       >
         {items.length === 0 ? (
-          <Text className="py-4 text-center text-xs text-zinc-400">
+          <Text className="py-4 text-center text-xs text-inkSubtle">
             暂无可管理的候选时段
           </Text>
         ) : (
@@ -1048,28 +1063,29 @@ export function PollBlock({
               return (
                 <View
                   key={item.id}
-                  className="flex-row items-center justify-between rounded-xl border border-zinc-200 bg-surface px-3.5 py-2.5"
+                  className="flex-row items-center justify-between rounded-xl border border-line bg-surface px-3.5 py-2.5"
                 >
                   <View>
                     <Text className="text-sm font-semibold text-ink">
                       {item.data.label}
                     </Text>
-                    <Text className="text-[11px] text-zinc-500">
+                    <Text className="text-[11px] text-inkMuted">
                       当前 {voteCount} 人有空
                     </Text>
                   </View>
                   {canDeleteItem ? (
-                    <Pressable
+                    <MotionPressable
                       accessibilityRole="button"
                       accessibilityLabel={`删除时段 ${item.data.label}`}
+                      scaleTo={0.9}
                       onPress={() => {
                         setManageSlotsVisible(false);
                         setDeleteItemTarget(item);
                       }}
-                      className="h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white active:bg-red-50"
+                      className="h-8 w-8 items-center justify-center rounded-lg border border-line bg-white"
                     >
-                      <Trash2 size={14} color="#EF4444" />
-                    </Pressable>
+                      <Trash2 size={14} color={THEME_COLORS.danger} />
+                    </MotionPressable>
                   ) : null}
                 </View>
               );
@@ -1083,7 +1099,7 @@ export function PollBlock({
         onClose={() => setDeleteItemTarget(null)}
         title="确认删除投票选项？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           确定删除「{deleteItemTarget?.data.label ?? ''}」吗？管理员后续可在房间操作日志中恢复该选项。
         </Text>
         <View className="gap-2.5">

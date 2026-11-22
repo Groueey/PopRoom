@@ -23,7 +23,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   Switch,
@@ -50,6 +49,7 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import { MotionPressable } from '../../../src/components/ui/Motion';
 import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
@@ -57,6 +57,7 @@ import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import { buildShareMessage } from '../../../src/lib/roomCode';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
+import { THEME_COLORS } from '../../../src/lib/theme';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
 import type {
@@ -370,8 +371,8 @@ export default function RoomSettingsScreen() {
   if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
-        <ActivityIndicator size="large" color="#F97316" />
-        <Text className="mt-3 text-xs text-zinc-500">正在加载房间设置...</Text>
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+        <Text className="mt-3 text-xs text-inkMuted">正在加载房间设置...</Text>
       </SafeAreaView>
     );
   }
@@ -391,9 +392,9 @@ export default function RoomSettingsScreen() {
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
-          <AlertTriangle size={28} color="#EF4444" />
+          <AlertTriangle size={28} color={THEME_COLORS.danger} />
           <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
-          <Text className="mt-1.5 text-center text-xs text-zinc-500">
+          <Text className="mt-1.5 text-center text-xs text-inkMuted">
             {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2">
@@ -431,15 +432,16 @@ export default function RoomSettingsScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-          <Pressable
+        <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回房间"
+            scaleTo={0.92}
             onPress={handleBack}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <ChevronLeft size={20} color="#18181B" />
-          </Pressable>
+            <ChevronLeft size={20} color={THEME_COLORS.ink} />
+          </MotionPressable>
           <Text className="text-base font-bold text-ink">房间设置</Text>
           <View className="w-9" />
         </View>
@@ -452,8 +454,8 @@ export default function RoomSettingsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefreshAll}
-              tintColor="#F97316"
-              colors={['#F97316']}
+              tintColor={THEME_COLORS.primary}
+              colors={[THEME_COLORS.primary]}
             />
           }
         >
@@ -465,13 +467,13 @@ export default function RoomSettingsScreen() {
             />
           ) : null}
           {permissions.isArchived ? (
-            <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <Archive size={18} color="#B45309" />
+            <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-[#F5DFB3] bg-[#FEF7E8] px-4 py-3">
+              <Archive size={18} color={THEME_COLORS.warning} />
               <View className="flex-1">
-                <Text className="text-xs font-bold text-amber-900">
+                <Text className="text-xs font-bold text-[#8C5210]">
                   活动已归档 · 全员只读模式
                 </Text>
-                <Text className="mt-0.5 text-xs text-amber-700">
+                <Text className="mt-0.5 text-xs text-[#A66214]">
                   当前仅支持查看成员名单与操作日志，不可修改房间或成员状态
                 </Text>
               </View>
@@ -490,11 +492,11 @@ export default function RoomSettingsScreen() {
               </View>
             </View>
 
-            <View className="mb-3 items-center rounded-2xl bg-primarySoft py-4">
-              <Text className="text-3xl font-extrabold tracking-[8px] text-primary">
+            <View className="mb-3 items-center rounded-2xl border border-primaryBorder bg-primarySoft py-4">
+              <Text className="text-3xl font-extrabold tracking-[8px] text-primaryDeep">
                 {room.room_code}
               </Text>
-              <Text className="mt-1 text-xs text-zinc-500">
+              <Text className="mt-1 text-xs text-inkMuted">
                 {permissions.isArchived
                   ? '房间已归档，不再接受新成员加入'
                   : '把口令发给伙伴，在活动大厅输入即可入房'}
@@ -509,7 +511,7 @@ export default function RoomSettingsScreen() {
                     variant="secondary"
                     size="md"
                     fullWidth
-                    leftIcon={<Copy size={16} color="#F97316" />}
+                    leftIcon={<Copy size={16} color={THEME_COLORS.primaryDeep} />}
                     onPress={handleCopyInvite}
                   />
                 </View>
@@ -520,8 +522,8 @@ export default function RoomSettingsScreen() {
                       variant="ghost"
                       size="md"
                       fullWidth
-                      leftIcon={<RefreshCw size={16} color="#52525B" />}
-                      className="border border-zinc-200 bg-white"
+                      leftIcon={<RefreshCw size={16} color={THEME_COLORS.inkMuted} />}
+                      className="border border-line bg-white"
                       onPress={() => setResetCodeModalVisible(true)}
                     />
                   </View>
@@ -539,10 +541,10 @@ export default function RoomSettingsScreen() {
               <>
                 <View className="mb-3.5">
                   <View className="mb-1.5 flex-row items-center justify-between">
-                    <Text className="text-xs font-semibold text-zinc-600">
+                    <Text className="text-xs font-semibold text-inkMuted">
                       房间名称
                     </Text>
-                    <Text className="text-xs text-zinc-400">
+                    <Text className="text-xs text-inkSubtle">
                       {titleLen}/{MAX_ROOM_TITLE_LENGTH}
                     </Text>
                   </View>
@@ -551,86 +553,97 @@ export default function RoomSettingsScreen() {
                     onChangeText={setTitleDraft}
                     maxLength={MAX_ROOM_TITLE_LENGTH}
                     placeholder="输入房间名称"
-                    placeholderTextColor="#A1A1AA"
-                    className="rounded-2xl border border-zinc-200 bg-surface px-4 py-2.5 text-sm text-ink"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
+                    className="rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
                   />
                 </View>
 
                 <View className="mb-3.5">
-                  <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+                  <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
                     房间公告
                   </Text>
                   <TextInput
                     value={announcementDraft}
                     onChangeText={setAnnouncementDraft}
                     placeholder="填写集合时间、地点或规则提示"
-                    placeholderTextColor="#A1A1AA"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
                     multiline
                     numberOfLines={3}
                     textAlignVertical="top"
                     maxLength={300}
-                    className="min-h-[76px] rounded-2xl border border-zinc-200 bg-surface px-4 py-2.5 text-sm text-ink"
+                    className="min-h-[76px] rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
                   />
                 </View>
 
                 <View className="mb-3.5">
-                  <Text className="mb-2 text-xs font-semibold text-zinc-600">
+                  <Text className="mb-2 text-xs font-semibold text-inkMuted">
                     进房门禁方式
                   </Text>
                   <View className="flex-row gap-2.5">
                     {(['passcode', 'approval'] as const).map((mode) => {
                       const selected = joinModeDraft === mode;
                       return (
-                        <Pressable
+                        <MotionPressable
                           key={mode}
                           accessibilityRole="radio"
                           accessibilityState={{ selected }}
+                          flex
+                          scaleTo={0.96}
                           onPress={() => setJoinModeDraft(mode)}
-                          className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2.5 ${
+                          className={`flex-row items-center justify-center gap-1.5 rounded-xl border py-2.5 ${
                             selected
                               ? 'border-primary bg-primarySoft'
-                              : 'border-zinc-200 bg-surface'
+                              : 'border-line bg-surface'
                           }`}
                         >
                           {mode === 'passcode' ? (
                             <Unlock
                               size={15}
-                              color={selected ? '#F97316' : '#71717A'}
+                              color={
+                                selected ? THEME_COLORS.primaryDeep : THEME_COLORS.inkMuted
+                              }
                             />
                           ) : (
                             <Lock
                               size={15}
-                              color={selected ? '#F97316' : '#71717A'}
+                              color={
+                                selected ? THEME_COLORS.primaryDeep : THEME_COLORS.inkMuted
+                              }
                             />
                           )}
                           <Text
                             className={`text-xs font-semibold ${
-                              selected ? 'text-primary' : 'text-zinc-600'
+                              selected ? 'text-primaryDeep' : 'text-inkMuted'
                             }`}
                           >
                             {JOIN_MODE_LABELS[mode]}
                           </Text>
-                        </Pressable>
+                        </MotionPressable>
                       );
                     })}
                   </View>
                 </View>
 
-                <View className="mb-4 flex-row items-center justify-between rounded-2xl bg-surface px-3.5 py-2.5">
+                <View className="mb-4 flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
                   <View className="flex-1 pr-3">
                     <Text className="text-xs font-semibold text-ink">
                       允许普通成员发起新投票
                     </Text>
-                    <Text className="mt-0.5 text-[11px] text-zinc-500">
+                    <Text className="mt-0.5 text-[11px] text-inkMuted">
                       关闭后仅房主与管理员可新增投票积木
                     </Text>
                   </View>
                   <Switch
                     value={allowMemberCreatePollDraft}
                     onValueChange={setAllowMemberCreatePollDraft}
-                    trackColor={{ false: '#D4D4D8', true: '#FDBA74' }}
+                    trackColor={{
+                      false: THEME_COLORS.switchOffTrack,
+                      true: THEME_COLORS.primaryBorder,
+                    }}
                     thumbColor={
-                      allowMemberCreatePollDraft ? '#F97316' : '#F4F4F5'
+                      allowMemberCreatePollDraft
+                        ? THEME_COLORS.primary
+                        : THEME_COLORS.switchOffThumb
                     }
                   />
                 </View>
@@ -647,14 +660,14 @@ export default function RoomSettingsScreen() {
             ) : (
               <View className="gap-2.5">
                 <View>
-                  <Text className="text-xs text-zinc-400">房间名称</Text>
+                  <Text className="text-xs text-inkSubtle">房间名称</Text>
                   <Text className="mt-0.5 text-sm font-semibold text-ink">
                     {room.title}
                   </Text>
                 </View>
                 <View>
-                  <Text className="text-xs text-zinc-400">房间公告</Text>
-                  <Text className="mt-0.5 text-sm text-zinc-600">
+                  <Text className="text-xs text-inkSubtle">房间公告</Text>
+                  <Text className="mt-0.5 text-sm text-inkMuted">
                     {room.announcement || '暂无公告'}
                   </Text>
                 </View>
@@ -675,7 +688,7 @@ export default function RoomSettingsScreen() {
               </View>
 
               {pendingMembers.length === 0 ? (
-                <Text className="py-2 text-xs text-zinc-400">
+                <Text className="py-2 text-xs text-inkSubtle">
                   暂无待审批申请，新成员输入房间码后会出现在这里
                 </Text>
               ) : (
@@ -687,7 +700,7 @@ export default function RoomSettingsScreen() {
                     return (
                       <View
                         key={applicant.id}
-                        className="rounded-2xl border border-zinc-200/80 bg-surface p-3"
+                        className="rounded-2xl border border-line bg-primaryMist p-3"
                       >
                         <View className="flex-row items-center gap-2.5">
                           <Avatar
@@ -701,11 +714,11 @@ export default function RoomSettingsScreen() {
                               {nickname}
                             </Text>
                             {applicant.apply_note ? (
-                              <Text className="mt-0.5 text-xs text-zinc-500">
+                              <Text className="mt-0.5 text-xs text-inkMuted">
                                 备注：{applicant.apply_note}
                               </Text>
                             ) : (
-                              <Text className="mt-0.5 text-xs text-zinc-400">
+                              <Text className="mt-0.5 text-xs text-inkSubtle">
                                 未填写申请备注
                               </Text>
                             )}
@@ -737,9 +750,9 @@ export default function RoomSettingsScreen() {
                               variant="ghost"
                               fullWidth
                               disabled={reviewingUserId !== null}
-                              leftIcon={<X size={14} color="#EF4444" />}
-                              textClassName="text-red-500"
-                              className="border border-red-200 bg-white"
+                              leftIcon={<X size={14} color={THEME_COLORS.danger} />}
+                              textClassName="text-[#C94545]"
+                              className="border border-[#FAD2D0] bg-white"
                               onPress={() =>
                                 handleReviewApplication(
                                   applicant.user_id,
@@ -760,7 +773,7 @@ export default function RoomSettingsScreen() {
           <Card className="mb-4">
             <View className="mb-3 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
-                <Users size={16} color="#52525B" />
+                <Users size={16} color={THEME_COLORS.inkMuted} />
                 <Text className="text-sm font-bold text-ink">
                   房间成员 ({activeMembers.length})
                 </Text>
@@ -783,7 +796,7 @@ export default function RoomSettingsScreen() {
                 return (
                   <View
                     key={member.id}
-                    className="flex-row items-center justify-between rounded-2xl bg-surface px-3 py-2.5"
+                    className="flex-row items-center justify-between rounded-2xl border border-lineSoft bg-primaryMist px-3 py-2.5"
                   >
                     <View className="flex-1 flex-row items-center gap-2.5 pr-2">
                       <Avatar
@@ -812,30 +825,32 @@ export default function RoomSettingsScreen() {
                     {canToggleAdmin || canKick ? (
                       <View className="flex-row items-center gap-1.5">
                         {canToggleAdmin ? (
-                          <Pressable
+                          <MotionPressable
                             accessibilityRole="button"
                             disabled={roleUpdatingUserId === member.user_id}
+                            scaleTo={0.94}
                             onPress={() => handleToggleAdminRole(member)}
-                            className="flex-row items-center gap-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 active:bg-zinc-100"
+                            className="flex-row items-center gap-1 rounded-xl border border-line bg-white px-2.5 py-1.5"
                           >
-                            <Shield size={13} color="#52525B" />
-                            <Text className="text-xs font-medium text-zinc-700">
+                            <Shield size={13} color={THEME_COLORS.inkMuted} />
+                            <Text className="text-xs font-medium text-inkMuted">
                               {member.role === 'admin'
                                 ? '取消管理'
                                 : '设为管理'}
                             </Text>
-                          </Pressable>
+                          </MotionPressable>
                         ) : null}
 
                         {canKick ? (
-                          <Pressable
+                          <MotionPressable
                             accessibilityRole="button"
                             accessibilityLabel={`移出 ${nickname}`}
+                            scaleTo={0.9}
                             onPress={() => setKickTarget(member)}
-                            className="h-8 w-8 items-center justify-center rounded-xl border border-red-200 bg-red-50 active:bg-red-100"
+                            className="h-8 w-8 items-center justify-center rounded-xl border border-[#FAD2D0] bg-[#FEF2F2]"
                           >
-                            <UserMinus size={14} color="#EF4444" />
-                          </Pressable>
+                            <UserMinus size={14} color={THEME_COLORS.danger} />
+                          </MotionPressable>
                         ) : null}
                       </View>
                     ) : null}
@@ -852,29 +867,29 @@ export default function RoomSettingsScreen() {
             >
               <View className="flex-row items-center justify-between gap-3">
                 <View className="flex-1 flex-row items-center gap-3">
-                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-primarySoft">
-                    <FileText size={18} color="#F97316" />
+                  <View className="h-10 w-10 items-center justify-center rounded-xl border border-primaryBorder bg-primarySoft">
+                    <FileText size={18} color={THEME_COLORS.primary} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm font-bold text-ink">
                       操作日志与防手滑撤销
                     </Text>
-                    <Text className="mt-0.5 text-xs text-zinc-500">
+                    <Text className="mt-0.5 text-xs text-inkMuted">
                       {permissions.isArchived
                         ? '只读查看历史删除与成员变更记录'
                         : '查看删除、踢人记录，支持一键恢复误删条目'}
                     </Text>
                   </View>
                 </View>
-                <ChevronRight size={18} color="#A1A1AA" />
+                <ChevronRight size={18} color={THEME_COLORS.inkSubtle} />
               </View>
             </Card>
           ) : null}
 
           {permissions.canArchiveRoom ? (
-            <Card className="border-red-200/80 bg-red-50/40">
+            <Card className="border-[#FAD2D0] bg-[#FEF2F2]/60">
               <Text className="text-sm font-bold text-ink">活动归档</Text>
-              <Text className="mt-1 text-xs leading-5 text-zinc-500">
+              <Text className="mt-1 text-xs leading-5 text-inkMuted">
                 活动结束后归档房间，全员将转为只读模式，仍可随时查看并导出复盘长图与 PDF。
               </Text>
               <View className="mt-3">
@@ -896,7 +911,7 @@ export default function RoomSettingsScreen() {
         onClose={() => setResetCodeModalVisible(false)}
         title="确认重置房间码？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           重置后将立即生成新的 6 位房间码，旧房间码和历史邀请链接会立刻失效。已加入房间的成员不受影响。
         </Text>
         <View className="gap-2.5">
@@ -921,7 +936,7 @@ export default function RoomSettingsScreen() {
         onClose={() => setKickTarget(null)}
         title="确认移出成员？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           确定将「{kickTarget?.profiles?.nickname ?? '该成员'}
           」移出房间吗？移出后对方将无法再通过房间码重新加入，操作会记入房间日志。
         </Text>
@@ -947,7 +962,7 @@ export default function RoomSettingsScreen() {
         onClose={() => setArchiveModalVisible(false)}
         title="确认归档此活动？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           归档后房间将永久锁定为只读状态：全员不可再投票、认领任务、编辑日程、记账或审批成员，但仍可随时浏览内容并导出高清复盘长图与
           PDF。
         </Text>

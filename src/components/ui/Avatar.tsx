@@ -40,7 +40,7 @@ export function Avatar({
   className = '',
 }: AvatarProps) {
   const { px, textClass } = SIZE_CONFIG[size];
-  const bgColor = color?.trim() || '#F97316';
+  const bgColor = color?.trim() || '#F2843A';
   const initial = getAvatarInitial(nickname);
 
   return (

@@ -20,10 +20,16 @@ import {
   Users,
   Wallet,
 } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  type ComponentRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Switch,
@@ -54,6 +60,13 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import {
+  AnimatedBlockShell,
+  AnimatedCheckBadge,
+  AnimatedPanelReveal,
+  LayoutAnimationConfig,
+  MotionPressable,
+} from '../../../src/components/ui/Motion';
 import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { ExpenseBlock } from '../../../src/components/blocks/ExpenseBlock';
@@ -66,6 +79,7 @@ import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import { buildShareMessage } from '../../../src/lib/roomCode';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
+import { FLOATING_SHADOW, THEME_COLORS } from '../../../src/lib/theme';
 import type { PollTally } from '../../../src/schemas/blocks';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
@@ -94,7 +108,7 @@ function readRoomIdParam(value: string | string[] | undefined): string {
 
 function BlockTypeIcon({
   type,
-  color = '#F97316',
+  color = THEME_COLORS.primary,
   size = 18,
 }: {
   type: BlockType;
@@ -241,6 +255,12 @@ export default function RoomBoardScreen() {
 
   const [deleteTarget, setDeleteTarget] = useState<ParsedBlock | null>(null);
   const [deletingBlock, setDeletingBlock] = useState(false);
+
+  const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const [justAddedBlockId, setJustAddedBlockId] = useState<string | null>(null);
+  const clearJustAddedBlock = useCallback(() => {
+    setJustAddedBlockId(null);
+  }, []);
 
   useEffect(() => {
     if (!canOpenAddBlockSheet && addSheetVisible) {
@@ -394,14 +414,18 @@ export default function RoomBoardScreen() {
 
     try {
       const payload = buildCreateBlockPayload();
-      await createBlock(payload);
+      const created = await createBlock(payload);
       setAddSheetVisible(false);
+      setJustAddedBlockId(created.id);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.roomBlocks(roomId) }),
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.roomPollTallies(roomId),
         }),
       ]);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 180);
       showToast('已添加新积木', 'success');
     } catch (err) {
       setAddBlockError(mapRoomError(err));
@@ -453,8 +477,8 @@ export default function RoomBoardScreen() {
   if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
-        <ActivityIndicator size="large" color="#F97316" />
-        <Text className="mt-3 text-xs text-zinc-500">正在加载协作看板...</Text>
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+        <Text className="mt-3 text-xs text-inkMuted">正在加载协作看板...</Text>
       </SafeAreaView>
     );
   }
@@ -474,9 +498,9 @@ export default function RoomBoardScreen() {
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
-          <AlertTriangle size={28} color="#EF4444" />
+          <AlertTriangle size={28} color={THEME_COLORS.danger} />
           <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
-          <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+          <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
             {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2.5">
@@ -510,69 +534,74 @@ export default function RoomBoardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
-      <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
+      <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
         <View className="flex-1 flex-row items-center gap-2.5 pr-2">
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回活动大厅"
             onPress={handleBack}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            scaleTo={0.92}
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <ChevronLeft size={20} color="#18181B" />
-          </Pressable>
+            <ChevronLeft size={20} color={THEME_COLORS.ink} />
+          </MotionPressable>
 
           <View className="flex-1">
             <Text className="text-base font-bold text-ink" numberOfLines={1}>
               {room.title}
             </Text>
             <View className="mt-0.5 flex-row items-center gap-1.5">
-              <Text className="text-[11px] text-zinc-500" numberOfLines={1}>
+              <Text className="text-[11px] text-inkMuted" numberOfLines={1}>
                 {templateMeta.name} · {activeMembers.length} 人
               </Text>
-              <Pressable
+              <MotionPressable
                 accessibilityRole="button"
                 accessibilityLabel={`复制房间码 ${room.room_code}`}
                 onPress={handleCopyRoomCode}
-                className="flex-row items-center gap-1 rounded-full bg-primarySoft px-2 py-0.5 active:opacity-80"
+                scaleTo={0.94}
+                className="flex-row items-center gap-1 rounded-full border border-primaryBorder bg-primarySoft px-2 py-0.5"
               >
-                <Text className="text-[11px] font-bold tracking-wider text-primary">
+                <Text className="text-[11px] font-bold tracking-wider text-primaryDeep">
                   {room.room_code}
                 </Text>
-                <Copy size={10} color="#F97316" />
-              </Pressable>
+                <Copy size={10} color={THEME_COLORS.primaryDeep} />
+              </MotionPressable>
             </View>
           </View>
         </View>
 
         <View className="flex-row items-center gap-2">
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="导出复盘"
             onPress={() => router.push(`/room/${room.id}/export` as Href)}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            scaleTo={0.92}
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <Share2 size={17} color="#18181B" />
-          </Pressable>
-          <Pressable
+            <Share2 size={17} color={THEME_COLORS.ink} />
+          </MotionPressable>
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="房间设置"
             onPress={() => router.push(`/room/${room.id}/settings` as Href)}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            scaleTo={0.92}
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <Settings size={17} color="#18181B" />
-          </Pressable>
+            <Settings size={17} color={THEME_COLORS.ink} />
+          </MotionPressable>
         </View>
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         className="flex-1 px-4 pt-4"
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing && !blocksLoading}
             onRefresh={handleRefreshAll}
-            tintColor="#F97316"
-            colors={['#F97316']}
+            tintColor={THEME_COLORS.primary}
+            colors={[THEME_COLORS.primary]}
           />
         }
       >
@@ -585,23 +614,25 @@ export default function RoomBoardScreen() {
         ) : null}
 
         {permissions.isArchived ? (
-          <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <Archive size={18} color="#B45309" />
+          <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-[#F5DFB3] bg-[#FEF7E8] px-4 py-3">
+            <Archive size={18} color={THEME_COLORS.warning} />
             <View className="flex-1">
-              <Text className="text-xs font-bold text-amber-900">
+              <Text className="text-xs font-bold text-[#8C5210]">
                 活动已归档 · 全员只读模式
               </Text>
-              <Text className="mt-0.5 text-xs text-amber-700">
+              <Text className="mt-0.5 text-xs text-[#A66214]">
                 归档后仅支持浏览记录与导出复盘长图 / PDF，不可再修改积木或条目
               </Text>
             </View>
           </View>
         ) : null}
 
-        <Card className="mb-4">
-          <View className="mb-2 flex-row items-center justify-between gap-2">
-            <View className="flex-row items-center gap-1.5">
-              <Megaphone size={15} color="#F97316" />
+        <Card className="mb-4 overflow-hidden">
+          <View className="mb-2.5 flex-row items-center justify-between gap-2">
+            <View className="flex-row items-center gap-2">
+              <View className="h-6 w-6 items-center justify-center rounded-lg bg-primarySoft">
+                <Megaphone size={13} color={THEME_COLORS.primary} />
+              </View>
               <Text className="text-xs font-bold text-ink">房间公告</Text>
             </View>
             <View className="flex-row items-center gap-1.5">
@@ -618,9 +649,9 @@ export default function RoomBoardScreen() {
                 />
               ) : null}
               {eventWindow ? (
-                <View className="flex-row items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5">
-                  <Calendar size={11} color="#71717A" />
-                  <Text className="text-[11px] font-medium text-zinc-600">
+                <View className="flex-row items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5">
+                  <Calendar size={11} color={THEME_COLORS.inkMuted} />
+                  <Text className="text-[11px] font-medium text-inkMuted">
                     {eventWindow}
                   </Text>
                 </View>
@@ -630,25 +661,26 @@ export default function RoomBoardScreen() {
 
           <Text
             className={`text-sm leading-5 ${
-              room.announcement ? 'text-zinc-700' : 'text-zinc-400'
+              room.announcement ? 'text-ink/85' : 'text-inkSubtle'
             }`}
           >
             {room.announcement ||
               '暂无公告，房主或管理员可在右上角设置中发布集合通知与活动规则'}
           </Text>
 
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="查看房间成员"
             onPress={() => router.push(`/room/${room.id}/settings` as Href)}
-            className="mt-3 flex-row items-center justify-between border-t border-zinc-100 pt-2.5 active:opacity-80"
+            scaleTo={0.985}
+            className="mt-3.5 flex-row items-center justify-between border-t border-lineSoft pt-3"
           >
             <View className="flex-row items-center">
               {activeMembers.slice(0, 6).map((member, index) => (
                 <View
                   key={member.id}
                   style={{ marginLeft: index === 0 ? 0 : -6 }}
-                  className="rounded-full border border-white"
+                  className="rounded-full border-2 border-white"
                 >
                   <Avatar
                     nickname={member.profiles?.nickname}
@@ -659,36 +691,36 @@ export default function RoomBoardScreen() {
                 </View>
               ))}
               {activeMembers.length > 6 ? (
-                <View className="ml-1.5 rounded-full bg-zinc-100 px-1.5 py-0.5">
-                  <Text className="text-[10px] font-semibold text-zinc-600">
+                <View className="ml-1.5 rounded-full bg-primarySoft px-2 py-0.5">
+                  <Text className="text-[10px] font-semibold text-primaryDeep">
                     +{activeMembers.length - 6}
                   </Text>
                 </View>
               ) : null}
             </View>
             <View className="flex-row items-center gap-1">
-              <Users size={13} color="#71717A" />
-              <Text className="text-xs font-medium text-zinc-500">
+              <Users size={13} color={THEME_COLORS.inkMuted} />
+              <Text className="text-xs font-medium text-inkMuted">
                 {activeMembers.length} 人协作中
               </Text>
             </View>
-          </Pressable>
+          </MotionPressable>
         </Card>
 
         {blocksLoading && blocks.length === 0 ? (
           <View className="items-center py-12">
-            <ActivityIndicator size="large" color="#F97316" />
-            <Text className="mt-3 text-xs text-zinc-500">正在同步协作积木...</Text>
+            <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+            <Text className="mt-3 text-xs text-inkMuted">正在同步协作积木...</Text>
           </View>
         ) : blocks.length === 0 ? (
           <Card className="items-center py-10">
-            <View className="mb-3 h-12 w-12 items-center justify-center rounded-2xl bg-primarySoft">
-              <LayoutGrid size={24} color="#F97316" />
+            <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
+              <LayoutGrid size={24} color={THEME_COLORS.primary} />
             </View>
             <Text className="text-base font-bold text-ink">
               房间还没有协作积木
             </Text>
-            <Text className="mt-1.5 px-6 text-center text-xs leading-5 text-zinc-500">
+            <Text className="mt-1.5 px-6 text-center text-xs leading-5 text-inkMuted">
               {canOpenAddBlockSheet
                 ? '点击下方「添加积木」，自由拼装投票、分工、日程轴或 AA 分账模块'
                 : permissions.isArchived
@@ -697,74 +729,98 @@ export default function RoomBoardScreen() {
             </Text>
           </Card>
         ) : (
-          blocks.map((block) => {
-            switch (block.type) {
-              case 'poll':
-                return (
-                  <PollBlock
-                    key={block.id}
-                    block={block}
-                    items={block.items}
-                    tallies={talliesByBlockId.get(block.id) ?? []}
-                    members={activeMembers}
-                    permissions={permissions}
-                    onRequestDeleteBlock={
-                      permissions.canManageBlocks ? setDeleteTarget : undefined
-                    }
-                  />
-                );
-              case 'task':
-                return (
-                  <TaskBlock
-                    key={block.id}
-                    block={block}
-                    items={block.items}
-                    members={activeMembers}
-                    permissions={permissions}
-                    onRequestDeleteBlock={
-                      permissions.canManageBlocks ? setDeleteTarget : undefined
-                    }
-                  />
-                );
-              case 'schedule':
-                return (
-                  <ScheduleBlock
-                    key={block.id}
-                    block={block}
-                    items={block.items}
-                    members={activeMembers}
-                    permissions={permissions}
-                    onRequestDeleteBlock={
-                      permissions.canManageBlocks ? setDeleteTarget : undefined
-                    }
-                  />
-                );
-              case 'expense':
-                return (
-                  <ExpenseBlock
-                    key={block.id}
-                    block={block}
-                    items={block.items}
-                    members={activeMembers}
-                    permissions={permissions}
-                    onRequestDeleteBlock={
-                      permissions.canManageBlocks ? setDeleteTarget : undefined
-                    }
-                  />
-                );
-            }
-          })
+          <LayoutAnimationConfig skipEntering>
+            {blocks.map((block) => {
+              const isNewlyAdded = block.id === justAddedBlockId;
+              const blockContent = (() => {
+                switch (block.type) {
+                  case 'poll':
+                    return (
+                      <PollBlock
+                        block={block}
+                        items={block.items}
+                        tallies={talliesByBlockId.get(block.id) ?? []}
+                        members={activeMembers}
+                        permissions={permissions}
+                        onRequestDeleteBlock={
+                          permissions.canManageBlocks
+                            ? setDeleteTarget
+                            : undefined
+                        }
+                      />
+                    );
+                  case 'task':
+                    return (
+                      <TaskBlock
+                        block={block}
+                        items={block.items}
+                        members={activeMembers}
+                        permissions={permissions}
+                        onRequestDeleteBlock={
+                          permissions.canManageBlocks
+                            ? setDeleteTarget
+                            : undefined
+                        }
+                      />
+                    );
+                  case 'schedule':
+                    return (
+                      <ScheduleBlock
+                        block={block}
+                        items={block.items}
+                        members={activeMembers}
+                        permissions={permissions}
+                        onRequestDeleteBlock={
+                          permissions.canManageBlocks
+                            ? setDeleteTarget
+                            : undefined
+                        }
+                      />
+                    );
+                  case 'expense':
+                    return (
+                      <ExpenseBlock
+                        block={block}
+                        items={block.items}
+                        members={activeMembers}
+                        permissions={permissions}
+                        onRequestDeleteBlock={
+                          permissions.canManageBlocks
+                            ? setDeleteTarget
+                            : undefined
+                        }
+                      />
+                    );
+                }
+              })();
+
+              return (
+                <AnimatedBlockShell
+                  key={block.id}
+                  isNewlyAdded={isNewlyAdded}
+                  onHighlightEnd={
+                    isNewlyAdded ? clearJustAddedBlock : undefined
+                  }
+                >
+                  {blockContent}
+                </AnimatedBlockShell>
+              );
+            })}
+          </LayoutAnimationConfig>
         )}
       </ScrollView>
 
       {canOpenAddBlockSheet ? (
-        <View className="border-t border-zinc-200/70 bg-white px-4 pb-3 pt-2.5">
+        <View
+          style={FLOATING_SHADOW}
+          className="border-t border-line bg-white px-4 pb-3 pt-2.5"
+        >
           <Button
             title={permissions.canManageBlocks ? '添加积木' : '发起新投票'}
             variant="primary"
             size="lg"
             fullWidth
-            leftIcon={<Plus size={18} color="#FFFFFF" />}
+            leftIcon={<Plus size={18} color="#FFFFFF" strokeWidth={2.5} />}
             onPress={handleOpenAddSheet}
           />
         </View>
@@ -776,64 +832,66 @@ export default function RoomBoardScreen() {
         title="添加积木"
       >
         {!permissions.canManageBlocks && permissions.canCreatePollBlock ? (
-          <View className="mb-3 rounded-xl bg-primarySoft px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-primary">
+          <View className="mb-3 rounded-2xl border border-primaryBorder bg-primarySoft px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-primaryDeep">
               房主已允许成员发起投票，你可以为当前房间新建一个投票积木
             </Text>
           </View>
         ) : null}
 
-        <Text className="mb-2 text-xs font-semibold text-zinc-600">
+        <Text className="mb-2.5 text-xs font-semibold text-inkMuted">
           选择积木类型
         </Text>
-        <View className="mb-4 gap-2">
+        <View className="mb-4 gap-2.5">
           {allowedBlockTypes.map((type) => {
             const selected = selectedType === type;
             return (
-              <Pressable
+              <MotionPressable
                 key={type}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 onPress={() => handleSelectBlockType(type)}
+                scaleTo={0.975}
                 className={`flex-row items-center gap-3 rounded-2xl border px-3.5 py-3 ${
                   selected
                     ? 'border-primary bg-primarySoft'
-                    : 'border-zinc-200 bg-surface'
+                    : 'border-line bg-primaryMist'
                 }`}
               >
                 <View
-                  className={`h-9 w-9 items-center justify-center rounded-xl ${
-                    selected ? 'bg-white' : 'bg-zinc-100'
+                  className={`h-10 w-10 items-center justify-center rounded-xl ${
+                    selected ? 'bg-white border border-primaryBorder' : 'bg-white border border-line'
                   }`}
                 >
                   <BlockTypeIcon
                     type={type}
-                    color={selected ? '#F97316' : '#52525B'}
+                    color={selected ? THEME_COLORS.primary : THEME_COLORS.inkMuted}
                   />
                 </View>
                 <View className="flex-1">
                   <Text
                     className={`text-sm font-bold ${
-                      selected ? 'text-primary' : 'text-ink'
+                      selected ? 'text-primaryDeep' : 'text-ink'
                     }`}
                   >
                     {BLOCK_TYPE_LABELS[type]}
                   </Text>
-                  <Text className="mt-0.5 text-[11px] text-zinc-500">
+                  <Text className="mt-0.5 text-[11px] text-inkMuted">
                     {BLOCK_TYPE_DESCRIPTIONS[type]}
                   </Text>
                 </View>
-              </Pressable>
+                <AnimatedCheckBadge checked={selected} size={20} iconSize={12} />
+              </MotionPressable>
             );
           })}
         </View>
 
         <View className="mb-4">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               积木标题
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(blockTitleInput.trim()).length}/{MAX_BLOCK_TITLE_LENGTH}
             </Text>
           </View>
@@ -848,193 +906,224 @@ export default function RoomBoardScreen() {
             }}
             maxLength={MAX_BLOCK_TITLE_LENGTH}
             placeholder={DEFAULT_BLOCK_TITLES[selectedType]}
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         {selectedType === 'poll' ? (
-          <View className="mb-4 gap-3">
-            <View>
-              <Text className="mb-2 text-xs font-semibold text-zinc-600">
-                投票模式
-              </Text>
-              <View className="flex-row gap-2.5">
-                {(
-                  [
-                    { key: 'option', label: '方案投票' },
-                    { key: 'availability', label: '时间热力图' },
-                  ] as const
-                ).map((modeOption) => {
-                  const selected = pollMode === modeOption.key;
-                  return (
-                    <Pressable
-                      key={modeOption.key}
-                      onPress={() => setPollMode(modeOption.key)}
-                      className={`flex-1 items-center rounded-xl border py-2.5 ${
-                        selected
-                          ? 'border-primary bg-primarySoft'
-                          : 'border-zinc-200 bg-surface'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-semibold ${
-                          selected ? 'text-primary' : 'text-zinc-600'
+          <AnimatedPanelReveal key="config-poll">
+            <View className="mb-4 gap-3">
+              <View>
+                <Text className="mb-2 text-xs font-semibold text-inkMuted">
+                  投票模式
+                </Text>
+                <View className="flex-row gap-2.5">
+                  {(
+                    [
+                      { key: 'option', label: '方案投票' },
+                      { key: 'availability', label: '时间热力图' },
+                    ] as const
+                  ).map((modeOption) => {
+                    const selected = pollMode === modeOption.key;
+                    return (
+                      <MotionPressable
+                        key={modeOption.key}
+                        flex
+                        scaleTo={0.96}
+                        onPress={() => setPollMode(modeOption.key)}
+                        className={`items-center rounded-xl border py-2.5 ${
+                          selected
+                            ? 'border-primary bg-primarySoft'
+                            : 'border-line bg-surface'
                         }`}
                       >
-                        {modeOption.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                        <Text
+                          className={`text-xs font-semibold ${
+                            selected ? 'text-primaryDeep' : 'text-inkMuted'
+                          }`}
+                        >
+                          {modeOption.label}
+                        </Text>
+                      </MotionPressable>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
 
-            {pollMode === 'option' ? (
-              <View className="flex-row items-center justify-between rounded-2xl bg-surface px-3.5 py-2.5">
-                <Text className="text-xs font-semibold text-ink">允许多选</Text>
+              {pollMode === 'option' ? (
+                <View className="flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
+                  <Text className="text-xs font-semibold text-ink">允许多选</Text>
+                  <Switch
+                    value={pollMultiple}
+                    onValueChange={setPollMultiple}
+                    trackColor={{
+                      false: THEME_COLORS.switchOffTrack,
+                      true: THEME_COLORS.primaryBorder,
+                    }}
+                    thumbColor={
+                      pollMultiple ? THEME_COLORS.primary : THEME_COLORS.switchOffThumb
+                    }
+                  />
+                </View>
+              ) : null}
+
+              <View className="flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
+                <Text className="text-xs font-semibold text-ink">
+                  匿名投票（隐藏投票人头像）
+                </Text>
                 <Switch
-                  value={pollMultiple}
-                  onValueChange={setPollMultiple}
-                  trackColor={{ false: '#D4D4D8', true: '#FDBA74' }}
-                  thumbColor={pollMultiple ? '#F97316' : '#F4F4F5'}
+                  value={pollAnonymous}
+                  onValueChange={setPollAnonymous}
+                  trackColor={{
+                    false: THEME_COLORS.switchOffTrack,
+                    true: THEME_COLORS.primaryBorder,
+                  }}
+                  thumbColor={
+                    pollAnonymous ? THEME_COLORS.primary : THEME_COLORS.switchOffThumb
+                  }
                 />
               </View>
-            ) : null}
-
-            <View className="flex-row items-center justify-between rounded-2xl bg-surface px-3.5 py-2.5">
-              <Text className="text-xs font-semibold text-ink">
-                匿名投票（隐藏投票人头像）
-              </Text>
-              <Switch
-                value={pollAnonymous}
-                onValueChange={setPollAnonymous}
-                trackColor={{ false: '#D4D4D8', true: '#FDBA74' }}
-                thumbColor={pollAnonymous ? '#F97316' : '#F4F4F5'}
-              />
             </View>
-          </View>
+          </AnimatedPanelReveal>
         ) : null}
 
         {selectedType === 'task' ? (
-          <View className="mb-4 flex-row items-center justify-between rounded-2xl bg-surface px-3.5 py-2.5">
-            <View className="flex-1 pr-3">
-              <Text className="text-xs font-semibold text-ink">
-                允许普通成员新增任务
-              </Text>
-              <Text className="mt-0.5 text-[11px] text-zinc-500">
-                关闭后仅房主与管理员可发布任务条目
-              </Text>
+          <AnimatedPanelReveal key="config-task">
+            <View className="mb-4 flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
+              <View className="flex-1 pr-3">
+                <Text className="text-xs font-semibold text-ink">
+                  允许普通成员新增任务
+                </Text>
+                <Text className="mt-0.5 text-[11px] text-inkMuted">
+                  关闭后仅房主与管理员可发布任务条目
+                </Text>
+              </View>
+              <Switch
+                value={taskAllowMemberCreate}
+                onValueChange={setTaskAllowMemberCreate}
+                trackColor={{
+                  false: THEME_COLORS.switchOffTrack,
+                  true: THEME_COLORS.primaryBorder,
+                }}
+                thumbColor={
+                  taskAllowMemberCreate
+                    ? THEME_COLORS.primary
+                    : THEME_COLORS.switchOffThumb
+                }
+              />
             </View>
-            <Switch
-              value={taskAllowMemberCreate}
-              onValueChange={setTaskAllowMemberCreate}
-              trackColor={{ false: '#D4D4D8', true: '#FDBA74' }}
-              thumbColor={taskAllowMemberCreate ? '#F97316' : '#F4F4F5'}
-            />
-          </View>
+          </AnimatedPanelReveal>
         ) : null}
 
         {selectedType === 'schedule' ? (
-          <View className="mb-4">
-            <Text className="mb-2 text-xs font-semibold text-zinc-600">
-              日程分组方式
-            </Text>
-            <View className="flex-row gap-2.5">
-              {(
-                [
-                  { key: 'day', label: '按天数分组' },
-                  { key: 'phase', label: '按阶段分组' },
-                ] as const
-              ).map((groupOpt) => {
-                const selected = scheduleGroupBy === groupOpt.key;
-                return (
-                  <Pressable
-                    key={groupOpt.key}
-                    onPress={() => setScheduleGroupBy(groupOpt.key)}
-                    className={`flex-1 items-center rounded-xl border py-2.5 ${
-                      selected
-                        ? 'border-primary bg-primarySoft'
-                        : 'border-zinc-200 bg-surface'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-semibold ${
-                        selected ? 'text-primary' : 'text-zinc-600'
-                      }`}
-                    >
-                      {groupOpt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
-        {selectedType === 'expense' ? (
-          <View className="mb-4 gap-3">
-            <View>
-              <Text className="mb-2 text-xs font-semibold text-zinc-600">
-                费用管理模式
+          <AnimatedPanelReveal key="config-schedule">
+            <View className="mb-4">
+              <Text className="mb-2 text-xs font-semibold text-inkMuted">
+                日程分组方式
               </Text>
               <View className="flex-row gap-2.5">
                 {(
                   [
-                    { key: 'split', label: 'AA 最小转账分账' },
-                    { key: 'budget', label: '社团预算报销' },
+                    { key: 'day', label: '按天数分组' },
+                    { key: 'phase', label: '按阶段分组' },
                   ] as const
-                ).map((expOpt) => {
-                  const selected = expenseMode === expOpt.key;
+                ).map((groupOpt) => {
+                  const selected = scheduleGroupBy === groupOpt.key;
                   return (
-                    <Pressable
-                      key={expOpt.key}
-                      onPress={() => setExpenseMode(expOpt.key)}
-                      className={`flex-1 items-center rounded-xl border py-2.5 ${
+                    <MotionPressable
+                      key={groupOpt.key}
+                      flex
+                      scaleTo={0.96}
+                      onPress={() => setScheduleGroupBy(groupOpt.key)}
+                      className={`items-center rounded-xl border py-2.5 ${
                         selected
                           ? 'border-primary bg-primarySoft'
-                          : 'border-zinc-200 bg-surface'
+                          : 'border-line bg-surface'
                       }`}
                     >
                       <Text
                         className={`text-xs font-semibold ${
-                          selected ? 'text-primary' : 'text-zinc-600'
+                          selected ? 'text-primaryDeep' : 'text-inkMuted'
                         }`}
                       >
-                        {expOpt.label}
+                        {groupOpt.label}
                       </Text>
-                    </Pressable>
+                    </MotionPressable>
                   );
                 })}
               </View>
             </View>
+          </AnimatedPanelReveal>
+        ) : null}
 
-            {expenseMode === 'budget' ? (
+        {selectedType === 'expense' ? (
+          <AnimatedPanelReveal key="config-expense">
+            <View className="mb-4 gap-3">
               <View>
-                <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
-                  活动总预算（元，选填）
+                <Text className="mb-2 text-xs font-semibold text-inkMuted">
+                  费用管理模式
                 </Text>
-                <BottomSheetTextInput
-                  value={expenseBudgetInput}
-                  onChangeText={(text) => {
-                    setExpenseBudgetInput(text);
-                    if (addBlockError) {
-                      setAddBlockError(null);
-                    }
-                  }}
-                  keyboardType="decimal-pad"
-                  placeholder="例如：1500"
-                  placeholderTextColor="#A1A1AA"
-                  className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
-                />
+                <View className="flex-row gap-2.5">
+                  {(
+                    [
+                      { key: 'split', label: 'AA 最小转账分账' },
+                      { key: 'budget', label: '社团预算报销' },
+                    ] as const
+                  ).map((expOpt) => {
+                    const selected = expenseMode === expOpt.key;
+                    return (
+                      <MotionPressable
+                        key={expOpt.key}
+                        flex
+                        scaleTo={0.96}
+                        onPress={() => setExpenseMode(expOpt.key)}
+                        className={`items-center rounded-xl border py-2.5 ${
+                          selected
+                            ? 'border-primary bg-primarySoft'
+                            : 'border-line bg-surface'
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs font-semibold ${
+                            selected ? 'text-primaryDeep' : 'text-inkMuted'
+                          }`}
+                        >
+                          {expOpt.label}
+                        </Text>
+                      </MotionPressable>
+                    );
+                  })}
+                </View>
               </View>
-            ) : null}
-          </View>
+
+              {expenseMode === 'budget' ? (
+                <View>
+                  <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
+                    活动总预算（元，选填）
+                  </Text>
+                  <BottomSheetTextInput
+                    value={expenseBudgetInput}
+                    onChangeText={(text) => {
+                      setExpenseBudgetInput(text);
+                      if (addBlockError) {
+                        setAddBlockError(null);
+                      }
+                    }}
+                    keyboardType="decimal-pad"
+                    placeholder="例如：1500"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
+                    className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+                  />
+                </View>
+              ) : null}
+            </View>
+          </AnimatedPanelReveal>
         ) : null}
 
         {addBlockError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">
               {addBlockError}
             </Text>
           </View>
@@ -1055,7 +1144,7 @@ export default function RoomBoardScreen() {
         onClose={() => setDeleteTarget(null)}
         title="确认移除积木模块？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           确定删除「{deleteTarget?.title ?? ''}
           」吗？删除后该积木下的所有条目也将一并移除。
         </Text>

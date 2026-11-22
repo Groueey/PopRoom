@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { Linking, Platform, Pressable, Text, View } from 'react-native';
+import { Linking, Platform, Text, View } from 'react-native';
 import {
   type ParsedBlock,
   type ParsedBlockItem,
@@ -43,7 +43,13 @@ import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import {
+  AnimatedItemRow,
+  LayoutAnimationConfig,
+  MotionPressable,
+} from '../ui/Motion';
 import { SheetModal } from '../ui/SheetModal';
+import { THEME_COLORS } from '../../lib/theme';
 
 const MAX_SCHEDULE_GROUP_LENGTH = 30;
 const MAX_SCHEDULE_TITLE_LENGTH = 60;
@@ -375,8 +381,8 @@ export function ScheduleBlock({
     <Card className="mb-3.5">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
-            <CalendarClock size={18} color="#F97316" />
+          <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
+            <CalendarClock size={18} color={THEME_COLORS.primary} />
           </View>
 
           <View className="flex-1">
@@ -391,7 +397,7 @@ export function ScheduleBlock({
             <Text className="text-base font-bold text-ink" numberOfLines={2}>
               {block.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               {groups.length === 0
                 ? '暂无日程节点'
                 : `${groups.length} 个分组 · 按时间升序排列`}
@@ -400,164 +406,174 @@ export function ScheduleBlock({
         </View>
 
         {permissions.canManageBlocks && onRequestDeleteBlock ? (
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel={`删除积木 ${block.title}`}
             onPress={() => onRequestDeleteBlock(block)}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-zinc-200 bg-surface active:bg-red-50"
+            scaleTo={0.9}
+            className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
           >
-            <Trash2 size={15} color="#71717A" />
-          </Pressable>
+            <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+          </MotionPressable>
         ) : null}
       </View>
 
       {groups.length === 0 ? (
-        <View className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-surface/70 px-4 py-4">
-          <Text className="text-center text-xs text-zinc-400">
+        <View className="mt-3 rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-4">
+          <Text className="text-center text-xs text-inkSubtle">
             暂无日程安排{canCreateSchedule ? '，点击下方按钮添加第一个时间节点' : ''}
           </Text>
         </View>
       ) : (
-        <View className="mt-3.5 gap-4">
-          {groups.map((group) => (
-            <View key={group.groupLabel}>
-              <View className="mb-2.5 flex-row items-center justify-between">
-                <View className="flex-row items-center gap-1.5 rounded-full bg-primarySoft px-2.5 py-1">
-                  <View className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <Text className="text-xs font-bold text-primary">
-                    {group.groupLabel}
+        <LayoutAnimationConfig skipEntering>
+          <View className="mt-3.5 gap-4">
+            {groups.map((group) => (
+              <View key={group.groupLabel}>
+                <View className="mb-2.5 flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-1.5 rounded-full border border-primaryBorder bg-primarySoft px-3 py-1">
+                    <View className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <Text className="text-xs font-bold text-primaryDeep">
+                      {group.groupLabel}
+                    </Text>
+                  </View>
+                  <Text className="text-[11px] font-medium text-inkSubtle">
+                    {group.items.length} 项
                   </Text>
                 </View>
-                <Text className="text-[11px] font-medium text-zinc-400">
-                  {group.items.length} 项
-                </Text>
-              </View>
 
-              <View className="pl-1">
-                {group.items.map((item, idx) => {
-                  const isLast = idx === group.items.length - 1;
-                  const canEditOrDelete = permissions.canEditOrDeleteItem(
-                    item.created_by,
-                  );
-                  const locationText = item.data.locationName?.trim() ?? '';
-                  const ownerProfile = item.data.ownerId
-                    ? memberProfileMap.get(item.data.ownerId)
-                    : undefined;
-                  const timeLabel = formatScheduleTimeRange(
-                    item.data.startTime,
-                    item.data.endTime,
-                  );
+                <View className="pl-1">
+                  {group.items.map((item, idx) => {
+                    const isLast = idx === group.items.length - 1;
+                    const canEditOrDelete = permissions.canEditOrDeleteItem(
+                      item.created_by,
+                    );
+                    const locationText = item.data.locationName?.trim() ?? '';
+                    const ownerProfile = item.data.ownerId
+                      ? memberProfileMap.get(item.data.ownerId)
+                      : undefined;
+                    const timeLabel = formatScheduleTimeRange(
+                      item.data.startTime,
+                      item.data.endTime,
+                    );
 
-                  return (
-                    <View key={item.id} className="flex-row items-stretch">
-                      <View className="mr-3 w-4 items-center">
-                        <View className="mt-3 h-2.5 w-2.5 rounded-full border-2 border-primary bg-white" />
-                        {!isLast ? (
-                          <View className="my-1 w-0.5 flex-1 bg-orange-200" />
-                        ) : null}
-                      </View>
-
-                      <View
-                        className={`flex-1 rounded-2xl border border-zinc-200 bg-surface p-3 ${
-                          isLast ? '' : 'mb-2.5'
-                        }`}
-                      >
-                        <View className="flex-row items-center justify-between gap-2">
-                          <View className="flex-row items-center gap-1 rounded-full border border-orange-200 bg-primarySoft px-2 py-0.5">
-                            <Clock size={11} color="#F97316" />
-                            <Text className="text-[11px] font-bold text-primary">
-                              {timeLabel}
-                            </Text>
+                    return (
+                      <AnimatedItemRow key={item.id}>
+                        <View className="flex-row items-stretch">
+                          <View className="mr-3 w-4 items-center">
+                            <View className="mt-3 h-3 w-3 items-center justify-center rounded-full bg-primarySoft">
+                              <View className="h-2 w-2 rounded-full bg-primary" />
+                            </View>
+                            {!isLast ? (
+                              <View className="my-1 w-0.5 flex-1 bg-primaryBorder" />
+                            ) : null}
                           </View>
 
-                          {canEditOrDelete ? (
-                            <View className="flex-row items-center gap-1.5">
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`编辑日程 ${item.data.title}`}
-                                onPress={() => handleOpenEditForm(item)}
-                                className="h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-white active:bg-zinc-100"
-                              >
-                                <Edit3 size={13} color="#52525B" />
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`删除日程 ${item.data.title}`}
-                                onPress={() => setDeleteItemTarget(item)}
-                                className="h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-white active:bg-red-50"
-                              >
-                                <Trash2 size={13} color="#71717A" />
-                              </Pressable>
+                          <View
+                            className={`flex-1 rounded-2xl border border-line bg-primaryMist p-3 ${
+                              isLast ? '' : 'mb-2.5'
+                            }`}
+                          >
+                            <View className="flex-row items-center justify-between gap-2">
+                              <View className="flex-row items-center gap-1 rounded-full border border-primaryBorder bg-primarySoft px-2.5 py-0.5">
+                                <Clock size={11} color={THEME_COLORS.primaryDeep} />
+                                <Text className="text-[11px] font-bold text-primaryDeep">
+                                  {timeLabel}
+                                </Text>
+                              </View>
+
+                              {canEditOrDelete ? (
+                                <View className="flex-row items-center gap-1.5">
+                                  <MotionPressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`编辑日程 ${item.data.title}`}
+                                    onPress={() => handleOpenEditForm(item)}
+                                    scaleTo={0.9}
+                                    className="h-7 w-7 items-center justify-center rounded-lg border border-line bg-white"
+                                  >
+                                    <Edit3 size={13} color={THEME_COLORS.inkMuted} />
+                                  </MotionPressable>
+                                  <MotionPressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`删除日程 ${item.data.title}`}
+                                    onPress={() => setDeleteItemTarget(item)}
+                                    scaleTo={0.9}
+                                    className="h-7 w-7 items-center justify-center rounded-lg border border-line bg-white"
+                                  >
+                                    <Trash2 size={13} color={THEME_COLORS.inkMuted} />
+                                  </MotionPressable>
+                                </View>
+                              ) : null}
                             </View>
-                          ) : null}
+
+                            <Text className="mt-1.5 text-sm font-bold text-ink">
+                              {item.data.title}
+                            </Text>
+
+                            {item.data.notes.trim() ? (
+                              <Text className="mt-1 text-xs leading-4 text-inkMuted">
+                                {item.data.notes.trim()}
+                              </Text>
+                            ) : null}
+
+                            {locationText ? (
+                              <View className="mt-2.5 flex-row items-center gap-2">
+                                <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-line bg-white px-2.5 py-1.5">
+                                  <MapPin size={13} color={THEME_COLORS.primary} />
+                                  <Text
+                                    className="flex-1 text-xs font-medium text-ink/80"
+                                    numberOfLines={2}
+                                  >
+                                    {locationText}
+                                  </Text>
+                                </View>
+                                <MotionPressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`导航至 ${locationText}`}
+                                  onPress={() => setNavLocation(locationText)}
+                                  scaleTo={0.94}
+                                  className="flex-row items-center gap-1 rounded-xl border border-primaryBorder bg-primarySoft px-2.5 py-1.5"
+                                >
+                                  <Navigation size={12} color={THEME_COLORS.primaryDeep} />
+                                  <Text className="text-xs font-bold text-primaryDeep">
+                                    导航
+                                  </Text>
+                                </MotionPressable>
+                              </View>
+                            ) : null}
+
+                            {item.data.ownerId ? (
+                              <View className="mt-2.5 flex-row items-center gap-1.5 border-t border-lineSoft pt-2">
+                                <Avatar
+                                  nickname={ownerProfile?.nickname ?? '成员'}
+                                  color={ownerProfile?.avatar_color}
+                                  imageUrl={ownerProfile?.avatar_url}
+                                  size="xs"
+                                />
+                                <Text className="text-[11px] font-medium text-inkMuted">
+                                  负责人：{ownerProfile?.nickname ?? '成员'}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
                         </View>
-
-                        <Text className="mt-1.5 text-sm font-bold text-ink">
-                          {item.data.title}
-                        </Text>
-
-                        {item.data.notes.trim() ? (
-                          <Text className="mt-1 text-xs leading-4 text-zinc-600">
-                            {item.data.notes.trim()}
-                          </Text>
-                        ) : null}
-
-                        {locationText ? (
-                          <View className="mt-2.5 flex-row items-center gap-2">
-                            <View className="flex-1 flex-row items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5">
-                              <MapPin size={13} color="#F97316" />
-                              <Text
-                                className="flex-1 text-xs font-medium text-zinc-700"
-                                numberOfLines={2}
-                              >
-                                {locationText}
-                              </Text>
-                            </View>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={`导航至 ${locationText}`}
-                              onPress={() => setNavLocation(locationText)}
-                              className="flex-row items-center gap-1 rounded-xl border border-orange-200 bg-primarySoft px-2.5 py-1.5 active:opacity-80"
-                            >
-                              <Navigation size={12} color="#F97316" />
-                              <Text className="text-xs font-bold text-primary">
-                                导航
-                              </Text>
-                            </Pressable>
-                          </View>
-                        ) : null}
-
-                        {item.data.ownerId ? (
-                          <View className="mt-2.5 flex-row items-center gap-1.5 border-t border-zinc-200/70 pt-2">
-                            <Avatar
-                              nickname={ownerProfile?.nickname ?? '成员'}
-                              color={ownerProfile?.avatar_color}
-                              imageUrl={ownerProfile?.avatar_url}
-                              size="xs"
-                            />
-                            <Text className="text-[11px] font-medium text-zinc-600">
-                              负责人：{ownerProfile?.nickname ?? '成员'}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                  );
-                })}
+                      </AnimatedItemRow>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        </LayoutAnimationConfig>
       )}
 
       {canCreateSchedule ? (
-        <View className="mt-3 border-t border-zinc-100 pt-3">
+        <View className="mt-3.5 border-t border-lineSoft pt-3">
           <Button
             title="新增日程节点"
             variant="secondary"
             size="sm"
             fullWidth
-            leftIcon={<Plus size={14} color="#F97316" />}
+            leftIcon={<Plus size={14} color={THEME_COLORS.primaryDeep} />}
             onPress={handleOpenCreateForm}
           />
         </View>
@@ -570,8 +586,8 @@ export function ScheduleBlock({
       >
         {navLocation ? (
           <View className="gap-3.5">
-            <View className="flex-row items-center gap-2 rounded-2xl border border-zinc-200 bg-surface p-3.5">
-              <MapPin size={18} color="#F97316" />
+            <View className="flex-row items-center gap-2 rounded-2xl border border-line bg-primaryMist p-3.5">
+              <MapPin size={18} color={THEME_COLORS.primary} />
               <Text className="flex-1 text-sm font-bold text-ink">
                 {navLocation}
               </Text>
@@ -582,39 +598,40 @@ export function ScheduleBlock({
               variant="secondary"
               size="md"
               fullWidth
-              leftIcon={<Copy size={16} color="#F97316" />}
+              leftIcon={<Copy size={16} color={THEME_COLORS.primaryDeep} />}
               onPress={() => void handleCopyLocation(navLocation)}
             />
 
             <View className="gap-2">
-              <Text className="text-xs font-semibold text-zinc-500">
+              <Text className="text-xs font-semibold text-inkMuted">
                 选择外部地图搜索导航
               </Text>
               {mapOptions.map((option) => (
-                <Pressable
+                <MotionPressable
                   key={option.id}
                   accessibilityRole="button"
                   accessibilityLabel={`使用 ${option.label} 导航`}
                   onPress={() => void handleOpenMapOption(option)}
-                  className="flex-row items-center justify-between rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 active:bg-primarySoft"
+                  scaleTo={0.98}
+                  className="flex-row items-center justify-between rounded-2xl border border-line bg-white px-4 py-3.5"
                 >
                   <View className="flex-row items-center gap-2.5">
                     <View className="h-8 w-8 items-center justify-center rounded-xl bg-primarySoft">
-                      <Navigation size={15} color="#F97316" />
+                      <Navigation size={15} color={THEME_COLORS.primary} />
                     </View>
                     <View>
                       <Text className="text-sm font-bold text-ink">
                         {option.label}
                       </Text>
-                      <Text className="text-[11px] text-zinc-400">
+                      <Text className="text-[11px] text-inkSubtle">
                         {option.id === 'web'
                           ? '在浏览器中搜索该地点'
                           : '优先唤起客户端，未安装时跳转网页版'}
                       </Text>
                     </View>
                   </View>
-                  <ExternalLink size={16} color="#71717A" />
-                </Pressable>
+                  <ExternalLink size={16} color={THEME_COLORS.inkMuted} />
+                </MotionPressable>
               ))}
             </View>
           </View>
@@ -632,12 +649,12 @@ export function ScheduleBlock({
       >
         <View className="mb-3.5">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               {block.config.groupBy === 'phase'
                 ? '阶段分组（如：筹备期 / 活动中）'
                 : '日期 / 分组（如：Day 1 / 活动当天）'}
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(groupLabelInput.trim()).length}/{MAX_SCHEDULE_GROUP_LENGTH}
             </Text>
           </View>
@@ -651,14 +668,14 @@ export function ScheduleBlock({
             }}
             maxLength={MAX_SCHEDULE_GROUP_LENGTH}
             placeholder={DEFAULT_SCHEDULE_GROUP_LABEL}
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         <View className="mb-3.5 flex-row gap-2.5">
           <View className="flex-1">
-            <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+            <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
               开始时间（必填）
             </Text>
             <BottomSheetTextInput
@@ -670,12 +687,12 @@ export function ScheduleBlock({
                 }
               }}
               placeholder="09:00"
-              placeholderTextColor="#A1A1AA"
-              className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+              placeholderTextColor={THEME_COLORS.inkSubtle}
+              className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
             />
           </View>
           <View className="flex-1">
-            <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+            <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
               结束时间（选填）
             </Text>
             <BottomSheetTextInput
@@ -687,18 +704,18 @@ export function ScheduleBlock({
                 }
               }}
               placeholder="11:30"
-              placeholderTextColor="#A1A1AA"
-              className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+              placeholderTextColor={THEME_COLORS.inkSubtle}
+              className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
             />
           </View>
         </View>
 
         <View className="mb-3.5">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               日程主题（必填）
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(titleInput.trim()).length}/{MAX_SCHEDULE_TITLE_LENGTH}
             </Text>
           </View>
@@ -712,17 +729,17 @@ export function ScheduleBlock({
             }}
             maxLength={MAX_SCHEDULE_TITLE_LENGTH}
             placeholder="例如：公园东门集合 / 破冰游戏"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         <View className="mb-3.5">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               地点名称（选填，用于一键导航）
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(locationNameInput.trim()).length}/{MAX_SCHEDULE_LOCATION_LENGTH}
             </Text>
           </View>
@@ -736,48 +753,50 @@ export function ScheduleBlock({
             }}
             maxLength={MAX_SCHEDULE_LOCATION_LENGTH}
             placeholder="例如：紫竹院公园东门"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         <View className="mb-3.5">
-          <Text className="mb-2 text-xs font-semibold text-zinc-600">
+          <Text className="mb-2 text-xs font-semibold text-inkMuted">
             负责人（选填）
           </Text>
           <View className="flex-row flex-wrap gap-2">
-            <Pressable
+            <MotionPressable
               accessibilityRole="radio"
               accessibilityState={{ selected: ownerIdInput === null }}
               onPress={() => setOwnerIdInput(null)}
+              scaleTo={0.95}
               className={`rounded-full border px-3 py-1.5 ${
                 ownerIdInput === null
                   ? 'border-primary bg-primarySoft'
-                  : 'border-zinc-200 bg-surface'
+                  : 'border-line bg-surface'
               }`}
             >
               <Text
                 className={`text-xs font-semibold ${
-                  ownerIdInput === null ? 'text-primary' : 'text-zinc-600'
+                  ownerIdInput === null ? 'text-primaryDeep' : 'text-inkMuted'
                 }`}
               >
                 无指定
               </Text>
-            </Pressable>
+            </MotionPressable>
 
             {selectableOwnerOptions.map((entry) => {
               const selected = ownerIdInput === entry.userId;
               const label = entry.profile?.nickname ?? '成员';
               return (
-                <Pressable
+                <MotionPressable
                   key={`owner-opt-${entry.userId}`}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   onPress={() => setOwnerIdInput(entry.userId)}
+                  scaleTo={0.95}
                   className={`flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 ${
                     selected
                       ? 'border-primary bg-primarySoft'
-                      : 'border-zinc-200 bg-surface'
+                      : 'border-line bg-surface'
                   }`}
                 >
                   <Avatar
@@ -788,12 +807,12 @@ export function ScheduleBlock({
                   />
                   <Text
                     className={`text-xs font-semibold ${
-                      selected ? 'text-primary' : 'text-zinc-700'
+                      selected ? 'text-primaryDeep' : 'text-inkMuted'
                     }`}
                   >
                     {label}
                   </Text>
-                </Pressable>
+                </MotionPressable>
               );
             })}
           </View>
@@ -801,10 +820,10 @@ export function ScheduleBlock({
 
         <View className="mb-4">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               备注说明（选填）
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(notesInput.trim()).length}/{MAX_SCHEDULE_NOTES_LENGTH}
             </Text>
           </View>
@@ -820,15 +839,15 @@ export function ScheduleBlock({
             multiline
             numberOfLines={3}
             placeholder="例如：建议提前 10 分钟到场签到"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
             textAlignVertical="top"
-            className="min-h-[80px] rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            className="min-h-[80px] rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         {formError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">{formError}</Text>
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">{formError}</Text>
           </View>
         ) : null}
 
@@ -865,7 +884,7 @@ export function ScheduleBlock({
         onClose={() => setDeleteItemTarget(null)}
         title="确认删除该日程？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           确定删除「{deleteItemTarget?.data.title ?? ''}
           」吗？管理员后续可在房间操作日志中恢复该日程节点。
         </Text>

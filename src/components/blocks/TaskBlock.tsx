@@ -20,7 +20,6 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Pressable,
   Text,
   View,
 } from 'react-native';
@@ -75,7 +74,14 @@ import { Avatar } from '../ui/Avatar';
 import { Badge, type BadgeVariant } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import {
+  AnimatedItemRow,
+  AnimatedProgressBar,
+  LayoutAnimationConfig,
+  MotionPressable,
+} from '../ui/Motion';
 import { SheetModal } from '../ui/SheetModal';
+import { THEME_COLORS } from '../../lib/theme';
 
 const MAX_TASK_TITLE_LENGTH = 60;
 const MAX_TASK_DESC_LENGTH = 400;
@@ -133,21 +139,23 @@ function TaskProofPhoto({
   };
 
   return (
-    <View className="relative h-24 w-24 overflow-hidden rounded-2xl border border-zinc-200 bg-surface">
+    <View className="relative h-24 w-24 overflow-hidden rounded-2xl border border-line bg-surface">
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="small" color="#F97316" />
+          <ActivityIndicator size="small" color={THEME_COLORS.primary} />
         </View>
       ) : isError || imageLoadFailed || !signedUrl ? (
-        <Pressable
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="重新加载凭证图"
           onPress={handleRetry}
-          className="flex-1 items-center justify-center gap-1 px-2 active:bg-zinc-100"
+          flex
+          scaleTo={0.94}
+          className="flex-1 items-center justify-center gap-1 px-2"
         >
-          <ImageIcon size={18} color="#A1A1AA" />
-          <Text className="text-[10px] font-medium text-zinc-400">点击重试</Text>
-        </Pressable>
+          <ImageIcon size={18} color={THEME_COLORS.inkSubtle} />
+          <Text className="text-[10px] font-medium text-inkSubtle">点击重试</Text>
+        </MotionPressable>
       ) : (
         <Image
           source={{ uri: signedUrl }}
@@ -158,15 +166,17 @@ function TaskProofPhoto({
       )}
 
       {canRemove ? (
-        <Pressable
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="移除凭证图"
           disabled={removing}
           onPress={onRemove}
-          className="absolute right-1.5 top-1.5 h-6 w-6 items-center justify-center rounded-full bg-black/65 active:bg-black/80"
+          scaleTo={0.88}
+          containerStyle={{ position: 'absolute', right: 6, top: 6 }}
+          className="h-6 w-6 items-center justify-center rounded-full bg-black/60"
         >
           <X size={13} color="#FFFFFF" />
-        </Pressable>
+        </MotionPressable>
       ) : null}
     </View>
   );
@@ -214,15 +224,15 @@ function TaskItemCard({
     <View
       className={`rounded-2xl border p-3.5 ${
         isDone
-          ? 'border-emerald-200/80 bg-emerald-50/40'
-          : 'border-zinc-200 bg-surface'
+          ? 'border-[#CBEAD9] bg-[#F5FBF8]'
+          : 'border-line bg-primaryMist'
       }`}
     >
-      <Pressable
+      <MotionPressable
         accessibilityRole="button"
         accessibilityLabel={`查看任务详情 ${item.data.title}`}
         onPress={onOpenDetail}
-        className="active:opacity-80"
+        scaleTo={0.985}
       >
         <View className="flex-row items-start justify-between gap-2">
           <View className="flex-1">
@@ -232,9 +242,9 @@ function TaskItemCard({
                 variant={STATUS_BADGE_VARIANT[item.data.status]}
               />
               {dueLabel ? (
-                <View className="flex-row items-center gap-1 rounded-full bg-white px-2 py-0.5 border border-zinc-200">
-                  <Clock size={10} color="#71717A" />
-                  <Text className="text-[10px] font-medium text-zinc-600">
+                <View className="flex-row items-center gap-1 rounded-full border border-line bg-white px-2 py-0.5">
+                  <Clock size={10} color={THEME_COLORS.inkMuted} />
+                  <Text className="text-[10px] font-medium text-inkMuted">
                     {dueLabel}
                   </Text>
                 </View>
@@ -243,7 +253,7 @@ function TaskItemCard({
 
             <Text
               className={`text-sm font-bold ${
-                isDone ? 'text-zinc-500 line-through' : 'text-ink'
+                isDone ? 'text-inkSubtle line-through' : 'text-ink'
               }`}
               numberOfLines={2}
             >
@@ -252,7 +262,7 @@ function TaskItemCard({
 
             {item.data.description ? (
               <Text
-                className="mt-1 text-xs leading-4 text-zinc-500"
+                className="mt-1 text-xs leading-4 text-inkMuted"
                 numberOfLines={2}
               >
                 {item.data.description}
@@ -285,7 +295,7 @@ function TaskItemCard({
                   })}
                 </View>
                 <Text
-                  className="flex-1 text-[11px] text-zinc-600"
+                  className="flex-1 text-[11px] text-inkMuted"
                   numberOfLines={1}
                 >
                   {item.data.assigneeIds
@@ -298,16 +308,21 @@ function TaskItemCard({
                 </Text>
               </>
             ) : (
-              <Text className="text-[11px] text-zinc-400">暂无人认领</Text>
+              <Text className="text-[11px] text-inkSubtle">暂无人认领</Text>
             )}
           </View>
 
           <View className="flex-row items-center gap-2.5">
             <View className="flex-row items-center gap-1">
-              <ImageIcon size={12} color={photoCount > 0 ? '#F97316' : '#A1A1AA'} />
+              <ImageIcon
+                size={12}
+                color={
+                  photoCount > 0 ? THEME_COLORS.primary : THEME_COLORS.inkSubtle
+                }
+              />
               <Text
                 className={`text-[11px] font-medium ${
-                  photoCount > 0 ? 'text-primary' : 'text-zinc-400'
+                  photoCount > 0 ? 'text-primaryDeep' : 'text-inkSubtle'
                 }`}
               >
                 {photoCount}/{MAX_TASK_IMAGES}
@@ -316,11 +331,13 @@ function TaskItemCard({
             <View className="flex-row items-center gap-1">
               <MessageSquare
                 size={12}
-                color={commentCount > 0 ? '#52525B' : '#A1A1AA'}
+                color={
+                  commentCount > 0 ? THEME_COLORS.inkMuted : THEME_COLORS.inkSubtle
+                }
               />
               <Text
                 className={`text-[11px] font-medium ${
-                  commentCount > 0 ? 'text-zinc-600' : 'text-zinc-400'
+                  commentCount > 0 ? 'text-inkMuted' : 'text-inkSubtle'
                 }`}
               >
                 {commentCount}
@@ -328,62 +345,66 @@ function TaskItemCard({
             </View>
           </View>
         </View>
-      </Pressable>
+      </MotionPressable>
 
       {canClaimTask || canSetStatus ? (
-        <View className="mt-2.5 flex-row items-center gap-2 border-t border-zinc-200/70 pt-2.5">
+        <View className="mt-2.5 flex-row items-center gap-2 border-t border-lineSoft pt-2.5">
           {canClaimTask ? (
-            <Pressable
+            <MotionPressable
               accessibilityRole="button"
               accessibilityLabel={isClaimedByMe ? '取消认领' : '认领任务'}
               disabled={claimPending}
               onPress={onToggleClaim}
-              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2 ${
+              flex
+              scaleTo={0.96}
+              className={`flex-row items-center justify-center gap-1.5 rounded-xl border py-2 ${
                 isClaimedByMe
-                  ? 'border-zinc-200 bg-white'
-                  : 'border-orange-200 bg-primarySoft'
-              } active:opacity-80`}
+                  ? 'border-line bg-white'
+                  : 'border-primaryBorder bg-primarySoft'
+              }`}
             >
               {isClaimedByMe ? (
-                <UserMinus size={13} color="#52525B" />
+                <UserMinus size={13} color={THEME_COLORS.inkMuted} />
               ) : (
-                <UserCheck size={13} color="#F97316" />
+                <UserCheck size={13} color={THEME_COLORS.primaryDeep} />
               )}
               <Text
                 className={`text-xs font-semibold ${
-                  isClaimedByMe ? 'text-zinc-700' : 'text-primary'
+                  isClaimedByMe ? 'text-inkMuted' : 'text-primaryDeep'
                 }`}
               >
                 {isClaimedByMe ? '取消认领' : '认领'}
               </Text>
-            </Pressable>
+            </MotionPressable>
           ) : null}
 
           {canSetStatus ? (
-            <Pressable
+            <MotionPressable
               accessibilityRole="button"
               accessibilityLabel={isDone ? '恢复进行中' : '标记完成'}
               disabled={statusPending}
               onPress={onToggleStatus}
-              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border py-2 ${
+              flex
+              scaleTo={0.96}
+              className={`flex-row items-center justify-center gap-1.5 rounded-xl border py-2 ${
                 isDone
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-emerald-200 bg-emerald-50'
-              } active:opacity-80`}
+                  ? 'border-[#F5DFB3] bg-[#FEF7E8]'
+                  : 'border-[#CBEAD9] bg-[#EEF8F3]'
+              }`}
             >
               {isDone ? (
-                <RotateCcw size={13} color="#B45309" />
+                <RotateCcw size={13} color={THEME_COLORS.warning} />
               ) : (
-                <Check size={13} color="#047857" strokeWidth={2.5} />
+                <Check size={13} color={THEME_COLORS.success} strokeWidth={2.5} />
               )}
               <Text
                 className={`text-xs font-semibold ${
-                  isDone ? 'text-amber-800' : 'text-emerald-700'
+                  isDone ? 'text-[#A66214]' : 'text-[#287B5B]'
                 }`}
               >
                 {isDone ? '恢复进行中' : '完成'}
               </Text>
-            </Pressable>
+            </MotionPressable>
           ) : null}
         </View>
       ) : null}
@@ -875,23 +896,26 @@ export function TaskBlock({
     Boolean(currentUserId) &&
     Boolean(selectedItem?.data.assigneeIds.includes(currentUserId));
 
+  const completionPercent =
+    stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+
   return (
     <Card className="mb-3.5">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
-            <CheckSquare size={18} color="#F97316" />
+          <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
+            <CheckSquare size={18} color={THEME_COLORS.primary} />
           </View>
 
           <View className="flex-1">
             <View className="mb-1 flex-row flex-wrap items-center gap-1.5">
-              <Badge label="分工认领" variant="warning" />
+              <Badge label="分工认领" variant="primary" />
               <Badge
                 label={`已完成 ${stats.done}/${stats.total}`}
                 variant={
                   stats.total > 0 && stats.done === stats.total
                     ? 'success'
-                    : 'primary'
+                    : 'warning'
                 }
               />
               <Badge
@@ -903,7 +927,7 @@ export function TaskBlock({
             <Text className="text-base font-bold text-ink" numberOfLines={2}>
               {block.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               {stats.total === 0
                 ? '暂无分工或物资条目'
                 : `共 ${stats.total} 项 · 进行中 ${stats.inProgress} · 待认领 ${stats.unclaimed}`}
@@ -912,59 +936,78 @@ export function TaskBlock({
         </View>
 
         {permissions.canManageBlocks && onRequestDeleteBlock ? (
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel={`删除积木 ${block.title}`}
             onPress={() => onRequestDeleteBlock(block)}
-            className="h-8 w-8 items-center justify-center rounded-xl border border-zinc-200 bg-surface active:bg-red-50"
+            scaleTo={0.9}
+            className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
           >
-            <Trash2 size={15} color="#71717A" />
-          </Pressable>
+            <Trash2 size={15} color={THEME_COLORS.inkMuted} />
+          </MotionPressable>
         ) : null}
       </View>
 
+      {stats.total > 0 ? (
+        <View className="mt-3">
+          <AnimatedProgressBar
+            percent={completionPercent}
+            height={6}
+            fillColor={
+              completionPercent === 100
+                ? THEME_COLORS.success
+                : THEME_COLORS.primary
+            }
+            trackColor={THEME_COLORS.primarySoft}
+          />
+        </View>
+      ) : null}
+
       {items.length === 0 ? (
-        <View className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-surface/70 px-4 py-4">
-          <Text className="text-center text-xs text-zinc-400">
+        <View className="mt-3 rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-4">
+          <Text className="text-center text-xs text-inkSubtle">
             暂无分工任务{canCreateTask ? '，点击下方按钮添加第一项分工或物资' : ''}
           </Text>
         </View>
       ) : (
-        <View className="mt-3 gap-2.5">
-          {items.map((item) => (
-            <TaskItemCard
-              key={item.id}
-              item={item}
-              currentUserId={currentUserId}
-              memberProfileMap={memberProfileMap}
-              canClaimTask={permissions.canClaimTask}
-              canSetStatus={permissions.canSetTaskStatus(
-                item.created_by,
-                item.data.assigneeIds,
-              )}
-              claimPending={
-                claimMutation.isPending && claimMutation.variables === item.id
-              }
-              statusPending={
-                statusMutation.isPending &&
-                statusMutation.variables?.itemId === item.id
-              }
-              onOpenDetail={() => setSelectedItemId(item.id)}
-              onToggleClaim={() => handleToggleClaim(item)}
-              onToggleStatus={() => handleToggleStatus(item)}
-            />
-          ))}
-        </View>
+        <LayoutAnimationConfig skipEntering>
+          <View className="mt-3 gap-2.5">
+            {items.map((item) => (
+              <AnimatedItemRow key={item.id}>
+                <TaskItemCard
+                  item={item}
+                  currentUserId={currentUserId}
+                  memberProfileMap={memberProfileMap}
+                  canClaimTask={permissions.canClaimTask}
+                  canSetStatus={permissions.canSetTaskStatus(
+                    item.created_by,
+                    item.data.assigneeIds,
+                  )}
+                  claimPending={
+                    claimMutation.isPending && claimMutation.variables === item.id
+                  }
+                  statusPending={
+                    statusMutation.isPending &&
+                    statusMutation.variables?.itemId === item.id
+                  }
+                  onOpenDetail={() => setSelectedItemId(item.id)}
+                  onToggleClaim={() => handleToggleClaim(item)}
+                  onToggleStatus={() => handleToggleStatus(item)}
+                />
+              </AnimatedItemRow>
+            ))}
+          </View>
+        </LayoutAnimationConfig>
       )}
 
       {canCreateTask ? (
-        <View className="mt-3 border-t border-zinc-100 pt-3">
+        <View className="mt-3.5 border-t border-lineSoft pt-3">
           <Button
             title="新增任务 / 物资"
             variant="secondary"
             size="sm"
             fullWidth
-            leftIcon={<Plus size={14} color="#F97316" />}
+            leftIcon={<Plus size={14} color={THEME_COLORS.primaryDeep} />}
             onPress={handleOpenCreateForm}
           />
         </View>
@@ -988,9 +1031,9 @@ export function TaskBlock({
                   size="md"
                 />
                 {selectedDueLabel ? (
-                  <View className="flex-row items-center gap-1 rounded-full border border-zinc-200 bg-surface px-2.5 py-1">
-                    <Clock size={12} color="#52525B" />
-                    <Text className="text-xs font-medium text-zinc-600">
+                  <View className="flex-row items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1">
+                    <Clock size={12} color={THEME_COLORS.inkMuted} />
+                    <Text className="text-xs font-medium text-inkMuted">
                       截止 {selectedDueLabel}
                     </Text>
                   </View>
@@ -1003,20 +1046,20 @@ export function TaskBlock({
               <Text
                 className={`mt-1.5 text-sm leading-5 ${
                   selectedItem.data.description
-                    ? 'text-zinc-600'
-                    : 'text-zinc-400'
+                    ? 'text-inkMuted'
+                    : 'text-inkSubtle'
                 }`}
               >
                 {selectedItem.data.description || '暂无补充说明'}
               </Text>
             </View>
 
-            <View className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5">
-              <Text className="mb-2 text-xs font-semibold text-zinc-600">
+            <View className="rounded-2xl border border-line bg-primaryMist p-3.5">
+              <Text className="mb-2 text-xs font-semibold text-inkMuted">
                 认领成员（{selectedItem.data.assigneeIds.length} 人）
               </Text>
               {selectedItem.data.assigneeIds.length === 0 ? (
-                <Text className="text-xs text-zinc-400">
+                <Text className="text-xs text-inkSubtle">
                   暂无人认领，点击下方按钮即可认领
                 </Text>
               ) : (
@@ -1026,7 +1069,7 @@ export function TaskBlock({
                     return (
                       <View
                         key={`detail-assignee-${assigneeId}`}
-                        className="flex-row items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1"
+                        className="flex-row items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1"
                       >
                         <Avatar
                           nickname={profile?.nickname}
@@ -1055,7 +1098,7 @@ export function TaskBlock({
                         claimMutation.variables === selectedItem.id
                       }
                       onPress={() => handleToggleClaim(selectedItem)}
-                      className="flex-1 border border-zinc-200"
+                      className="flex-1 border border-line"
                     />
                   ) : null}
 
@@ -1080,12 +1123,12 @@ export function TaskBlock({
               ) : null}
             </View>
 
-            <View className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5">
+            <View className="rounded-2xl border border-line bg-primaryMist p-3.5">
               <View className="mb-2 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-zinc-600">
+                <Text className="text-xs font-semibold text-inkMuted">
                   实拍凭证（{selectedItem.data.imageUrls.length}/{MAX_TASK_IMAGES}）
                 </Text>
-                <Text className="text-[11px] text-zinc-400">
+                <Text className="text-[11px] text-inkSubtle">
                   最多 3 张，单张不超过 5MB
                 </Text>
               </View>
@@ -1103,7 +1146,7 @@ export function TaskBlock({
                   ))}
                 </View>
               ) : (
-                <Text className="mb-2.5 text-xs text-zinc-400">
+                <Text className="mb-2.5 text-xs text-inkSubtle">
                   暂无实拍凭证图
                 </Text>
               )}
@@ -1115,7 +1158,7 @@ export function TaskBlock({
                     title="相册上传"
                     variant="secondary"
                     size="sm"
-                    leftIcon={<ImageIcon size={14} color="#F97316" />}
+                    leftIcon={<ImageIcon size={14} color={THEME_COLORS.primaryDeep} />}
                     loading={uploadingPhoto || imagesMutation.isPending}
                     onPress={() =>
                       void handleUploadProofPhoto(selectedItem, 'library')
@@ -1126,28 +1169,28 @@ export function TaskBlock({
                     title="拍照上传"
                     variant="ghost"
                     size="sm"
-                    leftIcon={<Camera size={14} color="#18181B" />}
+                    leftIcon={<Camera size={14} color={THEME_COLORS.ink} />}
                     loading={uploadingPhoto || imagesMutation.isPending}
                     onPress={() =>
                       void handleUploadProofPhoto(selectedItem, 'camera')
                     }
-                    className="flex-1 border border-zinc-200 bg-white"
+                    className="flex-1 border border-line bg-white"
                   />
                 </View>
               ) : null}
             </View>
 
-            <View className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5">
-              <Text className="mb-2.5 text-xs font-semibold text-zinc-600">
+            <View className="rounded-2xl border border-line bg-primaryMist p-3.5">
+              <Text className="mb-2.5 text-xs font-semibold text-inkMuted">
                 任务讨论（{detailComments.length}）
               </Text>
 
               {commentsLoading ? (
                 <View className="items-center py-3">
-                  <ActivityIndicator size="small" color="#F97316" />
+                  <ActivityIndicator size="small" color={THEME_COLORS.primary} />
                 </View>
               ) : detailComments.length === 0 ? (
-                <Text className="py-1 text-xs text-zinc-400">
+                <Text className="py-1 text-xs text-inkSubtle">
                   暂无留言，来同步进展或提问吧
                 </Text>
               ) : (
@@ -1158,7 +1201,7 @@ export function TaskBlock({
                     return (
                       <View
                         key={comment.id}
-                        className="flex-row items-start gap-2 rounded-xl bg-white p-2.5"
+                        className="flex-row items-start gap-2 rounded-xl border border-lineSoft bg-white p-2.5"
                       >
                         <Avatar
                           nickname={author?.nickname}
@@ -1171,11 +1214,11 @@ export function TaskBlock({
                             <Text className="text-xs font-semibold text-ink">
                               {author?.nickname ?? '成员'}
                             </Text>
-                            <Text className="text-[10px] text-zinc-400">
+                            <Text className="text-[10px] text-inkSubtle">
                               {formatCommentTimestamp(comment.created_at)}
                             </Text>
                           </View>
-                          <Text className="mt-0.5 text-xs leading-4 text-zinc-700">
+                          <Text className="mt-0.5 text-xs leading-4 text-ink/80">
                             {comment.content}
                           </Text>
                         </View>
@@ -1192,26 +1235,27 @@ export function TaskBlock({
                     onChangeText={setCommentInput}
                     maxLength={MAX_COMMENT_LENGTH}
                     placeholder="写一句进度同步或补充说明..."
-                    placeholderTextColor="#A1A1AA"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
                     returnKeyType="send"
                     onSubmitEditing={handleSubmitComment}
-                    className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-ink"
+                    className="flex-1 rounded-xl border border-line bg-white px-3 py-2 text-xs text-ink"
                   />
-                  <Pressable
+                  <MotionPressable
                     accessibilityRole="button"
                     accessibilityLabel="发送评论"
                     disabled={commentMutation.isPending || !commentInput.trim()}
                     onPress={handleSubmitComment}
+                    scaleTo={0.9}
                     className={`h-9 w-9 items-center justify-center rounded-xl ${
-                      commentInput.trim() ? 'bg-primary' : 'bg-zinc-200'
-                    } active:opacity-80`}
+                      commentInput.trim() ? 'bg-primary' : 'bg-line'
+                    }`}
                   >
                     {commentMutation.isPending ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
                       <Send size={15} color="#FFFFFF" />
                     )}
-                  </Pressable>
+                  </MotionPressable>
                 </View>
               ) : null}
             </View>
@@ -1222,7 +1266,7 @@ export function TaskBlock({
                   title="编辑任务"
                   variant="secondary"
                   size="sm"
-                  leftIcon={<Edit3 size={14} color="#F97316" />}
+                  leftIcon={<Edit3 size={14} color={THEME_COLORS.primaryDeep} />}
                   onPress={() => handleOpenEditForm(selectedItem)}
                   className="flex-1"
                 />
@@ -1255,8 +1299,8 @@ export function TaskBlock({
       >
         <View className="mb-4">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">任务名称</Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs font-semibold text-inkMuted">任务名称</Text>
+            <Text className="text-xs text-inkSubtle">
               {Array.from(titleInput.trim()).length}/{MAX_TASK_TITLE_LENGTH}
             </Text>
           </View>
@@ -1270,17 +1314,17 @@ export function TaskBlock({
             }}
             maxLength={MAX_TASK_TITLE_LENGTH}
             placeholder="例如：带 2 箱矿泉水 / 预订露营天幕"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         <View className="mb-4">
           <View className="mb-1.5 flex-row items-center justify-between">
-            <Text className="text-xs font-semibold text-zinc-600">
+            <Text className="text-xs font-semibold text-inkMuted">
               补充说明（选填）
             </Text>
-            <Text className="text-xs text-zinc-400">
+            <Text className="text-xs text-inkSubtle">
               {Array.from(descriptionInput.trim()).length}/{MAX_TASK_DESC_LENGTH}
             </Text>
           </View>
@@ -1296,14 +1340,14 @@ export function TaskBlock({
             multiline
             numberOfLines={3}
             placeholder="例如：规格、数量、集合交付地点等"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
             textAlignVertical="top"
-            className="min-h-[84px] rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            className="min-h-[84px] rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         <View className="mb-4">
-          <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+          <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
             截止时间（选填，YYYY-MM-DD 或 YYYY-MM-DD HH:mm）
           </Text>
           <BottomSheetTextInput
@@ -1315,14 +1359,14 @@ export function TaskBlock({
               }
             }}
             placeholder="例如：2026-11-28 18:00"
-            placeholderTextColor="#A1A1AA"
-            className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+            placeholderTextColor={THEME_COLORS.inkSubtle}
+            className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
         </View>
 
         {formError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">{formError}</Text>
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">{formError}</Text>
           </View>
         ) : null}
 
@@ -1341,7 +1385,7 @@ export function TaskBlock({
         onClose={() => setDeleteItemTarget(null)}
         title="确认删除该任务？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           确定删除「{deleteItemTarget?.data.title ?? ''}
           」吗？管理员后续可在房间操作日志中恢复该任务。
         </Text>

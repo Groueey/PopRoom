@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -13,11 +12,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../src/components/ui/Avatar';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import { MotionPressable } from '../../src/components/ui/Motion';
 import {
   clearCachedProfile,
   saveCachedProfile,
 } from '../../src/lib/profileCache';
 import { supabase } from '../../src/lib/supabase';
+import { THEME_COLORS } from '../../src/lib/theme';
 import { AVATAR_COLORS, useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
 import type { ProfileRow } from '../../src/types/database';
@@ -110,22 +111,24 @@ export default function OnboardingScreen() {
           className="px-5 py-6"
         >
           <View className="mb-6 items-center">
-            <Avatar
-              nickname={trimmedNickname || '橘'}
-              color={selectedColor}
-              size="xl"
-            />
+            <View className="rounded-full border-2 border-primaryBorder bg-primarySoft p-1.5">
+              <Avatar
+                nickname={trimmedNickname || '橘'}
+                color={selectedColor}
+                size="xl"
+              />
+            </View>
             <Text className="mt-4 text-2xl font-bold text-ink">
               设置你的协作名片
             </Text>
-            <Text className="mt-1 text-center text-sm text-zinc-500">
+            <Text className="mt-1 text-center text-sm text-inkMuted">
               房间内的伙伴会通过昵称和头像色块认识你
             </Text>
           </View>
 
           {pendingRoomCode ? (
-            <View className="mb-4 rounded-2xl border border-orange-200 bg-primarySoft px-4 py-3">
-              <Text className="text-center text-xs font-medium text-primary">
+            <View className="mb-4 rounded-2xl border border-primaryBorder bg-primarySoft px-4 py-3">
+              <Text className="text-center text-xs font-medium text-primaryDeep">
                 完成名片设置后，将自动进入房间 {pendingRoomCode}
               </Text>
             </View>
@@ -134,10 +137,10 @@ export default function OnboardingScreen() {
           <Card className="p-5">
             <View className="mb-5">
               <View className="mb-1.5 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-zinc-600">
+                <Text className="text-xs font-semibold text-inkMuted">
                   我的昵称
                 </Text>
-                <Text className="text-xs text-zinc-400">
+                <Text className="text-xs text-inkSubtle">
                   {nicknameLength}/{MAX_NICKNAME_LENGTH}
                 </Text>
               </View>
@@ -150,27 +153,28 @@ export default function OnboardingScreen() {
                   }
                 }}
                 placeholder="例如：阿橘 / 小林"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={THEME_COLORS.inkSubtle}
                 maxLength={MAX_NICKNAME_LENGTH}
                 autoFocus
                 returnKeyType="done"
-                className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-base text-ink"
+                className="rounded-2xl border border-line bg-surface px-4 py-3 text-base text-ink"
               />
             </View>
 
             <View className="mb-5">
-              <Text className="mb-2.5 text-xs font-semibold text-zinc-600">
+              <Text className="mb-2.5 text-xs font-semibold text-inkMuted">
                 选择头像色块
               </Text>
               <View className="flex-row flex-wrap gap-3">
                 {AVATAR_COLORS.map((color) => {
                   const selected = selectedColor === color;
                   return (
-                    <Pressable
+                    <MotionPressable
                       key={color}
                       accessibilityRole="radio"
                       accessibilityState={{ selected }}
                       accessibilityLabel={`头像颜色 ${color}`}
+                      scaleTo={0.88}
                       onPress={() => setSelectedColor(color)}
                       style={{ backgroundColor: color }}
                       className={`h-11 w-11 items-center justify-center rounded-full ${
@@ -178,15 +182,15 @@ export default function OnboardingScreen() {
                       }`}
                     >
                       {selected ? <Check size={18} color="#FFFFFF" /> : null}
-                    </Pressable>
+                    </MotionPressable>
                   );
                 })}
               </View>
             </View>
 
             {errorText ? (
-              <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-                <Text className="text-xs font-medium text-red-700">
+              <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+                <Text className="text-xs font-medium text-[#C94545]">
                   {errorText}
                 </Text>
               </View>

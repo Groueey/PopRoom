@@ -4,8 +4,6 @@ import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import {
   Archive,
   Calendar,
-  ChevronDown,
-  ChevronRight,
   KeyRound,
   Plus,
   Sparkles,
@@ -14,7 +12,6 @@ import {
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -33,10 +30,16 @@ import { Avatar } from '../../src/components/ui/Avatar';
 import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import {
+  AnimatedChevron,
+  AnimatedPanelReveal,
+  MotionPressable,
+} from '../../src/components/ui/Motion';
 import { SheetModal } from '../../src/components/ui/SheetModal';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
 import { normalizeRoomCode } from '../../src/lib/roomCode';
 import { ROOM_TEMPLATES } from '../../src/lib/templates';
+import { THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
 
@@ -57,7 +60,7 @@ function RoomSummaryCard({ summary, onPress }: RoomSummaryCardProps) {
   return (
     <Card
       onPress={onPress}
-      className={isArchived ? 'mb-3 bg-zinc-50/90 opacity-90' : 'mb-3'}
+      className={isArchived ? 'mb-3 bg-primaryMist opacity-85' : 'mb-3'}
     >
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1">
@@ -74,35 +77,45 @@ function RoomSummaryCard({ summary, onPress }: RoomSummaryCardProps) {
               />
             ) : null}
           </View>
-          <Text className="text-base font-bold text-ink" numberOfLines={2}>
+          <Text className="text-[16px] font-bold text-ink" numberOfLines={2}>
             {room.title}
           </Text>
         </View>
-        <View className="rounded-xl bg-zinc-100 px-2.5 py-1">
-          <Text className="text-xs font-semibold tracking-wider text-zinc-600">
+        <View
+          className={`rounded-xl border px-2.5 py-1 ${
+            isArchived
+              ? 'border-line bg-surface'
+              : 'border-primaryBorder bg-primarySoft'
+          }`}
+        >
+          <Text
+            className={`text-xs font-bold tracking-wider ${
+              isArchived ? 'text-inkMuted' : 'text-primaryDeep'
+            }`}
+          >
             {room.room_code}
           </Text>
         </View>
       </View>
 
       {room.announcement ? (
-        <Text className="mt-1.5 text-xs text-zinc-500" numberOfLines={1}>
+        <Text className="mt-1.5 text-xs text-inkMuted" numberOfLines={1}>
           {room.announcement}
         </Text>
       ) : null}
 
-      <View className="mt-3 flex-row flex-wrap items-center gap-4 border-t border-zinc-100 pt-2.5">
+      <View className="mt-3 flex-row flex-wrap items-center gap-4 border-t border-lineSoft pt-2.5">
         <View className="flex-row items-center gap-1">
-          <Users size={14} color="#71717A" />
-          <Text className="text-xs font-medium text-zinc-600">
+          <Users size={14} color={THEME_COLORS.inkMuted} />
+          <Text className="text-xs font-medium text-inkMuted">
             {memberCount} 人参与
           </Text>
         </View>
 
         {eventWindow ? (
           <View className="flex-row items-center gap-1">
-            <Calendar size={14} color="#71717A" />
-            <Text className="text-xs text-zinc-500">{eventWindow}</Text>
+            <Calendar size={14} color={THEME_COLORS.inkMuted} />
+            <Text className="text-xs text-inkMuted">{eventWindow}</Text>
           </View>
         ) : null}
       </View>
@@ -199,27 +212,35 @@ export default function LobbyScreen() {
     <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
       <ScrollView
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 36 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching && !isLoading}
             onRefresh={() => void refetch()}
-            tintColor="#F97316"
-            colors={['#F97316']}
+            tintColor={THEME_COLORS.primary}
+            colors={[THEME_COLORS.primary]}
           />
         }
       >
-        <View className="mb-4 mt-3 flex-row items-center justify-between">
+        <View className="mb-5 mt-3.5 flex-row items-center justify-between">
           <View className="flex-1 pr-3">
+            <View className="mb-1 flex-row items-center gap-1.5">
+              <View className="h-2 w-2 rounded-full bg-primary" />
+              <Text className="text-xs font-semibold text-primaryDeep">
+                轻橘 PopRoom
+              </Text>
+            </View>
             <Text className="text-2xl font-bold text-ink">活动大厅</Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               一件事一个房间，协作结论不沉底
             </Text>
           </View>
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="前往个人中心"
+            scaleTo={0.92}
             onPress={() => router.push('/(tabs)/profile')}
+            className="rounded-full border-2 border-primaryBorder p-0.5 bg-white"
           >
             <Avatar
               nickname={profile?.nickname}
@@ -227,7 +248,7 @@ export default function LobbyScreen() {
               imageUrl={profile?.avatar_url}
               size="md"
             />
-          </Pressable>
+          </MotionPressable>
         </View>
 
         <View className="mb-5 flex-row gap-3">
@@ -237,7 +258,7 @@ export default function LobbyScreen() {
               variant="primary"
               size="md"
               fullWidth
-              leftIcon={<Plus size={18} color="#FFFFFF" />}
+              leftIcon={<Plus size={18} color="#FFFFFF" strokeWidth={2.4} />}
               onPress={() => router.push('/room/create')}
             />
           </View>
@@ -247,15 +268,15 @@ export default function LobbyScreen() {
               variant="secondary"
               size="md"
               fullWidth
-              leftIcon={<KeyRound size={18} color="#F97316" />}
+              leftIcon={<KeyRound size={17} color={THEME_COLORS.primaryDeep} />}
               onPress={handleOpenJoinSheet}
             />
           </View>
         </View>
 
         {error ? (
-          <Card className="mb-4 border-red-200 bg-red-50">
-            <Text className="text-sm font-medium text-red-700">
+          <Card className="mb-4 border-[#FAD2D0] bg-[#FEF2F2]">
+            <Text className="text-sm font-medium text-[#C94545]">
               {mapRoomError(error)}
             </Text>
             <View className="mt-2 self-start">
@@ -269,26 +290,26 @@ export default function LobbyScreen() {
           </Card>
         ) : null}
 
-        <View className="mb-2.5 flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-zinc-700">
+        <View className="mb-3 flex-row items-center justify-between">
+          <Text className="text-sm font-bold text-ink">
             进行中的活动 ({activeRooms.length})
           </Text>
         </View>
 
         {isLoading ? (
           <View className="items-center py-12">
-            <ActivityIndicator size="large" color="#F97316" />
-            <Text className="mt-3 text-xs text-zinc-500">正在同步你的房间...</Text>
+            <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+            <Text className="mt-3 text-xs text-inkMuted">正在同步你的房间...</Text>
           </View>
         ) : activeRooms.length === 0 ? (
-          <Card className="mb-5 items-center py-8">
-            <View className="mb-3 h-12 w-12 items-center justify-center rounded-2xl bg-primarySoft">
-              <Sparkles size={24} color="#F97316" />
+          <Card className="mb-5 items-center py-9">
+            <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
+              <Sparkles size={24} color={THEME_COLORS.primary} />
             </View>
             <Text className="text-base font-bold text-ink">
               还没有进行中的活动
             </Text>
-            <Text className="mt-1 px-4 text-center text-xs leading-5 text-zinc-500">
+            <Text className="mt-1.5 px-5 text-center text-xs leading-5 text-inkMuted">
               点击上方「创建房间」用模板秒开协作，或输入朋友发来的 6 位房间码加入
             </Text>
           </Card>
@@ -307,43 +328,46 @@ export default function LobbyScreen() {
         )}
 
         <View className="mt-2">
-          <Pressable
+          <MotionPressable
             accessibilityRole="button"
             accessibilityState={{ expanded: archivedExpanded }}
+            scaleTo={0.985}
             onPress={() => setArchivedExpanded((prev) => !prev)}
-            className="mb-3 flex-row items-center justify-between rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 active:bg-zinc-50"
+            className="mb-3 flex-row items-center justify-between rounded-2xl border border-line bg-white px-4 py-3.5"
           >
             <View className="flex-row items-center gap-2">
-              <Archive size={16} color="#71717A" />
-              <Text className="text-sm font-semibold text-zinc-700">
+              <Archive size={16} color={THEME_COLORS.inkMuted} />
+              <Text className="text-sm font-semibold text-ink">
                 已归档活动 ({archivedRooms.length})
               </Text>
             </View>
-            {archivedExpanded ? (
-              <ChevronDown size={18} color="#71717A" />
-            ) : (
-              <ChevronRight size={18} color="#71717A" />
-            )}
-          </Pressable>
+            <AnimatedChevron
+              expanded={archivedExpanded}
+              size={18}
+              color={THEME_COLORS.inkMuted}
+            />
+          </MotionPressable>
 
           {archivedExpanded ? (
-            archivedRooms.length === 0 ? (
-              <View className="rounded-2xl border border-dashed border-zinc-200 px-4 py-6">
-                <Text className="text-center text-xs text-zinc-400">
-                  暂无已归档活动，活动完成后房主可手动归档保留复盘记录
-                </Text>
-              </View>
-            ) : (
-              archivedRooms.map((summary) => (
-                <RoomSummaryCard
-                  key={summary.room.id}
-                  summary={summary}
-                  onPress={() =>
-                    router.push(`/room/${summary.room.id}` as Href)
-                  }
-                />
-              ))
-            )
+            <AnimatedPanelReveal>
+              {archivedRooms.length === 0 ? (
+                <View className="rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-6">
+                  <Text className="text-center text-xs text-inkSubtle">
+                    暂无已归档活动，活动完成后房主可手动归档保留复盘记录
+                  </Text>
+                </View>
+              ) : (
+                archivedRooms.map((summary) => (
+                  <RoomSummaryCard
+                    key={summary.room.id}
+                    summary={summary}
+                    onPress={() =>
+                      router.push(`/room/${summary.room.id}` as Href)
+                    }
+                  />
+                ))
+              )}
+            </AnimatedPanelReveal>
           ) : null}
         </View>
       </ScrollView>
@@ -353,7 +377,7 @@ export default function LobbyScreen() {
         onClose={handleCloseJoinSheet}
         title="输码进房"
       >
-        <Text className="mb-2 text-xs font-semibold text-zinc-600">
+        <Text className="mb-2 text-xs font-semibold text-inkMuted">
           6 位房间码（自动忽略空格与连字符）
         </Text>
         <BottomSheetTextInput
@@ -365,31 +389,31 @@ export default function LobbyScreen() {
             }
           }}
           placeholder="例如：K7M3P9"
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={THEME_COLORS.inkSubtle}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={12}
           returnKeyType="next"
-          className="mb-4 rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-center text-xl font-bold tracking-widest text-ink"
+          className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-center text-xl font-bold tracking-widest text-ink"
         />
 
-        <Text className="mb-2 text-xs font-semibold text-zinc-600">
+        <Text className="mb-2 text-xs font-semibold text-inkMuted">
           申请备注（若房间开启审批时展示，选填）
         </Text>
         <BottomSheetTextInput
           value={applyNoteInput}
           onChangeText={setApplyNoteInput}
           placeholder="例如：我是小明"
-          placeholderTextColor="#A1A1AA"
+          placeholderTextColor={THEME_COLORS.inkSubtle}
           maxLength={60}
           returnKeyType="done"
           onSubmitEditing={handleJoinSubmit}
-          className="mb-4 rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+          className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
         />
 
         {joinError ? (
-          <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-            <Text className="text-xs font-medium text-red-700">
+          <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+            <Text className="text-xs font-medium text-[#C94545]">
               {joinError}
             </Text>
           </View>

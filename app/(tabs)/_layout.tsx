@@ -2,15 +2,16 @@ import { Tabs } from 'expo-router';
 import { Sparkles, User } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
+import { THEME_COLORS } from '../../src/lib/theme';
 
-/** Bottom tab navigator providing PopRoom's clean 2-tab layout (`活动` and `我的`). */
+/** Bottom tab navigator providing PopRoom's gentle white & tangerine 2-tab layout (`活动` and `我的`). */
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#F97316',
-        tabBarInactiveTintColor: '#71717A',
+        tabBarActiveTintColor: THEME_COLORS.primary,
+        tabBarInactiveTintColor: THEME_COLORS.inkSubtle,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
@@ -18,9 +19,9 @@ export default function TabsLayout() {
         },
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
-          borderTopColor: '#E4E4E7',
+          borderTopColor: THEME_COLORS.line,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 62,
+          height: Platform.OS === 'ios' ? 84 : 64,
           paddingTop: 6,
         },
       }}

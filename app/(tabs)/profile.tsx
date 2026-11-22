@@ -3,7 +3,6 @@ import { type Href, useRouter } from 'expo-router';
 import {
   Archive,
   Check,
-  ChevronDown,
   ChevronRight,
   LogOut,
 } from 'lucide-react-native';
@@ -11,7 +10,6 @@ import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -28,6 +26,11 @@ import { Avatar } from '../../src/components/ui/Avatar';
 import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import {
+  AnimatedChevron,
+  AnimatedPanelReveal,
+  MotionPressable,
+} from '../../src/components/ui/Motion';
 import { SheetModal } from '../../src/components/ui/SheetModal';
 import {
   clearCachedProfile,
@@ -36,6 +39,7 @@ import {
 import { QUERY_KEYS } from '../../src/lib/queryClient';
 import { supabase } from '../../src/lib/supabase';
 import { ROOM_TEMPLATES } from '../../src/lib/templates';
+import { THEME_COLORS } from '../../src/lib/theme';
 import { AVATAR_COLORS, useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
 
@@ -139,27 +143,29 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: 36 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="mb-4 mt-3">
+          <View className="mb-4 mt-3.5">
             <Text className="text-2xl font-bold text-ink">我的</Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               管理协作名片与历史活动复盘
             </Text>
           </View>
 
           <Card className="mb-4 items-center py-6">
-            <Avatar
-              nickname={trimmedNickname || profile?.nickname || '橘'}
-              color={selectedColor}
-              imageUrl={profile?.avatar_url}
-              size="xl"
-            />
+            <View className="rounded-full border-2 border-primaryBorder bg-primarySoft p-1.5">
+              <Avatar
+                nickname={trimmedNickname || profile?.nickname || '橘'}
+                color={selectedColor}
+                imageUrl={profile?.avatar_url}
+                size="xl"
+              />
+            </View>
             <Text className="mt-3 text-lg font-bold text-ink">
               {profile?.nickname ?? '轻橘成员'}
             </Text>
-            <Text className="mt-0.5 text-xs text-zinc-500">
+            <Text className="mt-0.5 text-xs text-inkMuted">
               {session?.user.email ?? '已登录账号'}
             </Text>
-            <View className="mt-3 flex-row items-center gap-2">
+            <View className="mt-3.5 flex-row items-center gap-2">
               <Badge label={`进行中 ${activeCount} 个`} variant="primary" size="md" />
               <Badge
                 label={`已归档 ${archivedRooms.length} 个`}
@@ -176,10 +182,10 @@ export default function ProfileScreen() {
 
             <View className="mb-4">
               <View className="mb-1.5 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-zinc-600">
+                <Text className="text-xs font-semibold text-inkMuted">
                   显示昵称
                 </Text>
-                <Text className="text-xs text-zinc-400">
+                <Text className="text-xs text-inkSubtle">
                   {nicknameLen}/{MAX_NICKNAME_LENGTH}
                 </Text>
               </View>
@@ -192,25 +198,26 @@ export default function ProfileScreen() {
                   }
                 }}
                 placeholder="请输入 1–20 个字符"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={THEME_COLORS.inkSubtle}
                 maxLength={MAX_NICKNAME_LENGTH}
-                className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-base text-ink"
+                className="rounded-2xl border border-line bg-surface px-4 py-3 text-base text-ink"
               />
             </View>
 
             <View className="mb-4">
-              <Text className="mb-2.5 text-xs font-semibold text-zinc-600">
+              <Text className="mb-2.5 text-xs font-semibold text-inkMuted">
                 头像色块
               </Text>
               <View className="flex-row flex-wrap gap-3">
                 {AVATAR_COLORS.map((color) => {
                   const selected = selectedColor === color;
                   return (
-                    <Pressable
+                    <MotionPressable
                       key={color}
                       accessibilityRole="radio"
                       accessibilityState={{ selected }}
                       accessibilityLabel={`头像颜色 ${color}`}
+                      scaleTo={0.88}
                       onPress={() => setSelectedColor(color)}
                       style={{ backgroundColor: color }}
                       className={`h-10 w-10 items-center justify-center rounded-full ${
@@ -218,15 +225,15 @@ export default function ProfileScreen() {
                       }`}
                     >
                       {selected ? <Check size={16} color="#FFFFFF" /> : null}
-                    </Pressable>
+                    </MotionPressable>
                   );
                 })}
               </View>
             </View>
 
             {profileError ? (
-              <View className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2">
-                <Text className="text-xs font-medium text-red-700">
+              <View className="mb-3 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3 py-2">
+                <Text className="text-xs font-medium text-[#C94545]">
                   {profileError}
                 </Text>
               </View>
@@ -243,72 +250,76 @@ export default function ProfileScreen() {
           </Card>
 
           <Card className="mb-4">
-            <Pressable
+            <MotionPressable
               accessibilityRole="button"
               accessibilityState={{ expanded: archivedOpen }}
+              scaleTo={0.985}
               onPress={() => setArchivedOpen((prev) => !prev)}
               className="flex-row items-center justify-between"
             >
               <View className="flex-row items-center gap-2.5">
-                <View className="h-9 w-9 items-center justify-center rounded-xl bg-zinc-100">
-                  <Archive size={18} color="#52525B" />
+                <View className="h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
+                  <Archive size={18} color={THEME_COLORS.primary} />
                 </View>
                 <View>
                   <Text className="text-sm font-bold text-ink">
                     已归档活动 ({archivedRooms.length})
                   </Text>
-                  <Text className="text-xs text-zinc-500">
+                  <Text className="text-xs text-inkMuted">
                     只读回顾历史记录与导出活动复盘
                   </Text>
                 </View>
               </View>
-              {archivedOpen ? (
-                <ChevronDown size={18} color="#71717A" />
-              ) : (
-                <ChevronRight size={18} color="#71717A" />
-              )}
-            </Pressable>
+              <AnimatedChevron
+                expanded={archivedOpen}
+                size={18}
+                color={THEME_COLORS.inkMuted}
+              />
+            </MotionPressable>
 
             {archivedOpen ? (
-              <View className="mt-3 border-t border-zinc-100 pt-3">
-                {archivedRooms.length === 0 ? (
-                  <Text className="py-3 text-center text-xs text-zinc-400">
-                    还没有已归档的活动房间
-                  </Text>
-                ) : (
-                  archivedRooms.map(({ room, memberCount }) => {
-                    const eventWindow = formatRoomEventWindow(
-                      room.event_start_at,
-                      room.event_end_at,
-                    );
-                    return (
-                      <Pressable
-                        key={room.id}
-                        accessibilityRole="button"
-                        onPress={() =>
-                          router.push(`/room/${room.id}` as Href)
-                        }
-                        className="mb-2 flex-row items-center justify-between rounded-xl bg-surface px-3 py-2.5 active:bg-zinc-100"
-                      >
-                        <View className="flex-1 pr-2">
-                          <Text
-                            className="text-sm font-semibold text-ink"
-                            numberOfLines={1}
-                          >
-                            {room.title}
-                          </Text>
-                          <Text className="mt-0.5 text-xs text-zinc-500">
-                            {ROOM_TEMPLATES[room.template_type].name} ·{' '}
-                            {memberCount} 人
-                            {eventWindow ? ` · ${eventWindow}` : ''}
-                          </Text>
-                        </View>
-                        <ChevronRight size={16} color="#A1A1AA" />
-                      </Pressable>
-                    );
-                  })
-                )}
-              </View>
+              <AnimatedPanelReveal>
+                <View className="mt-3 border-t border-lineSoft pt-3">
+                  {archivedRooms.length === 0 ? (
+                    <Text className="py-3 text-center text-xs text-inkSubtle">
+                      还没有已归档的活动房间
+                    </Text>
+                  ) : (
+                    archivedRooms.map(({ room, memberCount }) => {
+                      const eventWindow = formatRoomEventWindow(
+                        room.event_start_at,
+                        room.event_end_at,
+                      );
+                      return (
+                        <MotionPressable
+                          key={room.id}
+                          accessibilityRole="button"
+                          scaleTo={0.98}
+                          onPress={() =>
+                            router.push(`/room/${room.id}` as Href)
+                          }
+                          className="mb-2 flex-row items-center justify-between rounded-xl border border-lineSoft bg-primaryMist px-3 py-2.5"
+                        >
+                          <View className="flex-1 pr-2">
+                            <Text
+                              className="text-sm font-semibold text-ink"
+                              numberOfLines={1}
+                            >
+                              {room.title}
+                            </Text>
+                            <Text className="mt-0.5 text-xs text-inkMuted">
+                              {ROOM_TEMPLATES[room.template_type].name} ·{' '}
+                              {memberCount} 人
+                              {eventWindow ? ` · ${eventWindow}` : ''}
+                            </Text>
+                          </View>
+                          <ChevronRight size={16} color={THEME_COLORS.inkSubtle} />
+                        </MotionPressable>
+                      );
+                    })
+                  )}
+                </View>
+              </AnimatedPanelReveal>
             ) : null}
           </Card>
 
@@ -316,9 +327,9 @@ export default function ProfileScreen() {
             title="退出登录"
             variant="ghost"
             fullWidth
-            leftIcon={<LogOut size={18} color="#EF4444" />}
-            textClassName="text-red-500 font-semibold"
-            className="border border-red-200 bg-white"
+            leftIcon={<LogOut size={18} color={THEME_COLORS.danger} />}
+            textClassName="text-[#C94545] font-semibold"
+            className="border border-[#FAD2D0] bg-white"
             onPress={() => setSignOutSheetVisible(true)}
           />
         </ScrollView>
@@ -329,7 +340,7 @@ export default function ProfileScreen() {
         onClose={() => setSignOutSheetVisible(false)}
         title="确认退出登录？"
       >
-        <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
           退出登录将清除本机缓存并回到登录页，已同步到云端的房间与协作记录不会丢失。
         </Text>
         <View className="gap-2.5">

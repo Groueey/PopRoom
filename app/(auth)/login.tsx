@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -12,7 +11,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import { MotionPressable } from '../../src/components/ui/Motion';
 import { isSupabaseConfigured, supabase } from '../../src/lib/supabase';
+import { PRIMARY_BUTTON_SHADOW, THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
 
@@ -127,73 +128,82 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           className="px-5 py-6"
         >
-          <View className="mb-6 items-center">
-            <View className="mb-3 h-16 w-16 items-center justify-center rounded-3xl bg-primary shadow-sm">
-              <Sparkles size={30} color="#FFFFFF" />
+          <View className="mb-7 items-center">
+            <View className="mb-3.5 rounded-[28px] border border-primaryBorder bg-primarySoft p-2">
+              <View
+                style={PRIMARY_BUTTON_SHADOW}
+                className="h-14 w-14 items-center justify-center rounded-[20px] bg-primary"
+              >
+                <Sparkles size={28} color="#FFFFFF" />
+              </View>
             </View>
             <Text className="text-2xl font-bold text-ink">
-              轻橘 PopRoom · 一件事一个房间
+              轻橘 PopRoom
             </Text>
-            <Text className="mt-1.5 text-center text-sm text-zinc-500">
-              投票、分工、日程、分账，几秒建房立刻同步
+            <Text className="mt-1.5 text-center text-sm text-inkMuted">
+              一件事一个房间 · 投票、分工、日程与分账轻巧同步
             </Text>
           </View>
 
           {pendingRoomCode ? (
-            <View className="mb-4 rounded-2xl border border-orange-200 bg-primarySoft px-4 py-3">
-              <Text className="text-center text-xs font-medium text-primary">
+            <View className="mb-4 rounded-2xl border border-primaryBorder bg-primarySoft px-4 py-3">
+              <Text className="text-center text-xs font-medium text-primaryDeep">
                 登录后将自动带你加入房间 · 房间码 {pendingRoomCode}
               </Text>
             </View>
           ) : null}
 
           <Card className="p-5">
-            <View className="mb-5 flex-row rounded-2xl bg-zinc-100 p-1">
-              <Pressable
+            <View className="mb-5 flex-row rounded-2xl border border-lineSoft bg-surface p-1">
+              <MotionPressable
                 accessibilityRole="tab"
                 accessibilityState={{ selected: mode === 'signin' }}
+                flex
+                scaleTo={0.97}
                 onPress={() => handleModeSwitch('signin')}
-                className={`flex-1 items-center rounded-xl py-2.5 ${
-                  mode === 'signin' ? 'bg-white' : 'bg-transparent'
+                className={`items-center rounded-xl py-2.5 ${
+                  mode === 'signin' ? 'bg-white border border-lineSoft' : 'bg-transparent'
                 }`}
               >
                 <Text
                   className={`text-sm font-semibold ${
-                    mode === 'signin' ? 'text-primary' : 'text-zinc-500'
+                    mode === 'signin' ? 'text-primaryDeep' : 'text-inkMuted'
                   }`}
                 >
                   邮箱登录
                 </Text>
-              </Pressable>
-              <Pressable
+              </MotionPressable>
+              <MotionPressable
                 accessibilityRole="tab"
                 accessibilityState={{ selected: mode === 'signup' }}
+                flex
+                scaleTo={0.97}
                 onPress={() => handleModeSwitch('signup')}
-                className={`flex-1 items-center rounded-xl py-2.5 ${
-                  mode === 'signup' ? 'bg-white' : 'bg-transparent'
+                className={`items-center rounded-xl py-2.5 ${
+                  mode === 'signup' ? 'bg-white border border-lineSoft' : 'bg-transparent'
                 }`}
               >
                 <Text
                   className={`text-sm font-semibold ${
-                    mode === 'signup' ? 'text-primary' : 'text-zinc-500'
+                    mode === 'signup' ? 'text-primaryDeep' : 'text-inkMuted'
                   }`}
                 >
                   注册账号
                 </Text>
-              </Pressable>
+              </MotionPressable>
             </View>
 
             <View className="mb-4">
-              <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+              <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
                 邮箱地址
               </Text>
-              <View className="flex-row items-center rounded-2xl border border-zinc-200 bg-surface px-3.5 py-3">
-                <Mail size={18} color="#71717A" />
+              <View className="flex-row items-center rounded-2xl border border-line bg-surface px-3.5 py-3">
+                <Mail size={18} color={THEME_COLORS.inkSubtle} />
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
                   placeholder="name@example.com"
-                  placeholderTextColor="#A1A1AA"
+                  placeholderTextColor={THEME_COLORS.inkSubtle}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -206,16 +216,16 @@ export default function LoginScreen() {
             </View>
 
             <View className="mb-4">
-              <Text className="mb-1.5 text-xs font-semibold text-zinc-600">
+              <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
                 登录密码（至少 6 位）
               </Text>
-              <View className="flex-row items-center rounded-2xl border border-zinc-200 bg-surface px-3.5 py-3">
-                <Lock size={18} color="#71717A" />
+              <View className="flex-row items-center rounded-2xl border border-line bg-surface px-3.5 py-3">
+                <Lock size={18} color={THEME_COLORS.inkSubtle} />
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
                   placeholder="请输入密码"
-                  placeholderTextColor="#A1A1AA"
+                  placeholderTextColor={THEME_COLORS.inkSubtle}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -224,24 +234,25 @@ export default function LoginScreen() {
                   onSubmitEditing={handleSubmit}
                   className="ml-2.5 flex-1 text-base text-ink"
                 />
-                <Pressable
+                <MotionPressable
                   accessibilityRole="button"
                   accessibilityLabel={showPassword ? '隐藏密码' : '显示密码'}
+                  scaleTo={0.9}
                   onPress={() => setShowPassword((prev) => !prev)}
                   hitSlop={8}
                 >
                   {showPassword ? (
-                    <EyeOff size={18} color="#71717A" />
+                    <EyeOff size={18} color={THEME_COLORS.inkMuted} />
                   ) : (
-                    <Eye size={18} color="#71717A" />
+                    <Eye size={18} color={THEME_COLORS.inkMuted} />
                   )}
-                </Pressable>
+                </MotionPressable>
               </View>
             </View>
 
             {errorText ? (
-              <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-                <Text className="text-xs font-medium text-red-700">
+              <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+                <Text className="text-xs font-medium text-[#C94545]">
                   {errorText}
                 </Text>
               </View>
@@ -256,7 +267,7 @@ export default function LoginScreen() {
             />
           </Card>
 
-          <Text className="mt-5 text-center text-xs text-zinc-400">
+          <Text className="mt-5 text-center text-xs text-inkSubtle">
             {mode === 'signin'
               ? '还没有账号？点击上方「注册账号」即可秒开'
               : '注册后直接填写昵称即可建房或加入协作'}

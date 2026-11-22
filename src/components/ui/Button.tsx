@@ -1,10 +1,13 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   Text,
   type PressableProps,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
+import { PRIMARY_BUTTON_SHADOW, THEME_COLORS } from '../../lib/theme';
+import { MotionPressable } from './Motion';
 
 /** Visual style variants supported by `Button`. */
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -12,7 +15,7 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 /** Size presets supported by `Button`. */
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-/** Props for the tangerine-themed PopRoom `Button` atom. */
+/** Props for the warm tangerine-themed PopRoom `Button` atom. */
 export interface ButtonProps extends Omit<PressableProps, 'children'> {
   title?: string;
   children?: React.ReactNode;
@@ -24,42 +27,43 @@ export interface ButtonProps extends Omit<PressableProps, 'children'> {
   leftIcon?: React.ReactNode;
   className?: string;
   textClassName?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 const CONTAINER_VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-primary border border-primary active:opacity-90',
-  secondary: 'bg-primarySoft border border-orange-200 active:bg-orange-100',
-  ghost: 'bg-transparent border border-transparent active:bg-zinc-100',
-  danger: 'bg-red-500 border border-red-500 active:bg-red-600',
+  primary: 'bg-primary border border-primary',
+  secondary: 'bg-primarySoft border border-primaryBorder',
+  ghost: 'bg-transparent border border-transparent',
+  danger: 'bg-[#DF5A52] border border-[#DF5A52]',
 };
 
 const TEXT_VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: 'text-white font-semibold',
-  secondary: 'text-primary font-semibold',
+  secondary: 'text-primaryDeep font-semibold',
   ghost: 'text-ink font-medium',
   danger: 'text-white font-semibold',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: 'px-3 py-2 rounded-xl min-h-[36px]',
+  sm: 'px-3.5 py-2 rounded-xl min-h-[38px]',
   md: 'px-4 py-3 rounded-2xl min-h-[46px]',
   lg: 'px-5 py-3.5 rounded-2xl min-h-[52px]',
 };
 
 const TEXT_SIZE_CLASSES: Record<ButtonSize, string> = {
   sm: 'text-sm',
-  md: 'text-base',
+  md: 'text-[15px]',
   lg: 'text-base',
 };
 
 const SPINNER_COLORS: Record<ButtonVariant, string> = {
   primary: '#FFFFFF',
-  secondary: '#F97316',
-  ghost: '#18181B',
+  secondary: THEME_COLORS.primaryDeep,
+  ghost: THEME_COLORS.ink,
   danger: '#FFFFFF',
 };
 
-/** Warm tangerine-themed pressable button supporting loading states and 4 variants. */
+/** Gentle warm-tangerine button with tactile spring press feedback and 4 variants. */
 export function Button({
   title,
   children,
@@ -71,23 +75,42 @@ export function Button({
   leftIcon,
   className = '',
   textClassName = '',
+  containerStyle,
+  style,
   ...pressableProps
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   const label = children ?? title;
+  const hasFlexOne = /(?:^|\s)flex-1(?:\s|$)/.test(className);
+  const cleanedClassName = hasFlexOne
+    ? className.replace(/(?:^|\s)flex-1(?=\s|$)/g, ' ').trim()
+    : className;
+
+  const primaryShadowStyle =
+    variant === 'primary' && !isDisabled ? PRIMARY_BUTTON_SHADOW : undefined;
 
   return (
-    <Pressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
+      scaleTo={0.97}
+      pressOpacity={0.93}
+      fullWidth={fullWidth}
+      flex={hasFlexOne}
+      containerStyle={containerStyle}
+      style={
+        typeof style === 'function'
+          ? (state) => [primaryShadowStyle, style(state)]
+          : [primaryShadowStyle, style]
+      }
       className={[
         'flex-row items-center justify-center gap-2',
         SIZE_CLASSES[size],
         CONTAINER_VARIANT_CLASSES[variant],
         fullWidth ? 'w-full' : '',
         isDisabled ? 'opacity-50' : '',
-        className,
+        cleanedClassName,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -114,6 +137,6 @@ export function Button({
       ) : (
         label
       )}
-    </Pressable>
+    </MotionPressable>
   );
 }

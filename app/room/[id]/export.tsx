@@ -24,7 +24,6 @@ import {
 import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -45,6 +44,7 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
+import { MotionPressable } from '../../../src/components/ui/Motion';
 import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
@@ -53,6 +53,7 @@ import {
   renderRecapHtml,
 } from '../../../src/lib/recapBuilder';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
+import { CARD_SHADOW, FLOATING_SHADOW, THEME_COLORS } from '../../../src/lib/theme';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
 import type { TaskStatus } from '../../../src/schemas/blocks';
@@ -286,8 +287,8 @@ export default function RoomExportScreen() {
   if (screenState.kind === 'loading') {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-surface">
-        <ActivityIndicator size="large" color="#F97316" />
-        <Text className="mt-3 text-xs text-zinc-500">正在汇总活动复盘...</Text>
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+        <Text className="mt-3 text-xs text-inkMuted">正在汇总活动复盘...</Text>
       </SafeAreaView>
     );
   }
@@ -307,9 +308,9 @@ export default function RoomExportScreen() {
     return (
       <SafeAreaView className="flex-1 bg-surface px-4 pt-6">
         <Card className="items-center p-6">
-          <AlertTriangle size={28} color="#EF4444" />
+          <AlertTriangle size={28} color={THEME_COLORS.danger} />
           <Text className="mt-3 text-base font-bold text-ink">{errorTitle}</Text>
-          <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+          <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
             {errorMessage}
           </Text>
           <View className="mt-5 w-full gap-2.5">
@@ -336,25 +337,26 @@ export default function RoomExportScreen() {
   if (screenState.kind === 'members_error') {
     return (
       <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
-        <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-          <Pressable
+        <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回上一页"
+            scaleTo={0.92}
             onPress={handleBack}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <ChevronLeft size={20} color="#18181B" />
-          </Pressable>
+            <ChevronLeft size={20} color={THEME_COLORS.ink} />
+          </MotionPressable>
           <Text className="text-base font-bold text-ink">活动复盘与导出</Text>
           <View className="w-9" />
         </View>
         <View className="flex-1 justify-center px-4">
           <Card className="items-center p-6">
-            <AlertTriangle size={28} color="#EF4444" />
+            <AlertTriangle size={28} color={THEME_COLORS.danger} />
             <Text className="mt-3 text-base font-bold text-ink">
               成员权限加载失败
             </Text>
-            <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+            <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
               {screenState.message}
             </Text>
             <View className="mt-5 w-full gap-2.5">
@@ -375,25 +377,26 @@ export default function RoomExportScreen() {
   if (screenState.kind === 'permission_denied') {
     return (
       <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
-        <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-          <Pressable
+        <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回上一页"
+            scaleTo={0.92}
             onPress={handleBack}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <ChevronLeft size={20} color="#18181B" />
-          </Pressable>
+            <ChevronLeft size={20} color={THEME_COLORS.ink} />
+          </MotionPressable>
           <Text className="text-base font-bold text-ink">活动复盘与导出</Text>
           <View className="w-9" />
         </View>
         <View className="flex-1 justify-center px-4">
           <Card className="items-center p-6">
-            <ShieldAlert size={28} color="#F97316" />
+            <ShieldAlert size={28} color={THEME_COLORS.primary} />
             <Text className="mt-3 text-base font-bold text-ink">
               仅房间成员可导出复盘
             </Text>
-            <Text className="mt-1.5 text-center text-xs leading-5 text-zinc-500">
+            <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
               当前账号不是该房间的活跃成员，无法查看或导出活动结案卡片。
             </Text>
             <View className="mt-5 w-full">
@@ -410,18 +413,19 @@ export default function RoomExportScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
-      <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-        <Pressable
+      <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+        <MotionPressable
           accessibilityRole="button"
           accessibilityLabel="返回房间看板"
+          scaleTo={0.92}
           onPress={handleBack}
-          className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+          className="h-9 w-9 items-center justify-center rounded-full bg-surface"
         >
-          <ChevronLeft size={20} color="#18181B" />
-        </Pressable>
+          <ChevronLeft size={20} color={THEME_COLORS.ink} />
+        </MotionPressable>
         <View className="items-center">
           <Text className="text-base font-bold text-ink">活动复盘与导出</Text>
-          <Text className="text-[11px] text-zinc-400" numberOfLines={1}>
+          <Text className="text-[11px] text-inkSubtle" numberOfLines={1}>
             {recap.room.title}
           </Text>
         </View>
@@ -435,8 +439,8 @@ export default function RoomExportScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefreshAll}
-            tintColor="#F97316"
-            colors={['#F97316']}
+            tintColor={THEME_COLORS.primary}
+            colors={[THEME_COLORS.primary]}
           />
         }
       >
@@ -454,10 +458,11 @@ export default function RoomExportScreen() {
         >
           <View
             collapsable={false}
-            className="overflow-hidden rounded-3xl border border-orange-200/80 bg-white"
+            style={CARD_SHADOW}
+            className="overflow-hidden rounded-[26px] border border-primaryBorder bg-white"
           >
             {/* Warm Tangerine Hero Header */}
-            <View className="border-b border-orange-200/70 bg-primarySoft px-5 py-5">
+            <View className="border-b border-primaryBorder bg-primarySoft px-5 py-5">
               <View className="mb-3 flex-row items-center justify-between gap-2">
                 <View className="flex-row items-center gap-1.5 rounded-full bg-primary px-3 py-1">
                   <Sparkles size={12} color="#FFFFFF" />
@@ -477,16 +482,16 @@ export default function RoomExportScreen() {
 
               <View className="mt-2.5 flex-row flex-wrap items-center gap-2">
                 <Badge label={recap.room.templateLabel} variant="primary" />
-                <View className="flex-row items-center gap-1 rounded-full bg-white/90 px-2.5 py-0.5">
-                  <Users size={11} color="#52525B" />
-                  <Text className="text-[11px] font-medium text-zinc-700">
+                <View className="flex-row items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5">
+                  <Users size={11} color={THEME_COLORS.inkMuted} />
+                  <Text className="text-[11px] font-medium text-inkMuted">
                     {recap.room.activeMemberCount} 人参与
                   </Text>
                 </View>
                 {recap.room.eventWindow ? (
-                  <View className="flex-row items-center gap-1 rounded-full bg-white/90 px-2.5 py-0.5">
-                    <Calendar size={11} color="#52525B" />
-                    <Text className="text-[11px] font-medium text-zinc-700">
+                  <View className="flex-row items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5">
+                    <Calendar size={11} color={THEME_COLORS.inkMuted} />
+                    <Text className="text-[11px] font-medium text-inkMuted">
                       {recap.room.eventWindow}
                     </Text>
                   </View>
@@ -494,8 +499,8 @@ export default function RoomExportScreen() {
               </View>
 
               {recap.room.announcement ? (
-                <View className="mt-3 rounded-2xl border border-orange-200/70 bg-white/90 px-3.5 py-2.5">
-                  <Text className="text-xs leading-5 text-zinc-700">
+                <View className="mt-3 rounded-2xl border border-primaryBorder bg-white/95 px-3.5 py-2.5">
+                  <Text className="text-xs leading-5 text-ink/80">
                     {recap.room.announcement}
                   </Text>
                 </View>
@@ -506,7 +511,7 @@ export default function RoomExportScreen() {
                   {activeMembers.slice(0, 8).map((member) => (
                     <View
                       key={member.id}
-                      className="flex-row items-center gap-1 rounded-full border border-orange-200/70 bg-white px-2 py-0.5"
+                      className="flex-row items-center gap-1 rounded-full border border-primaryBorder bg-white px-2 py-0.5"
                     >
                       <Avatar
                         nickname={member.profiles?.nickname}
@@ -514,13 +519,13 @@ export default function RoomExportScreen() {
                         imageUrl={member.profiles?.avatar_url}
                         size="xs"
                       />
-                      <Text className="text-[11px] font-medium text-zinc-700">
+                      <Text className="text-[11px] font-medium text-ink">
                         {member.profiles?.nickname?.trim() || '协作伙伴'}
                       </Text>
                     </View>
                   ))}
                   {activeMembers.length > 8 ? (
-                    <Text className="text-[11px] font-semibold text-zinc-500">
+                    <Text className="text-[11px] font-semibold text-inkMuted">
                       +{activeMembers.length - 8} 人
                     </Text>
                   ) : null}
@@ -532,20 +537,20 @@ export default function RoomExportScreen() {
               {/* 1. Poll Conclusions */}
               <View>
                 <View className="mb-2.5 flex-row items-center gap-2">
-                  <BarChart3 size={16} color="#F97316" />
+                  <BarChart3 size={16} color={THEME_COLORS.primary} />
                   <Text className="text-sm font-extrabold text-ink">
                     投票结论
                   </Text>
                 </View>
 
                 {recap.polls.length === 0 ? (
-                  <Text className="text-xs text-zinc-400">暂无投票积木记录</Text>
+                  <Text className="text-xs text-inkSubtle">暂无投票积木记录</Text>
                 ) : (
                   <View className="gap-3">
                     {recap.polls.map((poll) => (
                       <View
                         key={poll.blockId}
-                        className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5"
+                        className="rounded-2xl border border-line bg-primaryMist p-3.5"
                       >
                         <View className="mb-2 flex-row items-center justify-between gap-2">
                           <Text className="flex-1 text-xs font-bold text-ink">
@@ -553,32 +558,32 @@ export default function RoomExportScreen() {
                           </Text>
                           <View className="flex-row items-center gap-1.5">
                             {poll.anonymous ? (
-                              <View className="flex-row items-center gap-1 rounded-full bg-zinc-200/70 px-2 py-0.5">
-                                <EyeOff size={10} color="#52525B" />
-                                <Text className="text-[10px] font-semibold text-zinc-600">
+                              <View className="flex-row items-center gap-1 rounded-full bg-surface px-2 py-0.5">
+                                <EyeOff size={10} color={THEME_COLORS.inkMuted} />
+                                <Text className="text-[10px] font-semibold text-inkMuted">
                                   匿名
                                 </Text>
                               </View>
                             ) : null}
-                            <Text className="text-[11px] text-zinc-500">
+                            <Text className="text-[11px] text-inkMuted">
                               共 {poll.totalVotes} 票
                             </Text>
                           </View>
                         </View>
 
                         {poll.winners.length > 0 ? (
-                          <View className="mb-2.5 flex-row items-center gap-1.5 rounded-xl border border-orange-200 bg-primarySoft px-3 py-2">
-                            <Crown size={14} color="#F97316" />
+                          <View className="mb-2.5 flex-row items-center gap-1.5 rounded-xl border border-primaryBorder bg-primarySoft px-3 py-2">
+                            <Crown size={14} color={THEME_COLORS.primary} />
                             <Text className="flex-1 text-xs font-bold text-ink">
                               {poll.winners.length > 1 ? '并列胜出：' : '最终胜出：'}
                               {poll.winners.map((w) => w.label).join(' / ')}
                             </Text>
-                            <Text className="text-[11px] font-bold text-primary">
+                            <Text className="text-[11px] font-bold text-primaryDeep">
                               {poll.maxVotes} 票
                             </Text>
                           </View>
                         ) : (
-                          <Text className="mb-2 text-[11px] text-zinc-400">
+                          <Text className="mb-2 text-[11px] text-inkSubtle">
                             暂无人投票
                           </Text>
                         )}
@@ -591,20 +596,20 @@ export default function RoomExportScreen() {
                                   className={`flex-1 text-xs ${
                                     opt.isWinner
                                       ? 'font-bold text-ink'
-                                      : 'text-zinc-600'
+                                      : 'text-inkMuted'
                                   }`}
                                 >
                                   {opt.label}
                                 </Text>
-                                <Text className="text-[11px] font-medium text-zinc-500">
+                                <Text className="text-[11px] font-medium text-inkMuted">
                                   {opt.voteCount} 票 ({opt.percentage}%)
                                 </Text>
                               </View>
-                              <View className="h-1.5 overflow-hidden rounded-full bg-zinc-200">
+                              <View className="h-1.5 overflow-hidden rounded-full bg-line">
                                 <View
                                   style={{ width: `${opt.percentage}%` }}
                                   className={`h-full rounded-full ${
-                                    opt.isWinner ? 'bg-primary' : 'bg-zinc-400'
+                                    opt.isWinner ? 'bg-primary' : 'bg-inkSubtle'
                                   }`}
                                 />
                               </View>
@@ -620,32 +625,32 @@ export default function RoomExportScreen() {
               {/* 2. Task Completion & Checklist */}
               <View>
                 <View className="mb-2.5 flex-row items-center gap-2">
-                  <CheckSquare size={16} color="#F97316" />
+                  <CheckSquare size={16} color={THEME_COLORS.primary} />
                   <Text className="text-sm font-extrabold text-ink">
                     分工完成度
                   </Text>
                 </View>
 
                 {recap.tasks.sections.length === 0 ? (
-                  <Text className="text-xs text-zinc-400">暂无分工清单记录</Text>
+                  <Text className="text-xs text-inkSubtle">暂无分工清单记录</Text>
                 ) : (
                   <View className="gap-3">
-                    <View className="rounded-2xl border border-orange-200 bg-primarySoft p-3.5">
+                    <View className="rounded-2xl border border-primaryBorder bg-primarySoft p-3.5">
                       <View className="mb-2 flex-row items-center justify-between">
                         <Text className="text-xs font-bold text-ink">
                           已完成 {recap.tasks.done} / {recap.tasks.total} 项
                         </Text>
-                        <Text className="text-sm font-extrabold text-primary">
+                        <Text className="text-sm font-extrabold text-primaryDeep">
                           {recap.tasks.completionPercent}%
                         </Text>
                       </View>
-                      <View className="h-2.5 overflow-hidden rounded-full bg-orange-100">
+                      <View className="h-2.5 overflow-hidden rounded-full bg-white">
                         <View
                           style={{ width: `${recap.tasks.completionPercent}%` }}
                           className="h-full rounded-full bg-primary"
                         />
                       </View>
-                      <Text className="mt-2 text-[11px] text-zinc-600">
+                      <Text className="mt-2 text-[11px] text-inkMuted">
                         进行中 {recap.tasks.inProgress} 项 · 待认领{' '}
                         {recap.tasks.unclaimed} 项
                       </Text>
@@ -654,18 +659,18 @@ export default function RoomExportScreen() {
                     {recap.tasks.sections.map((section) => (
                       <View
                         key={section.blockId}
-                        className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5"
+                        className="rounded-2xl border border-line bg-primaryMist p-3.5"
                       >
                         <View className="mb-2 flex-row items-center justify-between">
                           <Text className="text-xs font-bold text-ink">
                             {section.title}
                           </Text>
-                          <Text className="text-[11px] text-zinc-500">
+                          <Text className="text-[11px] text-inkMuted">
                             {section.done}/{section.total}
                           </Text>
                         </View>
                         {section.items.length === 0 ? (
-                          <Text className="text-[11px] text-zinc-400">
+                          <Text className="text-[11px] text-inkSubtle">
                             暂无任务条目
                           </Text>
                         ) : (
@@ -675,7 +680,7 @@ export default function RoomExportScreen() {
                                 key={item.itemId}
                                 className={`flex-row items-start justify-between gap-2 ${
                                   idx < section.items.length - 1
-                                    ? 'border-b border-zinc-200/60 pb-2'
+                                    ? 'border-b border-lineSoft pb-2'
                                     : ''
                                 }`}
                               >
@@ -683,7 +688,7 @@ export default function RoomExportScreen() {
                                   <Text className="text-xs font-semibold text-ink">
                                     {item.title}
                                   </Text>
-                                  <Text className="mt-0.5 text-[11px] text-zinc-500">
+                                  <Text className="mt-0.5 text-[11px] text-inkMuted">
                                     负责人：
                                     {item.assigneeNames.length > 0
                                       ? item.assigneeNames.join('、')
@@ -708,7 +713,7 @@ export default function RoomExportScreen() {
               {/* 3. Final Schedule Timeline */}
               <View>
                 <View className="mb-2.5 flex-row items-center gap-2">
-                  <CalendarClock size={16} color="#F97316" />
+                  <CalendarClock size={16} color={THEME_COLORS.primary} />
                   <Text className="text-sm font-extrabold text-ink">
                     最终日程轴
                   </Text>
@@ -716,13 +721,13 @@ export default function RoomExportScreen() {
 
                 {recap.schedule.sections.length === 0 ||
                 recap.schedule.totalItems === 0 ? (
-                  <Text className="text-xs text-zinc-400">暂无日程轴安排</Text>
+                  <Text className="text-xs text-inkSubtle">暂无日程轴安排</Text>
                 ) : (
                   <View className="gap-3">
                     {recap.schedule.sections.map((section) => (
                       <View
                         key={section.blockId}
-                        className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5"
+                        className="rounded-2xl border border-line bg-primaryMist p-3.5"
                       >
                         <Text className="mb-2.5 text-xs font-bold text-ink">
                           {section.title}
@@ -730,15 +735,15 @@ export default function RoomExportScreen() {
                         <View className="gap-3">
                           {section.groups.map((group) => (
                             <View key={group.groupLabel}>
-                              <Text className="mb-1.5 text-[11px] font-bold text-primary">
+                              <Text className="mb-1.5 text-[11px] font-bold text-primaryDeep">
                                 {group.groupLabel}
                               </Text>
-                              <View className="gap-2 border-l-2 border-orange-200 pl-3">
+                              <View className="gap-2 border-l-2 border-primaryBorder pl-3">
                                 {group.items.map((item) => (
                                   <View key={item.itemId}>
                                     <View className="flex-row items-center gap-2">
                                       <View className="rounded-md bg-primarySoft px-2 py-0.5">
-                                        <Text className="text-[11px] font-bold text-primary">
+                                        <Text className="text-[11px] font-bold text-primaryDeep">
                                           {item.timeDisplay}
                                         </Text>
                                       </View>
@@ -750,14 +755,14 @@ export default function RoomExportScreen() {
                                       <View className="mt-1 flex-row flex-wrap items-center gap-2">
                                         {item.locationName ? (
                                           <View className="flex-row items-center gap-1">
-                                            <MapPin size={10} color="#71717A" />
-                                            <Text className="text-[11px] text-zinc-500">
+                                            <MapPin size={10} color={THEME_COLORS.inkMuted} />
+                                            <Text className="text-[11px] text-inkMuted">
                                               {item.locationName}
                                             </Text>
                                           </View>
                                         ) : null}
                                         {item.ownerName ? (
-                                          <Text className="text-[11px] text-zinc-500">
+                                          <Text className="text-[11px] text-inkMuted">
                                             负责人：{item.ownerName}
                                           </Text>
                                         ) : null}
@@ -778,30 +783,30 @@ export default function RoomExportScreen() {
               {/* 4. Budget & AA Settlement */}
               <View>
                 <View className="mb-2.5 flex-row items-center gap-2">
-                  <Wallet size={16} color="#F97316" />
+                  <Wallet size={16} color={THEME_COLORS.primary} />
                   <Text className="text-sm font-extrabold text-ink">
                     费用与 AA 结算
                   </Text>
                 </View>
 
                 {recap.expenses.sections.length === 0 ? (
-                  <Text className="text-xs text-zinc-400">
+                  <Text className="text-xs text-inkSubtle">
                     暂无费用与 AA 分账记录
                   </Text>
                 ) : (
                   <View className="gap-3">
                     <View className="flex-row gap-2.5">
-                      <View className="flex-1 rounded-2xl border border-zinc-200/80 bg-surface p-3">
-                        <Text className="text-[11px] text-zinc-500">
+                      <View className="flex-1 rounded-2xl border border-line bg-primaryMist p-3">
+                        <Text className="text-[11px] text-inkMuted">
                           累计支出
                         </Text>
-                        <Text className="mt-0.5 text-lg font-extrabold text-primary">
+                        <Text className="mt-0.5 text-lg font-extrabold text-primaryDeep">
                           {recap.expenses.formattedTotalSpent}
                         </Text>
                       </View>
                       {recap.expenses.formattedTotalBudget ? (
-                        <View className="flex-1 rounded-2xl border border-zinc-200/80 bg-surface p-3">
-                          <Text className="text-[11px] text-zinc-500">
+                        <View className="flex-1 rounded-2xl border border-line bg-primaryMist p-3">
+                          <Text className="text-[11px] text-inkMuted">
                             总预算
                           </Text>
                           <Text className="mt-0.5 text-lg font-extrabold text-ink">
@@ -812,8 +817,8 @@ export default function RoomExportScreen() {
                     </View>
 
                     {recap.expenses.transfers.length > 0 ? (
-                      <View className="rounded-2xl border border-orange-200 bg-primarySoft p-3.5">
-                        <Text className="mb-2 text-xs font-bold text-amber-900">
+                      <View className="rounded-2xl border border-primaryBorder bg-primarySoft p-3.5">
+                        <Text className="mb-2 text-xs font-bold text-primaryDeep">
                           AA 最小化结算方案
                         </Text>
                         <View className="gap-1.5">
@@ -826,12 +831,12 @@ export default function RoomExportScreen() {
                                 <Text className="text-xs font-bold text-ink">
                                   {transfer.fromName}
                                 </Text>
-                                <ArrowRight size={12} color="#F97316" />
+                                <ArrowRight size={12} color={THEME_COLORS.primary} />
                                 <Text className="text-xs font-bold text-ink">
                                   {transfer.toName}
                                 </Text>
                               </View>
-                              <Text className="text-xs font-extrabold text-primary">
+                              <Text className="text-xs font-extrabold text-primaryDeep">
                                 {transfer.formattedAmount}
                               </Text>
                             </View>
@@ -843,18 +848,18 @@ export default function RoomExportScreen() {
                     {recap.expenses.sections.map((section) => (
                       <View
                         key={section.blockId}
-                        className="rounded-2xl border border-zinc-200/80 bg-surface p-3.5"
+                        className="rounded-2xl border border-line bg-primaryMist p-3.5"
                       >
                         <View className="mb-2 flex-row items-center justify-between">
                           <Text className="text-xs font-bold text-ink">
                             {section.title}
                           </Text>
-                          <Text className="text-[11px] font-semibold text-zinc-500">
+                          <Text className="text-[11px] font-semibold text-inkMuted">
                             已支 {section.formattedTotalSpent}
                           </Text>
                         </View>
                         {section.items.length === 0 ? (
-                          <Text className="text-[11px] text-zinc-400">
+                          <Text className="text-[11px] text-inkSubtle">
                             暂无账单记录
                           </Text>
                         ) : (
@@ -864,7 +869,7 @@ export default function RoomExportScreen() {
                                 key={item.itemId}
                                 className={`flex-row items-center justify-between gap-2 ${
                                   idx < section.items.length - 1
-                                    ? 'border-b border-zinc-200/60 pb-1.5'
+                                    ? 'border-b border-lineSoft pb-1.5'
                                     : ''
                                 }`}
                               >
@@ -872,7 +877,7 @@ export default function RoomExportScreen() {
                                   <Text className="text-xs font-semibold text-ink">
                                     {item.title}
                                   </Text>
-                                  <Text className="text-[11px] text-zinc-500">
+                                  <Text className="text-[11px] text-inkMuted">
                                     {item.paidByName} 付款 ·{' '}
                                     {item.participantNames.length} 人分摊
                                   </Text>
@@ -892,11 +897,11 @@ export default function RoomExportScreen() {
             </View>
 
             {/* Recap Footer */}
-            <View className="flex-row items-center justify-between border-t border-zinc-100 bg-zinc-50 px-5 py-3">
-              <Text className="text-[10px] font-semibold text-zinc-400">
+            <View className="flex-row items-center justify-between border-t border-lineSoft bg-primaryMist px-5 py-3">
+              <Text className="text-[10px] font-semibold text-inkSubtle">
                 轻橘 PopRoom · 让每次活动清晰落地
               </Text>
-              <Text className="text-[10px] text-zinc-400">
+              <Text className="text-[10px] text-inkSubtle">
                 {recap.generatedAtLabel}
               </Text>
             </View>
@@ -904,9 +909,9 @@ export default function RoomExportScreen() {
         </ViewShot>
 
         {permissions.isArchived ? (
-          <View className="mt-3 flex-row items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
-            <Archive size={15} color="#B45309" />
-            <Text className="flex-1 text-[11px] text-amber-800">
+          <View className="mt-3 flex-row items-center gap-2 rounded-2xl border border-[#F5DFB3] bg-[#FEF7E8] px-3.5 py-2.5">
+            <Archive size={15} color={THEME_COLORS.warning} />
+            <Text className="flex-1 text-[11px] text-[#8C5210]">
               当前房间已归档为只读状态，仍可随时导出复盘长图与 A4 PDF。
             </Text>
           </View>
@@ -914,7 +919,10 @@ export default function RoomExportScreen() {
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      <View className="border-t border-zinc-200/70 bg-white px-4 py-3">
+      <View
+        style={FLOATING_SHADOW}
+        className="border-t border-line bg-white px-4 py-3"
+      >
         <View className="flex-row gap-2.5">
           <View className="flex-1">
             <Button
@@ -924,7 +932,7 @@ export default function RoomExportScreen() {
               fullWidth
               loading={exportingType === 'png'}
               disabled={exportingType !== null}
-              leftIcon={<ImageIcon size={16} color="#F97316" />}
+              leftIcon={<ImageIcon size={16} color={THEME_COLORS.primaryDeep} />}
               onPress={handleExportPng}
             />
           </View>

@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, useRouter } from 'expo-router';
 import {
-  Check,
   ChevronLeft,
   Compass,
   GraduationCap,
@@ -14,7 +13,6 @@ import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -31,8 +29,13 @@ import {
 import { Badge } from '../../src/components/ui/Badge';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
+import {
+  AnimatedCheckBadge,
+  MotionPressable,
+} from '../../src/components/ui/Motion';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
 import { TEMPLATE_LIST } from '../../src/lib/templates';
+import { CARD_SHADOW, THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
 import type { JoinMode, TemplateType } from '../../src/types/database';
@@ -44,7 +47,7 @@ function TemplateIcon({
   type: TemplateType;
   active: boolean;
 }) {
-  const color = active ? '#F97316' : '#52525B';
+  const color = active ? THEME_COLORS.primary : THEME_COLORS.inkMuted;
   switch (type) {
     case 'campus':
       return <GraduationCap size={20} color={color} />;
@@ -150,10 +153,11 @@ export default function CreateRoomScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View className="flex-row items-center justify-between border-b border-zinc-200/70 bg-white px-4 py-3">
-          <Pressable
+        <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
+          <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回"
+            scaleTo={0.92}
             onPress={() => {
               if (router.canGoBack()) {
                 router.back();
@@ -161,42 +165,46 @@ export default function CreateRoomScreen() {
                 router.replace('/(tabs)');
               }
             }}
-            className="h-9 w-9 items-center justify-center rounded-full bg-zinc-100 active:bg-zinc-200"
+            className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <ChevronLeft size={20} color="#18181B" />
-          </Pressable>
+            <ChevronLeft size={20} color={THEME_COLORS.ink} />
+          </MotionPressable>
           <Text className="text-base font-bold text-ink">创建协作房间</Text>
           <View className="w-9" />
         </View>
 
         <ScrollView
           className="flex-1 px-4 pt-4"
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingBottom: 36 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="mb-2.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
-            1. 选择场景模板（自动装配积木）
+          <Text className="mb-2.5 text-sm font-bold text-ink">
+            选择场景模板（自动装配积木）
           </Text>
           <View className="mb-5 gap-2.5">
             {TEMPLATE_LIST.map((preset) => {
               const selected = templateType === preset.type;
               return (
-                <Pressable
+                <MotionPressable
                   key={preset.type}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
+                  scaleTo={0.98}
                   onPress={() => setTemplateType(preset.type)}
-                  className={`rounded-2xl border p-3.5 ${
+                  style={CARD_SHADOW}
+                  className={`rounded-[22px] border p-4 ${
                     selected
                       ? 'border-primary bg-primarySoft'
-                      : 'border-zinc-200/80 bg-white'
+                      : 'border-line bg-white'
                   }`}
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2.5">
                       <View
-                        className={`h-9 w-9 items-center justify-center rounded-xl ${
-                          selected ? 'bg-white' : 'bg-zinc-100'
+                        className={`h-10 w-10 items-center justify-center rounded-xl border ${
+                          selected
+                            ? 'border-primaryBorder bg-white'
+                            : 'border-lineSoft bg-surface'
                         }`}
                       >
                         <TemplateIcon type={preset.type} active={selected} />
@@ -204,23 +212,17 @@ export default function CreateRoomScreen() {
                       <View>
                         <Text
                           className={`text-sm font-bold ${
-                            selected ? 'text-primary' : 'text-ink'
+                            selected ? 'text-primaryDeep' : 'text-ink'
                           }`}
                         >
                           {preset.name}
                         </Text>
                       </View>
                     </View>
-                    <View
-                      className={`h-6 w-6 items-center justify-center rounded-full ${
-                        selected ? 'bg-primary' : 'border border-zinc-300 bg-white'
-                      }`}
-                    >
-                      {selected ? <Check size={14} color="#FFFFFF" /> : null}
-                    </View>
+                    <AnimatedCheckBadge checked={selected} size={22} iconSize={13} />
                   </View>
 
-                  <Text className="mt-2 text-xs leading-5 text-zinc-600">
+                  <Text className="mt-2 text-xs leading-5 text-inkMuted">
                     {preset.description}
                   </Text>
 
@@ -237,21 +239,21 @@ export default function CreateRoomScreen() {
                       ))
                     )}
                   </View>
-                </Pressable>
+                </MotionPressable>
               );
             })}
           </View>
 
-          <Text className="mb-2.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
-            2. 活动基本信息
+          <Text className="mb-2.5 text-sm font-bold text-ink">
+            活动基本信息
           </Text>
           <Card className="mb-5">
             <View className="mb-4">
               <View className="mb-1.5 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-zinc-700">
+                <Text className="text-xs font-semibold text-inkMuted">
                   房间名称 *
                 </Text>
-                <Text className="text-xs text-zinc-400">
+                <Text className="text-xs text-inkSubtle">
                   {titleLength}/{MAX_ROOM_TITLE_LENGTH}
                 </Text>
               </View>
@@ -264,70 +266,74 @@ export default function CreateRoomScreen() {
                   }
                 }}
                 placeholder="例如：周末西湖野餐 / 社团迎新晚会"
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={THEME_COLORS.inkSubtle}
                 maxLength={MAX_ROOM_TITLE_LENGTH}
-                className="rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-base text-ink"
+                className="rounded-2xl border border-line bg-surface px-4 py-3 text-base text-ink"
               />
             </View>
 
             <View className="mb-4">
-              <Text className="mb-1.5 text-xs font-semibold text-zinc-700">
+              <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
                 房间公告（选填）
               </Text>
               <TextInput
                 value={announcement}
                 onChangeText={setAnnouncement}
                 placeholder="补充集合地点、注意事项或截止提示..."
-                placeholderTextColor="#A1A1AA"
+                placeholderTextColor={THEME_COLORS.inkSubtle}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
                 maxLength={300}
-                className="min-h-[84px] rounded-2xl border border-zinc-200 bg-surface px-4 py-3 text-sm text-ink"
+                className="min-h-[84px] rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
               />
             </View>
 
             <View>
               <View className="mb-2 flex-row items-center justify-between">
-                <Text className="text-xs font-semibold text-zinc-700">
+                <Text className="text-xs font-semibold text-inkMuted">
                   活动时间（选填，YYYY-MM-DD HH:mm）
                 </Text>
                 {(eventStartAt || eventEndAt) ? (
-                  <Pressable
+                  <MotionPressable
+                    scaleTo={0.94}
                     onPress={() => {
                       setEventStartAt('');
                       setEventEndAt('');
                     }}
                   >
-                    <Text className="text-xs font-medium text-primary">清空</Text>
-                  </Pressable>
+                    <Text className="text-xs font-medium text-primaryDeep">清空</Text>
+                  </MotionPressable>
                 ) : null}
               </View>
 
               <View className="mb-2.5 flex-row flex-wrap gap-2">
-                <Pressable
+                <MotionPressable
+                  scaleTo={0.95}
                   onPress={() => applyQuickWindow(0, 0)}
-                  className="rounded-full border border-orange-200 bg-primarySoft px-3 py-1"
+                  className="rounded-full border border-primaryBorder bg-primarySoft px-3 py-1"
                 >
-                  <Text className="text-xs font-medium text-primary">今天</Text>
-                </Pressable>
-                <Pressable
+                  <Text className="text-xs font-medium text-primaryDeep">今天</Text>
+                </MotionPressable>
+                <MotionPressable
+                  scaleTo={0.95}
                   onPress={() => applyQuickWindow(1, 1)}
-                  className="rounded-full border border-orange-200 bg-primarySoft px-3 py-1"
+                  className="rounded-full border border-primaryBorder bg-primarySoft px-3 py-1"
                 >
-                  <Text className="text-xs font-medium text-primary">明天</Text>
-                </Pressable>
-                <Pressable
+                  <Text className="text-xs font-medium text-primaryDeep">明天</Text>
+                </MotionPressable>
+                <MotionPressable
+                  scaleTo={0.95}
                   onPress={() => {
                     const sat = getNextSaturdayOffset();
                     applyQuickWindow(sat, sat + 1);
                   }}
-                  className="rounded-full border border-orange-200 bg-primarySoft px-3 py-1"
+                  className="rounded-full border border-primaryBorder bg-primarySoft px-3 py-1"
                 >
-                  <Text className="text-xs font-medium text-primary">
+                  <Text className="text-xs font-medium text-primaryDeep">
                     本周末
                   </Text>
-                </Pressable>
+                </MotionPressable>
               </View>
 
               <View className="gap-2.5">
@@ -340,9 +346,9 @@ export default function CreateRoomScreen() {
                     }
                   }}
                   placeholder="开始时间，如 2026-11-28 09:00"
-                  placeholderTextColor="#A1A1AA"
+                  placeholderTextColor={THEME_COLORS.inkSubtle}
                   autoCapitalize="none"
-                  className="rounded-2xl border border-zinc-200 bg-surface px-4 py-2.5 text-sm text-ink"
+                  className="rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
                 />
                 <TextInput
                   value={eventEndAt}
@@ -353,16 +359,16 @@ export default function CreateRoomScreen() {
                     }
                   }}
                   placeholder="结束时间，如 2026-11-29 18:00"
-                  placeholderTextColor="#A1A1AA"
+                  placeholderTextColor={THEME_COLORS.inkSubtle}
                   autoCapitalize="none"
-                  className="rounded-2xl border border-zinc-200 bg-surface px-4 py-2.5 text-sm text-ink"
+                  className="rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
                 />
               </View>
             </View>
           </Card>
 
-          <Text className="mb-2.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
-            3. 进房门禁方式
+          <Text className="mb-2.5 text-sm font-bold text-ink">
+            进房门禁方式
           </Text>
           <View className="mb-5 gap-2.5">
             {(
@@ -379,67 +385,61 @@ export default function CreateRoomScreen() {
             ).map(({ mode, subtitle }) => {
               const selected = joinMode === mode;
               return (
-                <Pressable
+                <MotionPressable
                   key={mode}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
+                  scaleTo={0.98}
                   onPress={() => setJoinMode(mode)}
-                  className={`flex-row items-center justify-between rounded-2xl border p-4 ${
+                  style={CARD_SHADOW}
+                  className={`flex-row items-center justify-between rounded-[22px] border p-4 ${
                     selected
                       ? 'border-primary bg-primarySoft'
-                      : 'border-zinc-200/80 bg-white'
+                      : 'border-line bg-white'
                   }`}
                 >
                   <View className="flex-1 flex-row items-center gap-3 pr-3">
                     <View
-                      className={`h-9 w-9 items-center justify-center rounded-xl ${
-                        selected ? 'bg-white' : 'bg-zinc-100'
+                      className={`h-9 w-9 items-center justify-center rounded-xl border ${
+                        selected
+                          ? 'border-primaryBorder bg-white'
+                          : 'border-lineSoft bg-surface'
                       }`}
                     >
                       {mode === 'passcode' ? (
                         <Unlock
                           size={18}
-                          color={selected ? '#F97316' : '#52525B'}
+                          color={selected ? THEME_COLORS.primary : THEME_COLORS.inkMuted}
                         />
                       ) : (
                         <Lock
                           size={18}
-                          color={selected ? '#F97316' : '#52525B'}
+                          color={selected ? THEME_COLORS.primary : THEME_COLORS.inkMuted}
                         />
                       )}
                     </View>
                     <View className="flex-1">
                       <Text
                         className={`text-sm font-bold ${
-                          selected ? 'text-primary' : 'text-ink'
+                          selected ? 'text-primaryDeep' : 'text-ink'
                         }`}
                       >
                         {JOIN_MODE_LABELS[mode]}
                       </Text>
-                      <Text className="mt-0.5 text-xs text-zinc-500">
+                      <Text className="mt-0.5 text-xs text-inkMuted">
                         {subtitle}
                       </Text>
                     </View>
                   </View>
-                  <View
-                    className={`h-5 w-5 items-center justify-center rounded-full border ${
-                      selected
-                        ? 'border-primary bg-primary'
-                        : 'border-zinc-300 bg-white'
-                    }`}
-                  >
-                    {selected ? (
-                      <View className="h-2 w-2 rounded-full bg-white" />
-                    ) : null}
-                  </View>
-                </Pressable>
+                  <AnimatedCheckBadge checked={selected} size={20} iconSize={12} />
+                </MotionPressable>
               );
             })}
           </View>
 
           {errorText ? (
-            <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
-              <Text className="text-xs font-medium text-red-700">
+            <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
+              <Text className="text-xs font-medium text-[#C94545]">
                 {errorText}
               </Text>
             </View>
