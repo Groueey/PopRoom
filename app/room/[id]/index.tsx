@@ -57,6 +57,7 @@ import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
 import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { PollBlock } from '../../../src/components/blocks/PollBlock';
+import { TaskBlock } from '../../../src/components/blocks/TaskBlock';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { useRoomRealtime } from '../../../src/hooks/useRoomRealtime';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
@@ -887,6 +888,18 @@ export default function RoomBoardScreen() {
                   />
                 );
               case 'task':
+                return (
+                  <TaskBlock
+                    key={block.id}
+                    block={block}
+                    items={block.items}
+                    members={activeMembers}
+                    permissions={permissions}
+                    onRequestDeleteBlock={
+                      permissions.canManageBlocks ? setDeleteTarget : undefined
+                    }
+                  />
+                );
               case 'schedule':
               case 'expense':
                 return (
