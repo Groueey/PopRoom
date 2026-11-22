@@ -419,12 +419,24 @@ export function ChatRoomView({
 
       return { previousBlocks };
     },
-    onError: (err, _vars, context) => {
-      if (currentUserId && context?.previousBlocks !== undefined) {
-        queryClient.setQueryData<BlockedUserWithProfile[]>(
-          QUERY_KEYS.userBlocks(currentUserId),
-          context.previousBlocks,
-        );
+    onError: (err, vars, context) => {
+      if (currentUserId) {
+        const blocksKey = QUERY_KEYS.userBlocks(currentUserId);
+        if (context?.previousBlocks !== undefined) {
+          queryClient.setQueryData<BlockedUserWithProfile[]>(
+            blocksKey,
+            context.previousBlocks,
+          );
+        } else {
+          queryClient.setQueryData<BlockedUserWithProfile[]>(
+            blocksKey,
+            (old) =>
+              (old ?? []).filter(
+                (entry) => entry.blocked_id !== vars.targetUserId,
+              ),
+          );
+          void queryClient.invalidateQueries({ queryKey: blocksKey });
+        }
       }
       showToast(mapRoomError(err), 'error');
     },
@@ -468,9 +480,12 @@ export function ChatRoomView({
       await queryClient.cancelQueries({ queryKey: messagesKey });
       const previousMessages =
         queryClient.getQueryData<ParsedRoomMessage[]>(messagesKey);
-      queryClient.setQueryData<ParsedRoomMessage[]>(messagesKey, (old) =>
-        (old ?? []).filter((item) => item.id !== messageId),
-      );
+      if (previousMessages !== undefined) {
+        queryClient.setQueryData<ParsedRoomMessage[]>(
+          messagesKey,
+          previousMessages.filter((item) => item.id !== messageId),
+        );
+      }
       return { previousMessages };
     },
     onError: (err, _messageId, context) => {
@@ -479,6 +494,10 @@ export function ChatRoomView({
           QUERY_KEYS.roomMessages(roomId),
           context.previousMessages,
         );
+      } else {
+        void queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.roomMessages(roomId),
+        });
       }
       showToast(mapRoomError(err), 'error');
     },
@@ -1212,11 +1231,7 @@ export function ChatRoomView({
       {/* Report Message Sheet */}
       <SheetModal
         visible={reportTarget !== null}
-        onClose={() => {
-          if (!reportMutation.isPending) {
-            setReportTarget(null);
-          }
-        }}
+        onClose={() => setReportTarget(null)}
         title="举报消息"
       >
         {reportTarget ? (
@@ -1311,11 +1326,7 @@ export function ChatRoomView({
       {/* Block User Confirmation Sheet */}
       <SheetModal
         visible={blockTarget !== null}
-        onClose={() => {
-          if (!blockMutation.isPending) {
-            setBlockTarget(null);
-          }
-        }}
+        onClose={() => setBlockTarget(null)}
         title="屏蔽此人"
       >
         {blockTarget ? (
@@ -1354,11 +1365,7 @@ export function ChatRoomView({
       {/* Delete Message Confirmation Sheet */}
       <SheetModal
         visible={deleteTarget !== null}
-        onClose={() => {
-          if (!deleteMutation.isPending) {
-            setDeleteTarget(null);
-          }
-        }}
+        onClose={() => setDeleteTarget(null)}
         title="删除消息"
       >
         {deleteTarget ? (
