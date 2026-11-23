@@ -703,3 +703,6 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- Notify PostgREST to reload schema cache immediately after migration
+NOTIFY pgrst, 'reload schema';

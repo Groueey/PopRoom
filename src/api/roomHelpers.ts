@@ -38,6 +38,7 @@ export type RoomErrorCode =
   | 'CHAT_DISABLED'
   | 'HOST_CANNOT_LEAVE'
   | 'CANNOT_BLOCK_SELF'
+  | 'SCHEMA_OUTDATED'
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';
 
@@ -72,6 +73,8 @@ const ROOM_ERROR_MESSAGES: Record<RoomErrorCode, string> = {
   CHAT_DISABLED: '该房间未开启聊天室',
   HOST_CANNOT_LEAVE: '房主无法直接退出房间，你可以选择归档活动',
   CANNOT_BLOCK_SELF: '不能屏蔽自己',
+  SCHEMA_OUTDATED:
+    '后端数据库尚未执行第二阶段迁移脚本（004 / 005），请在 Supabase SQL Editor 执行后重试',
   NETWORK_ERROR: '网络连接异常，请检查网络后重试',
   UNKNOWN_ERROR: '操作失败，请稍后重试',
 };
@@ -94,6 +97,11 @@ const ERROR_TOKEN_RULES: ReadonlyArray<readonly [string, RoomErrorCode]> = [
   ['CHAT_DISABLED', 'CHAT_DISABLED'],
   ['HOST_CANNOT_LEAVE', 'HOST_CANNOT_LEAVE'],
   ['CANNOT_BLOCK_SELF', 'CANNOT_BLOCK_SELF'],
+  ['PGRST202', 'SCHEMA_OUTDATED'],
+  ['PGRST205', 'SCHEMA_OUTDATED'],
+  ['42883', 'SCHEMA_OUTDATED'],
+  ['42P01', 'SCHEMA_OUTDATED'],
+  ['schema cache', 'SCHEMA_OUTDATED'],
   ['INVALID_INPUT', 'INVALID_INPUT'],
   ['PGRST116', 'ROOM_NOT_FOUND'],
   ['42501', 'FORBIDDEN'],
@@ -169,6 +177,9 @@ export function toRoomApiError(err: unknown): RoomApiError {
     return err;
   }
   const code = detectRoomErrorCode(err);
+  if (code === 'UNKNOWN_ERROR' && typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.warn('[PopRoom] Unmapped Supabase/API error:', err);
+  }
   return new RoomApiError(code, mapRoomError(err));
 }
 

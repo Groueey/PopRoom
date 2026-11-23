@@ -20,6 +20,7 @@ import {
 import {
   MAX_ROOM_TITLE_LENGTH,
   RoomApiError,
+  detectRoomErrorCode,
   mapRoomError,
   prepareJoinPayload,
   validateCreateRoomInput,
@@ -63,6 +64,17 @@ describe('mapRoomError', () => {
     );
     expect(mapRoomError(new RoomApiError('CANNOT_BLOCK_SELF'))).toBe(
       '不能屏蔽自己',
+    );
+    expect(
+      detectRoomErrorCode({
+        code: 'PGRST202',
+        message:
+          'Could not find the function public.create_room_with_template(p_chat_enabled) in the schema cache',
+      }),
+    ).toBe('SCHEMA_OUTDATED');
+    expect(mapRoomError({ code: 'PGRST202' })).toContain('004 / 005');
+    expect(detectRoomErrorCode({ code: '42P01', message: 'relation "room_messages" does not exist' })).toBe(
+      'SCHEMA_OUTDATED',
     );
   });
 
