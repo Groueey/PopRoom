@@ -1,4 +1,5 @@
 import { buildShareMessage } from './roomCode';
+import { useUiStore } from '../stores/uiStore';
 
 /** Parameters required to share or copy a room invitation. */
 export interface ShareRoomInviteParams {
@@ -66,6 +67,10 @@ export async function shareRoomInvite(
     params.roomCode,
     params.inviteUrl,
   );
+
+  // Mark our own shared/copied room code as already handled so returning to the app
+  // from WeChat/QQ never triggers an unintended clipboard auto-jump loop.
+  useUiStore.getState().markClipboardCodeHandled(params.roomCode);
 
   return executeShareWithFallback(message, params.title, {
     share: async (content) => {

@@ -37,6 +37,8 @@ export const QUERY_KEYS = {
   itemComments: (itemId: string) => ['item', itemId, 'comments'] as const,
   activityLogs: (roomId: string) => ['room', roomId, 'activityLogs'] as const,
   roomMessages: (roomId: string) => ['room', roomId, 'messages'] as const,
+  roomAnnouncementAcks: (roomId: string) =>
+    ['room', roomId, 'announcementAcks'] as const,
   roomChatRead: (roomId: string, userId?: string) =>
     userId
       ? (['room', roomId, 'chatRead', userId] as const)

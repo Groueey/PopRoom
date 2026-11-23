@@ -28,7 +28,12 @@ import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Card';
 import { MotionPressable } from '../../src/components/ui/Motion';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
-import { isValidRoomCode, normalizeRoomCode } from '../../src/lib/roomCode';
+import {
+  extractRoomCodeForInput,
+  extractRoomCodeFromText,
+  isValidRoomCode,
+  normalizeRoomCode,
+} from '../../src/lib/roomCode';
 import { supabase } from '../../src/lib/supabase';
 import { THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -290,7 +295,7 @@ export default function JoinRoomScreen() {
                   输入 6 位房间码进房
                 </Text>
                 <Text className="mt-1 text-center text-xs text-inkMuted">
-                  支持直接粘贴口令或带短横线的房间码，自动过滤空格与大小写
+                  支持直接粘贴整段分享口令或邀请链接，自动提取 6 位房间码
                 </Text>
               </View>
 
@@ -314,7 +319,12 @@ export default function JoinRoomScreen() {
                   <TextInput
                     value={codeInput}
                     onChangeText={(text) => {
-                      setCodeInput(text.toUpperCase());
+                      const extracted = extractRoomCodeFromText(text);
+                      const nextVal = extractRoomCodeForInput(text);
+                      setCodeInput(nextVal);
+                      if (extracted && text.trim().length > 10) {
+                        showToast(`已自动提取房间码 ${extracted}`, 'info');
+                      }
                       if (errorText) {
                         setErrorText(null);
                       }
@@ -323,7 +333,6 @@ export default function JoinRoomScreen() {
                     placeholderTextColor={THEME_COLORS.inkSubtle}
                     autoCapitalize="characters"
                     autoCorrect={false}
-                    maxLength={12}
                     returnKeyType="next"
                     className="rounded-2xl border border-line bg-surface px-4 py-3.5 text-center text-2xl font-bold tracking-[6px] text-ink"
                   />

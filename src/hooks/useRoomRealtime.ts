@@ -140,6 +140,18 @@ export function useRoomRealtime(
           invalidateForTable('room_messages');
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_announcement_acks',
+          filter: `room_id=eq.${roomId}`,
+        },
+        () => {
+          invalidateForTable('room_announcement_acks');
+        },
+      )
       .on('broadcast', { event: 'message_deleted' }, () => {
         invalidateForTable('room_messages');
       })

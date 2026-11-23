@@ -9,7 +9,8 @@ export type RealtimeQueryKey =
   | readonly ['room', string, 'pollTallies']
   | readonly ['item', string, 'comments']
   | readonly ['room', string, 'activityLogs']
-  | readonly ['room', string, 'messages'];
+  | readonly ['room', string, 'messages']
+  | readonly ['room', string, 'announcementAcks'];
 
 /**
  * Maps a Supabase Realtime `postgres_changes` table event inside a room to all
@@ -41,6 +42,8 @@ export function getInvalidationKeysForRealtimeEvent(
       return [['room', roomId, 'activityLogs']];
     case 'room_messages':
       return [['room', roomId, 'messages']];
+    case 'room_announcement_acks':
+      return [['room', roomId, 'announcementAcks']];
     default:
       return [];
   }

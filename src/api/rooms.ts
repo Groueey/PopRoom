@@ -4,6 +4,7 @@ import type {
   MemberRole,
   ProfileRow,
   ProfileSummary,
+  RoomAnnouncementAckRow,
   RoomMemberRow,
   RoomMemberWithProfile,
   RoomRow,
@@ -24,7 +25,7 @@ import {
 export * from './roomHelpers';
 
 const ROOM_COLUMNS =
-  'id, title, announcement, template_type, event_start_at, event_end_at, join_mode, room_code, chat_enabled, allow_member_create_poll, status, archived_at, created_by, created_at, updated_at';
+  'id, title, announcement, announcement_updated_at, template_type, event_start_at, event_end_at, join_mode, room_code, chat_enabled, allow_member_create_poll, status, archived_at, created_by, created_at, updated_at';
 
 const PROFILE_COLUMNS =
   'id, nickname, avatar_color, avatar_url, expo_push_token, created_at, updated_at';
@@ -382,6 +383,48 @@ export async function archiveRoom(roomId: string): Promise<RoomRow> {
     throw new RoomApiError('ROOM_NOT_FOUND', mapRoomError('ROOM_NOT_FOUND'));
   }
   return data as RoomRow;
+}
+
+/** Fetches all announcement acknowledgement rows for a room (active members only via RLS). */
+export async function fetchRoomAnnouncementAcks(
+  roomId: string,
+): Promise<RoomAnnouncementAckRow[]> {
+  if (!roomId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('room_announcement_acks')
+    .select('room_id, user_id, announcement_version, acked_at')
+    .eq('room_id', roomId)
+    .order('acked_at', { ascending: true });
+
+  if (error) {
+    throw toRoomApiError(error);
+  }
+  return (data ?? []) as RoomAnnouncementAckRow[];
+}
+
+/** Confirms that the signed-in member has read the latest room announcement via atomic RPC. */
+export async function acknowledgeRoomAnnouncement(
+  roomId: string,
+): Promise<RoomAnnouncementAckRow> {
+  const trimmedRoomId = typeof roomId === 'string' ? roomId.trim() : '';
+  if (!trimmedRoomId) {
+    throw new RoomApiError('INVALID_INPUT', '房间参数无效');
+  }
+
+  const { data, error } = await supabase.rpc('acknowledge_room_announcement', {
+    p_room_id: trimmedRoomId,
+  });
+
+  if (error) {
+    throw toRoomApiError(error);
+  }
+  if (!data) {
+    throw new RoomApiError('UNKNOWN_ERROR', mapRoomError('UNKNOWN_ERROR'));
+  }
+  return data as RoomAnnouncementAckRow;
 }
 
 /** Updates the signed-in user's nickname and avatar color swatch. */

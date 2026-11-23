@@ -34,6 +34,8 @@ Open **SQL Editor** in your Supabase project dashboard and execute the migration
    - Creates the 4 Stage 2 tables (`room_messages`, `message_reports`, `user_blocks`, `room_chat_reads`), extends `activity_logs` actions with `'delete_message'` and `'leave_room'`, unlocks `rooms.chat_enabled` updates for active room admins, configures RLS (filtering deleted messages and blocked senders at the DB layer with RPC-only write boundaries), and adds `room_messages` to `supabase_realtime` while keeping `poll_votes` excluded.
 5. `supabase/migrations/005_stage2_rpcs_and_auto_archive.sql`
    - Drops the 6-argument `create_room_with_template` overload and upgrades it with optional `p_chat_enabled` (defaulting `TRUE` for `campus`/`travel`, `FALSE` for `party`/`custom`), creates `send_room_message`, `soft_delete_room_message`, `report_room_message`, `reorder_room_blocks`, `leave_room`, and `auto_archive_expired_rooms()` (`service_role` only), and registers the idempotent `pg_cron` daily job `poproom-auto-archive-daily` when `pg_cron` is enabled.
+6. `supabase/migrations/006_announcement_acks.sql`
+   - Adds `rooms.announcement_updated_at` and an auto-bump trigger on announcement edits; creates `room_announcement_acks` with member-read RLS, Realtime publication, and the `acknowledge_room_announcement(p_room_id)` RPC so hosts can track who confirmed reading the latest announcement.
 
 > Tip: Copy each file's full contents into a fresh query tab in **SQL Editor** and click **Run** before proceeding to the next file.
 

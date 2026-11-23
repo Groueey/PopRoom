@@ -250,6 +250,7 @@ export default function RoomSettingsScreen() {
         queryParams: { code: room.room_code },
       });
       const message = buildShareMessage(room.title, room.room_code, inviteUrl);
+      useUiStore.getState().markClipboardCodeHandled(room.room_code);
       await Clipboard.setStringAsync(message);
       showToast('已复制邀请口令与链接', 'success');
     } catch {

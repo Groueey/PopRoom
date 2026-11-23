@@ -37,7 +37,11 @@ import {
 } from '../../src/components/ui/Motion';
 import { SheetModal } from '../../src/components/ui/SheetModal';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
-import { normalizeRoomCode } from '../../src/lib/roomCode';
+import {
+  extractRoomCodeForInput,
+  extractRoomCodeFromText,
+  normalizeRoomCode,
+} from '../../src/lib/roomCode';
 import { ROOM_TEMPLATES } from '../../src/lib/templates';
 import { THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -378,21 +382,25 @@ export default function LobbyScreen() {
         title="输码进房"
       >
         <Text className="mb-2 text-xs font-semibold text-inkMuted">
-          6 位房间码（自动忽略空格与连字符）
+          6 位房间码（支持直接粘贴分享口令或邀请链接，自动提取）
         </Text>
         <BottomSheetTextInput
           value={codeInput}
           onChangeText={(text) => {
-            setCodeInput(text);
+            const extracted = extractRoomCodeFromText(text);
+            const nextVal = extractRoomCodeForInput(text);
+            setCodeInput(nextVal);
+            if (extracted && text.trim().length > 10) {
+              showToast(`已自动提取房间码 ${extracted}`, 'info');
+            }
             if (joinError) {
               setJoinError(null);
             }
           }}
-          placeholder="例如：K7M3P9"
+          placeholder="例如：K7M3P9 或直接粘贴邀请链接"
           placeholderTextColor={THEME_COLORS.inkSubtle}
           autoCapitalize="characters"
           autoCorrect={false}
-          maxLength={12}
           returnKeyType="next"
           className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-center text-xl font-bold tracking-widest text-ink"
         />

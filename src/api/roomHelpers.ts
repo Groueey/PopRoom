@@ -74,7 +74,7 @@ const ROOM_ERROR_MESSAGES: Record<RoomErrorCode, string> = {
   HOST_CANNOT_LEAVE: '房主无法直接退出房间，你可以选择归档活动',
   CANNOT_BLOCK_SELF: '不能屏蔽自己',
   SCHEMA_OUTDATED:
-    '后端数据库尚未执行第二阶段迁移脚本（004 / 005），请在 Supabase SQL Editor 执行后重试',
+    '后端数据库尚未执行最新迁移脚本（004 / 005 / 006），请在 Supabase SQL Editor 执行后重试',
   NETWORK_ERROR: '网络连接异常，请检查网络后重试',
   UNKNOWN_ERROR: '操作失败，请稍后重试',
 };
@@ -101,6 +101,7 @@ const ERROR_TOKEN_RULES: ReadonlyArray<readonly [string, RoomErrorCode]> = [
   ['PGRST205', 'SCHEMA_OUTDATED'],
   ['42883', 'SCHEMA_OUTDATED'],
   ['42P01', 'SCHEMA_OUTDATED'],
+  ['42703', 'SCHEMA_OUTDATED'],
   ['schema cache', 'SCHEMA_OUTDATED'],
   ['INVALID_INPUT', 'INVALID_INPUT'],
   ['PGRST116', 'ROOM_NOT_FOUND'],

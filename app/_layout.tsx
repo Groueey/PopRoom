@@ -2,6 +2,7 @@ import '../global.css';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import type { Session } from '@supabase/supabase-js';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import {
   Stack,
@@ -13,7 +14,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import {
@@ -23,7 +24,10 @@ import {
 import { MotionPressable } from '../src/components/ui/Motion';
 import { asyncStoragePersister, queryClient } from '../src/lib/queryClient';
 import { clearCachedProfile, profileCache } from '../src/lib/profileCache';
-import { extractRoomCodeFromUrl } from '../src/lib/roomCode';
+import {
+  extractRoomCodeFromText,
+  extractRoomCodeFromUrl,
+} from '../src/lib/roomCode';
 import { fetchProfileByUserId, supabase } from '../src/lib/supabase';
 import { FLOATING_SHADOW, THEME_COLORS } from '../src/lib/theme';
 import {
@@ -251,6 +255,45 @@ function RootNavigator() {
       subscription.remove();
     };
   }, [setPendingRoomCode]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const inspectClipboardForInvite = async () => {
+      try {
+        const text = await Clipboard.getStringAsync();
+        if (!isMounted || !text) {
+          return;
+        }
+        const code = extractRoomCodeFromText(text);
+        if (!code) {
+          return;
+        }
+        const uiState = useUiStore.getState();
+        if (uiState.lastHandledClipboardCode === code) {
+          return;
+        }
+        uiState.markClipboardCodeHandled(code);
+        setPendingRoomCode(code);
+        showToast(`已识别剪贴板房间码 ${code}，正在前往进房页`, 'info');
+      } catch {
+        // Ignore clipboard read denials on OS/platform restrictions
+      }
+    };
+
+    void inspectClipboardForInvite();
+
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void inspectClipboardForInvite();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      appStateSub.remove();
+    };
+  }, [setPendingRoomCode, showToast]);
 
   const currentSegment = segments.length > 0 ? segments.join('/') : undefined;
 

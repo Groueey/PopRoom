@@ -50,6 +50,7 @@ export interface RoomRow {
   id: string;
   title: string;
   announcement: string;
+  announcement_updated_at?: string;
   template_type: TemplateType;
   event_start_at: string | null;
   event_end_at: string | null;
@@ -219,4 +220,12 @@ export interface RoomChatReadRow {
   room_id: string;
   user_id: string;
   last_read_at: string;
+}
+
+/** Row shape for `public.room_announcement_acks`. */
+export interface RoomAnnouncementAckRow {
+  room_id: string;
+  user_id: string;
+  announcement_version: string;
+  acked_at: string;
 }

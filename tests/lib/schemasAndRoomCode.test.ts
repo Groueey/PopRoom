@@ -29,6 +29,8 @@ import {
   ROOM_CODE_ALPHABET,
   buildInviteLink,
   buildShareMessage,
+  extractRoomCodeForInput,
+  extractRoomCodeFromText,
   extractRoomCodeFromUrl,
   isValidRoomCode,
   normalizeRoomCode,
@@ -100,6 +102,48 @@ describe('roomCode utilities (Review Focus #1)', () => {
     expect(msg).toContain('周末露营局');
     expect(msg).toContain('K7M3P9');
     expect(msg).toContain(url);
+  });
+
+  it('extracts room codes from copied share messages and links without false positives', () => {
+    const shareMsg = buildShareMessage(
+      '周末露营局',
+      'K7M3P9',
+      'exp://192.168.1.5:8081/--/room/join?code=K7M3P9',
+    );
+    expect(extractRoomCodeFromText(shareMsg)).toBe('K7M3P9');
+    expect(
+      extractRoomCodeFromText(
+        '快来加入 exp://192.168.1.5:8081/--/room/join?code=k7m3p9 等你！',
+      ),
+    ).toBe('K7M3P9');
+    expect(extractRoomCodeFromText('房间码：k7m-3p9')).toBe('K7M3P9');
+    expect(extractRoomCodeFromText('poproom://room/join?code=234567')).toBe(
+      '234567',
+    );
+
+    // Must never false-positive on unrelated clipboard words or random URLs
+    expect(extractRoomCodeFromText('hello world')).toBeNull();
+    expect(extractRoomCodeFromText('update')).toBeNull();
+    expect(extractRoomCodeFromText('ABCDEF')).toBeNull();
+    expect(
+      extractRoomCodeFromText('https://example.com/?id=K7M3P9'),
+    ).toBeNull();
+  });
+
+  it('auto-extracts clean 6-char code when full invite text is pasted into input while preserving normal typing', () => {
+    const shareMsg = buildShareMessage(
+      '周末露营局',
+      'K7M3P9',
+      'poproom://room/join?code=K7M3P9',
+    );
+    expect(extractRoomCodeForInput(shareMsg)).toBe('K7M3P9');
+    expect(
+      extractRoomCodeForInput(
+        'exp://192.168.1.5:8081/--/room/join?code=k7m3p9',
+      ),
+    ).toBe('K7M3P9');
+    expect(extractRoomCodeForInput('k7m')).toBe('K7M');
+    expect(extractRoomCodeForInput('k7m-3p9')).toBe('K7M-3P9');
   });
 });
 

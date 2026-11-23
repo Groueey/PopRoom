@@ -75,3 +75,59 @@ export function buildShareMessage(
   const displayCode = ROOM_CODE_REGEX.test(normalized) ? normalized : roomCode.trim();
   return `邀请你加入「${roomTitle}」轻橘协作房间\n房间码：${displayCode}\n点击直达：${inviteUrl}`;
 }
+
+const EMBEDDED_INVITE_URL_REGEX = /\b(?:poproom|exps?):\/\/[^\s"'<>]+/gi;
+const ROOM_CODE_LABEL_REGEX = /房间码\s*[:：]?\s*([0-9A-Za-z-]{6,10})/i;
+
+/**
+ * Extracts a valid 6-char PopRoom code from copied invitation text or deep-link URLs.
+ * Intentionally strict (requires a PopRoom/Expo join URL or explicit `房间码：` label)
+ * so unrelated 6-character words in the user's clipboard never trigger false positives.
+ */
+export function extractRoomCodeFromText(raw: string): string | null {
+  if (!raw || typeof raw !== 'string') {
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const directUrlCode = extractRoomCodeFromUrl(trimmed);
+  if (directUrlCode) {
+    return directUrlCode;
+  }
+
+  const urlMatches = trimmed.match(EMBEDDED_INVITE_URL_REGEX) ?? [];
+  for (const candidateUrl of urlMatches) {
+    const cleaned = candidateUrl.replace(/[),.;!?，。；！？]+$/u, '');
+    const code = extractRoomCodeFromUrl(cleaned);
+    if (code) {
+      return code;
+    }
+  }
+
+  const labelMatch = trimmed.match(ROOM_CODE_LABEL_REGEX);
+  if (labelMatch?.[1]) {
+    const normalized = normalizeRoomCode(labelMatch[1]);
+    if (ROOM_CODE_REGEX.test(normalized)) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normalizes text typed or pasted into a room-code input box:
+ * if a full share message or PopRoom/Expo join URL is pasted, auto-extracts the clean 6-char code;
+ * otherwise preserves uppercased typing up to 12 characters.
+ */
+export function extractRoomCodeForInput(raw: string): string {
+  const extracted = extractRoomCodeFromText(raw);
+  if (extracted) {
+    return extracted;
+  }
+  return raw.toUpperCase().slice(0, 12);
+}

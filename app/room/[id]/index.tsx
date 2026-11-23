@@ -9,8 +9,11 @@ import {
   BarChart3,
   Calendar,
   CalendarClock,
+  CheckCircle2,
   CheckSquare,
   ChevronLeft,
+  ChevronRight,
+  Clock,
   LayoutGrid,
   Megaphone,
   MessageCircle,
@@ -59,6 +62,8 @@ import {
 import {
   ROLE_LABELS,
   RoomApiError,
+  acknowledgeRoomAnnouncement,
+  fetchRoomAnnouncementAcks,
   fetchRoomDetail,
   fetchRoomMembers,
   formatRoomEventWindow,
@@ -88,6 +93,11 @@ import { SheetModal } from '../../../src/components/ui/SheetModal';
 import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { useRoomRealtime } from '../../../src/hooks/useRoomRealtime';
 import {
+  applyOptimisticAnnouncementAck,
+  computeAnnouncementAckSummary,
+  formatAckTimestamp,
+} from '../../../src/lib/announcementAckHelpers';
+import {
   type BlockMoveDirection,
   applyBlockOrderToList,
   moveBlockInOrder,
@@ -106,7 +116,10 @@ import { FLOATING_SHADOW, THEME_COLORS } from '../../../src/lib/theme';
 import type { PollTally } from '../../../src/schemas/blocks';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
-import type { BlockType } from '../../../src/types/database';
+import type {
+  BlockType,
+  RoomAnnouncementAckRow,
+} from '../../../src/types/database';
 
 type RoomActiveTab = 'board' | 'chat';
 
@@ -239,6 +252,18 @@ export default function RoomBoardScreen() {
     enabled: Boolean(currentUserId),
   });
 
+  const {
+    data: announcementAcks = [],
+    refetch: refetchAnnouncementAcks,
+  } = useQuery({
+    queryKey: QUERY_KEYS.roomAnnouncementAcks(roomId),
+    queryFn: () => fetchRoomAnnouncementAcks(roomId),
+    enabled: Boolean(roomId),
+  });
+
+  const [ackSheetVisible, setAckSheetVisible] = useState(false);
+  const [remindingUnacked, setRemindingUnacked] = useState(false);
+
   const blockedUserIds = useMemo(
     () => new Set(blockedUsers.map((entry) => entry.blocked_id)),
     [blockedUsers],
@@ -248,6 +273,83 @@ export default function RoomBoardScreen() {
     () => members.filter((member) => member.status === 'active'),
     [members],
   );
+
+  const announcementSummary = useMemo(
+    () =>
+      computeAnnouncementAckSummary({
+        announcement: room?.announcement ?? '',
+        announcementVersion:
+          room?.announcement_updated_at ?? room?.updated_at ?? null,
+        members: activeMembers,
+        acks: announcementAcks,
+        currentUserId,
+      }),
+    [
+      room?.announcement,
+      room?.announcement_updated_at,
+      room?.updated_at,
+      activeMembers,
+      announcementAcks,
+      currentUserId,
+    ],
+  );
+
+  const ackAnnouncementMutation = useMutation<
+    RoomAnnouncementAckRow,
+    unknown,
+    void,
+    { previousAcks: RoomAnnouncementAckRow[] | undefined }
+  >({
+    mutationFn: () => acknowledgeRoomAnnouncement(roomId),
+    onMutate: async () => {
+      const acksKey = QUERY_KEYS.roomAnnouncementAcks(roomId);
+      await queryClient.cancelQueries({ queryKey: acksKey });
+      const previousAcks =
+        queryClient.getQueryData<RoomAnnouncementAckRow[]>(acksKey);
+
+      if (currentUserId) {
+        const version =
+          room?.announcement_updated_at ??
+          room?.updated_at ??
+          new Date().toISOString();
+        queryClient.setQueryData<RoomAnnouncementAckRow[]>(acksKey, (old = []) =>
+          applyOptimisticAnnouncementAck(old, {
+            roomId,
+            userId: currentUserId,
+            announcementVersion: version,
+          }),
+        );
+      }
+
+      return { previousAcks };
+    },
+    onError: (err, _vars, context) => {
+      const acksKey = QUERY_KEYS.roomAnnouncementAcks(roomId);
+      if (context?.previousAcks !== undefined) {
+        queryClient.setQueryData(acksKey, context.previousAcks);
+      } else {
+        void queryClient.invalidateQueries({ queryKey: acksKey });
+      }
+      showToast(mapRoomError(err), 'error');
+    },
+    onSuccess: (savedAck) => {
+      const acksKey = QUERY_KEYS.roomAnnouncementAcks(roomId);
+      queryClient.setQueryData<RoomAnnouncementAckRow[]>(acksKey, (old = []) =>
+        applyOptimisticAnnouncementAck(old, {
+          roomId: savedAck.room_id,
+          userId: savedAck.user_id,
+          announcementVersion: savedAck.announcement_version,
+          ackedAt: savedAck.acked_at,
+        }),
+      );
+      showToast('已确认收到房间公告', 'success');
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.roomAnnouncementAcks(roomId),
+      });
+    },
+  });
 
   const myRawMembership = useMemo(
     () => members.find((member) => member.user_id === currentUserId) ?? null,
@@ -267,6 +369,62 @@ export default function RoomBoardScreen() {
     allowMemberCreatePoll: room?.allow_member_create_poll ?? true,
     chatEnabled: room?.chat_enabled ?? false,
   });
+
+  const handleRemindUnackedInChat = useCallback(async () => {
+    if (
+      !room ||
+      !room.chat_enabled ||
+      permissions.isReadOnly ||
+      !permissions.isAdminOrHost ||
+      announcementSummary.unackedMembers.length === 0 ||
+      remindingUnacked
+    ) {
+      return;
+    }
+
+    setRemindingUnacked(true);
+    try {
+      const mentionUserIds = announcementSummary.unackedMembers.map(
+        (m) => m.user_id,
+      );
+      const mentionNames = announcementSummary.unackedMembers
+        .map((m) => `@${m.profiles?.nickname ?? '成员'}`)
+        .join(' ');
+      const content = `${mentionNames} 请查看房间公告并点击「我已阅读并确认收到」`;
+      await sendRoomMessage({
+        roomId: room.id,
+        msgType: 'text',
+        content,
+        metadata: {
+          mentionAll: false,
+          mentionUserIds,
+        },
+      });
+      setAckSheetVisible(false);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.roomMessages(room.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.roomChatRead(room.id, currentUserId ?? undefined),
+        }),
+      ]);
+      showToast('已在聊天室提醒未确认成员', 'success');
+    } catch (err) {
+      showToast(mapRoomError(err), 'error');
+    } finally {
+      setRemindingUnacked(false);
+    }
+  }, [
+    room,
+    permissions.isReadOnly,
+    permissions.isAdminOrHost,
+    announcementSummary.unackedMembers,
+    remindingUnacked,
+    queryClient,
+    currentUserId,
+    showToast,
+  ]);
 
   const talliesByBlockId = useMemo(() => {
     const grouped = new Map<string, PollTally[]>();
@@ -772,6 +930,7 @@ export default function RoomBoardScreen() {
       refetchMembers(),
       refetchBlocks(),
       refetchTallies(),
+      refetchAnnouncementAcks(),
       ...(room?.chat_enabled ? [refetchMessages()] : []),
     ]);
   };
@@ -1243,6 +1402,20 @@ export default function RoomBoardScreen() {
                 <Megaphone size={13} color={THEME_COLORS.primary} />
               </View>
               <Text className="text-xs font-bold text-ink">房间公告</Text>
+              {announcementSummary.hasAnnouncement ? (
+                <Badge
+                  label={
+                    announcementSummary.hasCurrentUserAcked
+                      ? '已收到'
+                      : '待读确认'
+                  }
+                  variant={
+                    announcementSummary.hasCurrentUserAcked
+                      ? 'success'
+                      : 'warning'
+                  }
+                />
+              ) : null}
             </View>
             <View className="flex-row items-center gap-1.5">
               {myMembership ? (
@@ -1276,6 +1449,64 @@ export default function RoomBoardScreen() {
             {room.announcement ||
               '暂无公告，房主或管理员可在右上角设置中发布集合通知与活动规则'}
           </Text>
+
+          {announcementSummary.hasAnnouncement ? (
+            <View className="mt-3 gap-2.5">
+              {!announcementSummary.hasCurrentUserAcked &&
+              !permissions.isReadOnly ? (
+                <Button
+                  title="我已阅读并确认收到"
+                  variant="primary"
+                  size="sm"
+                  fullWidth
+                  loading={ackAnnouncementMutation.isPending}
+                  leftIcon={<CheckCircle2 size={15} color="#FFFFFF" />}
+                  onPress={() => ackAnnouncementMutation.mutate()}
+                />
+              ) : null}
+
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel="查看公告已读确认名单"
+                onPress={() => setAckSheetVisible(true)}
+                scaleTo={0.985}
+                className="flex-row items-center justify-between rounded-xl border border-line bg-surface px-3 py-2"
+              >
+                <View className="flex-1 flex-row items-center gap-2 pr-2">
+                  <CheckCircle2
+                    size={14}
+                    color={
+                      announcementSummary.unackedCount === 0
+                        ? THEME_COLORS.success
+                        : THEME_COLORS.primary
+                    }
+                  />
+                  <Text className="text-xs font-semibold text-ink">
+                    已收到 {announcementSummary.ackedCount} /{' '}
+                    {announcementSummary.totalCount} 人
+                  </Text>
+                  <Text
+                    className={`text-[11px] ${
+                      announcementSummary.unackedCount === 0
+                        ? 'font-medium text-[#2E8B67]'
+                        : 'text-inkMuted'
+                    }`}
+                    numberOfLines={1}
+                  >
+                    {announcementSummary.unackedCount === 0
+                      ? '· 全员已确认'
+                      : `· ${announcementSummary.unackedCount} 人待确认`}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-0.5">
+                  <Text className="text-[11px] font-semibold text-primaryDeep">
+                    查看名单
+                  </Text>
+                  <ChevronRight size={13} color={THEME_COLORS.primaryDeep} />
+                </View>
+              </MotionPressable>
+            </View>
+          ) : null}
 
           <MotionPressable
             accessibilityRole="button"
@@ -1850,6 +2081,118 @@ export default function RoomBoardScreen() {
           loading={creatingBlock}
           onPress={handleCreateBlock}
         />
+      </SheetModal>
+
+      <SheetModal
+        visible={ackSheetVisible}
+        onClose={() => setAckSheetVisible(false)}
+        title="公告收到情况"
+      >
+        <View className="mb-4 rounded-2xl border border-line bg-surface px-3.5 py-3">
+          <Text className="text-xs font-semibold text-inkMuted">当前公告</Text>
+          <Text className="mt-1 text-sm leading-5 text-ink">
+            {room.announcement}
+          </Text>
+        </View>
+
+        <View className="mb-4">
+          <View className="mb-2 flex-row items-center justify-between">
+            <Text className="text-xs font-bold text-ink">
+              尚未确认 ({announcementSummary.unackedCount})
+            </Text>
+            {announcementSummary.unackedCount === 0 ? (
+              <Badge label="全员已收到" variant="success" />
+            ) : null}
+          </View>
+
+          {announcementSummary.unackedMembers.length === 0 ? (
+            <View className="rounded-2xl border border-[#CBEAD9] bg-[#EEF8F3] px-3.5 py-3">
+              <Text className="text-center text-xs font-medium text-[#247254]">
+                太棒了，所有成员都已确认收到本条公告！
+              </Text>
+            </View>
+          ) : (
+            <View className="gap-2">
+              {announcementSummary.unackedMembers.map((member) => (
+                <View
+                  key={member.id}
+                  className="flex-row items-center justify-between rounded-2xl border border-line bg-white px-3 py-2.5"
+                >
+                  <View className="flex-row items-center gap-2.5">
+                    <Avatar
+                      nickname={member.profiles?.nickname}
+                      color={member.profiles?.avatar_color}
+                      imageUrl={member.profiles?.avatar_url}
+                      size="sm"
+                    />
+                    <Text className="text-sm font-semibold text-ink">
+                      {member.profiles?.nickname ?? '伙伴'}
+                      {member.user_id === currentUserId ? '（我）' : ''}
+                    </Text>
+                  </View>
+                  <Badge label="待确认" variant="warning" />
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {permissions.isAdminOrHost &&
+        room.chat_enabled &&
+        !permissions.isReadOnly &&
+        announcementSummary.unackedCount > 0 ? (
+          <View className="mb-4">
+            <Button
+              title={`在聊天室 @提醒这 ${announcementSummary.unackedCount} 人`}
+              variant="secondary"
+              size="md"
+              fullWidth
+              loading={remindingUnacked}
+              onPress={() => void handleRemindUnackedInChat()}
+            />
+          </View>
+        ) : null}
+
+        <View className="mb-2">
+          <Text className="mb-2 text-xs font-bold text-ink">
+            已确认收到 ({announcementSummary.ackedCount})
+          </Text>
+          {announcementSummary.ackedMembers.length === 0 ? (
+            <View className="rounded-2xl border border-dashed border-line bg-surface px-3.5 py-4">
+              <Text className="text-center text-xs text-inkSubtle">
+                还没有人点击确认收到
+              </Text>
+            </View>
+          ) : (
+            <View className="gap-2">
+              {announcementSummary.ackedMembers.map(({ member, ackedAt }) => (
+                <View
+                  key={member.id}
+                  className="flex-row items-center justify-between rounded-2xl border border-line bg-surface px-3 py-2.5"
+                >
+                  <View className="flex-row items-center gap-2.5">
+                    <Avatar
+                      nickname={member.profiles?.nickname}
+                      color={member.profiles?.avatar_color}
+                      imageUrl={member.profiles?.avatar_url}
+                      size="sm"
+                    />
+                    <Text className="text-sm font-semibold text-ink">
+                      {member.profiles?.nickname ?? '伙伴'}
+                      {member.user_id === currentUserId ? '（我）' : ''}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <Clock size={11} color={THEME_COLORS.success} />
+                    <Text className="text-[11px] font-medium text-[#2E8B67]">
+                      {formatAckTimestamp(ackedAt) || '已确认'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </SheetModal>
 
       <SheetModal

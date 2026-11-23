@@ -34,6 +34,8 @@
    - 新增第二阶段 4 张数据表（`room_messages`、`message_reports`、`user_blocks`、`room_chat_reads`）；扩展 `activity_logs` 支持 `delete_message` 与 `leave_room` 操作记录；在保留 `room_code`/`status`/`archived_at` 不可变保护的前提下放开活跃房间管理员对 `rooms.chat_enabled` 的切换；配置四张新表 RLS（消息查询在数据库层自动过滤软删除消息与被拉黑发送者，写操作强制经由 RPC）；将 `room_messages` 加入 `supabase_realtime`（继续严格排除 `poll_votes`）。
 5. `supabase/migrations/005_stage2_rpcs_and_auto_archive.sql`
    - 先删除第一阶段 6 参数版 `create_room_with_template` 重载再升级为支持 `p_chat_enabled` 的 7 参数版本（未传时 `campus`/`travel` 默认开启，`party`/`custom` 默认关闭）；新增 `send_room_message`、`soft_delete_room_message`、`report_room_message`、`reorder_room_blocks`、`leave_room` 与仅限 `service_role` 调用的 `auto_archive_expired_rooms()`；若已启用 `pg_cron`，自动幂等注册每日任务 `poproom-auto-archive-daily`。
+6. `supabase/migrations/006_announcement_acks.sql`
+   - 为 `rooms` 增加 `announcement_updated_at` 公告版本时间戳与自动更新触发器；新增 `room_announcement_acks` 公告确认表、RLS、Realtime 订阅与 `acknowledge_room_announcement(p_room_id)` 原子 RPC（房主修改公告后旧确认自动失效，需全员重新确认）。
 
 > 提示：建议在 **SQL Editor** 中每次新建一个查询标签页，完整粘贴单个脚本内容并点击 **Run** 执行成功后再运行下一个脚本。
 
