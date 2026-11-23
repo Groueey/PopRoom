@@ -465,3 +465,26 @@ export function formatRoomEventWindow(
   }
   return null;
 }
+
+/** Finds an already-joined room (active or archived) matching a raw 6-char room code. */
+export function findJoinedRoomByCode(
+  roomsData: MyRoomsResult | undefined,
+  rawCode: string,
+): LobbyRoomSummary | null {
+  if (!roomsData) {
+    return null;
+  }
+  const normalized = normalizeRoomCode(rawCode);
+  if (!isValidRoomCode(normalized)) {
+    return null;
+  }
+  for (const list of [roomsData.active, roomsData.archived]) {
+    const match = list.find(
+      (entry) => normalizeRoomCode(entry.room.room_code) === normalized,
+    );
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+}

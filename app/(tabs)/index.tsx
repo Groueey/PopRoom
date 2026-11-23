@@ -9,7 +9,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react-native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -22,6 +22,7 @@ import {
   type LobbyRoomSummary,
   ROLE_LABELS,
   fetchMyRooms,
+  findJoinedRoomByCode,
   formatRoomEventWindow,
   joinRoomByCode,
   mapRoomError,
@@ -166,6 +167,10 @@ export default function LobbyScreen() {
 
   const activeRooms = data?.active ?? [];
   const archivedRooms = data?.archived ?? [];
+  const alreadyJoinedRoom = useMemo(
+    () => findJoinedRoomByCode(data, codeInput),
+    [data, codeInput],
+  );
 
   const handleOpenJoinSheet = () => {
     setJoinError(null);
@@ -179,6 +184,16 @@ export default function LobbyScreen() {
 
   const handleJoinSubmit = async () => {
     setJoinError(null);
+
+    if (alreadyJoinedRoom) {
+      setJoinSheetVisible(false);
+      setCodeInput('');
+      setApplyNoteInput('');
+      showToast(`你已加入「${alreadyJoinedRoom.room.title}」，无需重复加入`, 'info');
+      router.push(`/room/${alreadyJoinedRoom.room.id}` as Href);
+      return;
+    }
+
     setJoining(true);
     try {
       const normalized = normalizeRoomCode(codeInput);
@@ -405,19 +420,29 @@ export default function LobbyScreen() {
           className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-center text-xl font-bold tracking-widest text-ink"
         />
 
-        <Text className="mb-2 text-xs font-semibold text-inkMuted">
-          申请备注（若房间开启审批时展示，选填）
-        </Text>
-        <BottomSheetTextInput
-          value={applyNoteInput}
-          onChangeText={setApplyNoteInput}
-          placeholder="例如：我是小明"
-          placeholderTextColor={THEME_COLORS.inkSubtle}
-          maxLength={60}
-          returnKeyType="done"
-          onSubmitEditing={handleJoinSubmit}
-          className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
-        />
+        {alreadyJoinedRoom ? (
+          <View className="mb-4 rounded-2xl border border-[#CBEAD9] bg-[#EEF8F3] px-3.5 py-3">
+            <Text className="text-xs font-semibold text-[#247254]">
+              你已在「{alreadyJoinedRoom.room.title}」中，无需重复加入
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text className="mb-2 text-xs font-semibold text-inkMuted">
+              申请备注（若房间开启审批时展示，选填）
+            </Text>
+            <BottomSheetTextInput
+              value={applyNoteInput}
+              onChangeText={setApplyNoteInput}
+              placeholder="例如：我是小明"
+              placeholderTextColor={THEME_COLORS.inkSubtle}
+              maxLength={60}
+              returnKeyType="done"
+              onSubmitEditing={handleJoinSubmit}
+              className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+            />
+          </>
+        )}
 
         {joinError ? (
           <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
@@ -428,7 +453,7 @@ export default function LobbyScreen() {
         ) : null}
 
         <Button
-          title="立即进房"
+          title={alreadyJoinedRoom ? '直接进入该房间' : '立即进房'}
           loading={joining}
           fullWidth
           size="lg"

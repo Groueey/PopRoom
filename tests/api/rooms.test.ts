@@ -21,6 +21,7 @@ import {
   MAX_ROOM_TITLE_LENGTH,
   RoomApiError,
   detectRoomErrorCode,
+  findJoinedRoomByCode,
   mapRoomError,
   prepareJoinPayload,
   validateCreateRoomInput,
@@ -87,6 +88,64 @@ describe('mapRoomError', () => {
       '操作失败，请稍后重试',
     );
     expect(mapRoomError(new Error('Network request failed'))).toContain('网络');
+  });
+});
+
+describe('findJoinedRoomByCode', () => {
+  it('detects an already-joined active or archived room by normalized room code', () => {
+    const roomsData = {
+      active: [
+        {
+          room: {
+            id: 'r1',
+            title: '周末露营',
+            announcement: '',
+            template_type: 'travel' as const,
+            event_start_at: null,
+            event_end_at: null,
+            join_mode: 'passcode' as const,
+            room_code: 'K7M3P9',
+            chat_enabled: true,
+            allow_member_create_poll: true,
+            status: 'active' as const,
+            archived_at: null,
+            created_by: 'u1',
+            created_at: '2026-11-22T00:00:00.000Z',
+            updated_at: '2026-11-22T00:00:00.000Z',
+          },
+          myRole: 'host' as const,
+          memberCount: 3,
+        },
+      ],
+      archived: [
+        {
+          room: {
+            id: 'r2',
+            title: '秋季迎新',
+            announcement: '',
+            template_type: 'campus' as const,
+            event_start_at: null,
+            event_end_at: null,
+            join_mode: 'approval' as const,
+            room_code: '234567',
+            chat_enabled: false,
+            allow_member_create_poll: true,
+            status: 'archived' as const,
+            archived_at: '2026-11-20T00:00:00.000Z',
+            created_by: 'u1',
+            created_at: '2026-11-10T00:00:00.000Z',
+            updated_at: '2026-11-20T00:00:00.000Z',
+          },
+          myRole: 'member' as const,
+          memberCount: 5,
+        },
+      ],
+    };
+
+    expect(findJoinedRoomByCode(roomsData, ' k7m-3p9 ')?.room.id).toBe('r1');
+    expect(findJoinedRoomByCode(roomsData, '234567')?.room.id).toBe('r2');
+    expect(findJoinedRoomByCode(roomsData, 'ABCDEF')).toBeNull();
+    expect(findJoinedRoomByCode(undefined, 'K7M3P9')).toBeNull();
   });
 });
 

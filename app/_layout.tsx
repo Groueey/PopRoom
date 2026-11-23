@@ -21,8 +21,17 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import {
+  type MyRoomsResult,
+  fetchMyRooms,
+  findJoinedRoomByCode,
+} from '../src/api/rooms';
 import { MotionPressable } from '../src/components/ui/Motion';
-import { asyncStoragePersister, queryClient } from '../src/lib/queryClient';
+import {
+  QUERY_KEYS,
+  asyncStoragePersister,
+  queryClient,
+} from '../src/lib/queryClient';
 import { clearCachedProfile, profileCache } from '../src/lib/profileCache';
 import {
   extractRoomCodeFromText,
@@ -273,6 +282,30 @@ function RootNavigator() {
         if (uiState.lastHandledClipboardCode === code) {
           return;
         }
+
+        // Skip auto-jumping to Join Room if the current user is already a member of that room
+        const currentUid = useAuthStore.getState().session?.user.id;
+        if (currentUid) {
+          let roomsData = queryClient.getQueryData<MyRoomsResult>(
+            QUERY_KEYS.rooms(currentUid),
+          );
+          if (!roomsData) {
+            try {
+              roomsData = await fetchMyRooms(currentUid);
+              queryClient.setQueryData(QUERY_KEYS.rooms(currentUid), roomsData);
+            } catch {
+              roomsData = undefined;
+            }
+          }
+          if (!isMounted) {
+            return;
+          }
+          if (findJoinedRoomByCode(roomsData, code)) {
+            uiState.markClipboardCodeHandled(code);
+            return;
+          }
+        }
+
         uiState.markClipboardCodeHandled(code);
         setPendingRoomCode(code);
         showToast(`已识别剪贴板房间码 ${code}，正在前往进房页`, 'info');

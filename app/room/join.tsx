@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AlertCircle,
@@ -8,7 +8,7 @@ import {
   RefreshCw,
   XCircle,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +20,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   fetchMyRoomMembership,
+  fetchMyRooms,
+  findJoinedRoomByCode,
   joinRoomByCode,
   mapRoomError,
 } from '../../src/api/rooms';
@@ -68,6 +70,12 @@ export default function JoinRoomScreen() {
   const session = useAuthStore((s) => s.session);
   const showToast = useUiStore((s) => s.showToast);
   const userId = session?.user.id ?? '';
+
+  const { data: myRooms } = useQuery({
+    queryKey: QUERY_KEYS.rooms(userId),
+    queryFn: () => fetchMyRooms(userId),
+    enabled: Boolean(userId),
+  });
 
   const paramCode = normalizeRoomCode(readSingleParam(params.code));
   const paramPending = readSingleParam(params.pending) === '1';
@@ -221,12 +229,35 @@ export default function JoinRoomScreen() {
     }
   };
 
+  const alreadyJoinedRoom = useMemo(
+    () => findJoinedRoomByCode(myRooms, codeInput),
+    [myRooms, codeInput],
+  );
+
   const handleSubmitJoin = async () => {
     setErrorText(null);
+
+    if (alreadyJoinedRoom) {
+      showToast(`你已加入「${alreadyJoinedRoom.room.title}」，无需重复加入`, 'info');
+      router.replace(`/room/${alreadyJoinedRoom.room.id}` as Href);
+      return;
+    }
+
     setSubmitting(true);
     navigatedRef.current = false;
 
     try {
+      if (userId && !myRooms) {
+        const latestRooms = await fetchMyRooms(userId);
+        queryClient.setQueryData(QUERY_KEYS.rooms(userId), latestRooms);
+        const existing = findJoinedRoomByCode(latestRooms, codeInput);
+        if (existing) {
+          showToast(`你已加入「${existing.room.title}」，无需重复加入`, 'info');
+          router.replace(`/room/${existing.room.id}` as Href);
+          return;
+        }
+      }
+
       const result = await joinRoomByCode(codeInput, applyNote);
 
       if (result.status === 'active') {
@@ -308,11 +339,15 @@ export default function JoinRoomScreen() {
                     {normalizedPreview.length > 0 ? (
                       <Badge
                         label={
-                          codeReady
-                            ? `格式正确 · ${normalizedPreview}`
-                            : '需 6 位有效字符（不含 0/O/1/I）'
+                          alreadyJoinedRoom
+                            ? '你已在该房间中'
+                            : codeReady
+                              ? `格式正确 · ${normalizedPreview}`
+                              : '需 6 位有效字符（不含 0/O/1/I）'
                         }
-                        variant={codeReady ? 'success' : 'warning'}
+                        variant={
+                          alreadyJoinedRoom || codeReady ? 'success' : 'warning'
+                        }
                       />
                     ) : null}
                   </View>
@@ -338,21 +373,34 @@ export default function JoinRoomScreen() {
                   />
                 </View>
 
-                <View className="mb-5">
-                  <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
-                    进房备注（审批房间展示给房主，选填）
-                  </Text>
-                  <TextInput
-                    value={applyNote}
-                    onChangeText={setApplyNote}
-                    placeholder="例如：我是小明，来参加周末出游"
-                    placeholderTextColor={THEME_COLORS.inkSubtle}
-                    maxLength={60}
-                    returnKeyType="done"
-                    onSubmitEditing={handleSubmitJoin}
-                    className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
-                  />
-                </View>
+                {alreadyJoinedRoom ? (
+                  <View className="mb-5 rounded-2xl border border-[#CBEAD9] bg-[#EEF8F3] px-3.5 py-3">
+                    <Text className="text-xs font-semibold text-[#247254]">
+                      你已经加入「{alreadyJoinedRoom.room.title}」，无需重复加入
+                    </Text>
+                    <Text className="mt-0.5 text-[11px] text-[#2E8B67]">
+                      {alreadyJoinedRoom.room.status === 'archived'
+                        ? '该活动已归档，点击下方按钮可直接查看只读复盘'
+                        : '点击下方按钮可直接进入该协作房间'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="mb-5">
+                    <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
+                      进房备注（审批房间展示给房主，选填）
+                    </Text>
+                    <TextInput
+                      value={applyNote}
+                      onChangeText={setApplyNote}
+                      placeholder="例如：我是小明，来参加周末出游"
+                      placeholderTextColor={THEME_COLORS.inkSubtle}
+                      maxLength={60}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSubmitJoin}
+                      className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+                    />
+                  </View>
+                )}
 
                 {errorText ? (
                   <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">
@@ -363,7 +411,7 @@ export default function JoinRoomScreen() {
                 ) : null}
 
                 <Button
-                  title="加入房间"
+                  title={alreadyJoinedRoom ? '直接进入该房间' : '加入房间'}
                   loading={submitting}
                   fullWidth
                   size="lg"
