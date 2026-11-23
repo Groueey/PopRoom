@@ -7,8 +7,13 @@ import {
   ChevronLeft,
   Clock,
   FileText,
+  LogOut,
+  MessageSquareOff,
   RotateCcw,
+  Settings2,
   ShieldAlert,
+  Trash2,
+  UserMinus,
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
@@ -51,7 +56,34 @@ import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { THEME_COLORS } from '../../../src/lib/theme';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
-import type { ProfileSummary } from '../../../src/types/database';
+import type { ActivityAction, ProfileSummary } from '../../../src/types/database';
+
+const ACTION_BADGE_TEXT_CLASSES: Record<
+  'danger' | 'success' | 'warning' | 'neutral',
+  string
+> = {
+  danger: 'text-[#C94545]',
+  success: 'text-[#287B5B]',
+  warning: 'text-[#A66214]',
+  neutral: 'text-inkMuted',
+};
+
+function ActivityActionIcon({ action }: { action: ActivityAction }) {
+  switch (action) {
+    case 'delete_item':
+      return <Trash2 size={11} color="#C94545" />;
+    case 'restore_item':
+      return <RotateCcw size={11} color="#287B5B" />;
+    case 'kick_member':
+      return <UserMinus size={11} color="#A66214" />;
+    case 'update_room':
+      return <Settings2 size={11} color={THEME_COLORS.inkMuted} />;
+    case 'delete_message':
+      return <MessageSquareOff size={11} color="#C94545" />;
+    case 'leave_room':
+      return <LogOut size={11} color="#A66214" />;
+  }
+}
 
 function readRoomIdParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) {
@@ -126,6 +158,7 @@ export default function RoomLogsScreen() {
     roomStatus: room?.status ?? 'active',
     currentUserId,
     allowMemberCreatePoll: room?.allow_member_create_poll ?? true,
+    chatEnabled: room?.chat_enabled ?? false,
   });
 
   const canUndoDelete = permissions.canRestoreDeletedItem;
@@ -460,7 +493,7 @@ export default function RoomLogsScreen() {
               <Text className="mt-1 text-center text-xs text-inkMuted">
                 {filterMode === 'restorable'
                   ? '所有删除记录都已恢复，或尚未发生条目删除'
-                  : '成员删除积木条目或管理员移出成员时会自动记录在此'}
+                  : '删除积木条目、撤回消息、移出或成员退出时会自动记录在此'}
               </Text>
             </Card>
           ) : (
@@ -494,10 +527,16 @@ export default function RoomLogsScreen() {
 
                       <View className="flex-1">
                         <View className="flex-row flex-wrap items-center gap-1.5">
-                          <Badge
-                            label={actionMeta.label}
-                            variant={actionMeta.badgeVariant}
-                          />
+                          <Badge variant={actionMeta.badgeVariant}>
+                            <View className="flex-row items-center gap-1">
+                              <ActivityActionIcon action={log.action} />
+                              <Text
+                                className={`text-[11px] font-semibold ${ACTION_BADGE_TEXT_CLASSES[actionMeta.badgeVariant]}`}
+                              >
+                                {actionMeta.label}
+                              </Text>
+                            </View>
+                          </Badge>
                           {formatted.isRestored ? (
                             <Badge variant="success">
                               <View className="flex-row items-center gap-1">
@@ -554,11 +593,7 @@ export default function RoomLogsScreen() {
 
       <SheetModal
         visible={restoreTarget !== null}
-        onClose={() => {
-          if (!restoring) {
-            setRestoreTarget(null);
-          }
-        }}
+        onClose={() => setRestoreTarget(null)}
         title="确认一键恢复条目？"
       >
         {restoreTarget ? (

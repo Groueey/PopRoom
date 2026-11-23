@@ -5,6 +5,7 @@ import {
   Check,
   ChevronRight,
   LogOut,
+  UserX,
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
@@ -16,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { fetchMyBlockedUsers, unblockUser } from '../../src/api/chat';
 import {
   fetchMyRooms,
   formatRoomEventWindow,
@@ -63,6 +65,8 @@ export default function ProfileScreen() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   const [signOutSheetVisible, setSignOutSheetVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -76,6 +80,12 @@ export default function ProfileScreen() {
   const { data: roomsData } = useQuery({
     queryKey: QUERY_KEYS.rooms(userId),
     queryFn: () => fetchMyRooms(userId),
+    enabled: Boolean(userId),
+  });
+
+  const { data: blockedUsers = [] } = useQuery({
+    queryKey: QUERY_KEYS.userBlocks(userId),
+    queryFn: () => fetchMyBlockedUsers(userId),
     enabled: Boolean(userId),
   });
 
@@ -112,6 +122,27 @@ export default function ProfileScreen() {
       setProfileError(mapRoomError(err));
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleUnblockUser = async (blockedId: string) => {
+    if (!userId || unblockingUserId !== null) {
+      return;
+    }
+    setUnblockingUserId(blockedId);
+    try {
+      await unblockUser(userId, blockedId);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.userBlocks(userId),
+        }),
+        queryClient.invalidateQueries({ queryKey: ['room'] }),
+      ]);
+      showToast('已解除屏蔽', 'success');
+    } catch (err) {
+      showToast(mapRoomError(err), 'error');
+    } finally {
+      setUnblockingUserId(null);
     }
   };
 
@@ -315,6 +346,87 @@ export default function ProfileScreen() {
                           </View>
                           <ChevronRight size={16} color={THEME_COLORS.inkSubtle} />
                         </MotionPressable>
+                      );
+                    })
+                  )}
+                </View>
+              </AnimatedPanelReveal>
+            ) : null}
+          </Card>
+
+          <Card className="mb-4">
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: blockedOpen }}
+              scaleTo={0.985}
+              onPress={() => setBlockedOpen((prev) => !prev)}
+              className="flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center gap-2.5">
+                <View className="h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
+                  <UserX size={18} color={THEME_COLORS.primary} />
+                </View>
+                <View>
+                  <Text className="text-sm font-bold text-ink">
+                    已屏蔽用户 ({blockedUsers.length})
+                  </Text>
+                  <Text className="text-xs text-inkMuted">
+                    管理聊天室已屏蔽成员，随时可解除屏蔽
+                  </Text>
+                </View>
+              </View>
+              <AnimatedChevron
+                expanded={blockedOpen}
+                size={18}
+                color={THEME_COLORS.inkMuted}
+              />
+            </MotionPressable>
+
+            {blockedOpen ? (
+              <AnimatedPanelReveal>
+                <View className="mt-3 border-t border-lineSoft pt-3">
+                  {blockedUsers.length === 0 ? (
+                    <Text className="py-3 text-center text-xs leading-5 text-inkSubtle">
+                      暂无已屏蔽用户，在房间聊天室长按消息可屏蔽对应成员
+                    </Text>
+                  ) : (
+                    blockedUsers.map((entry) => {
+                      const displayName =
+                        entry.profiles?.nickname ?? '已屏蔽用户';
+                      const avatarColor =
+                        entry.profiles?.avatar_color ?? THEME_COLORS.inkSubtle;
+                      const isUnblocking =
+                        unblockingUserId === entry.blocked_id;
+                      return (
+                        <View
+                          key={entry.blocked_id}
+                          className="mb-2 flex-row items-center justify-between gap-2.5 rounded-xl border border-lineSoft bg-primaryMist px-3 py-2.5"
+                        >
+                          <View className="flex-1 flex-row items-center gap-2.5">
+                            <Avatar
+                              nickname={displayName}
+                              color={avatarColor}
+                              imageUrl={entry.profiles?.avatar_url}
+                              size="sm"
+                            />
+                            <Text
+                              className="flex-1 text-sm font-semibold text-ink"
+                              numberOfLines={1}
+                            >
+                              {displayName}
+                            </Text>
+                          </View>
+                          <Button
+                            title="解除屏蔽"
+                            size="sm"
+                            variant="secondary"
+                            loading={isUnblocking}
+                            disabled={
+                              unblockingUserId !== null && !isUnblocking
+                            }
+                            onPress={() => handleUnblockUser(entry.blocked_id)}
+                          />
+                        </View>
                       );
                     })
                   )}

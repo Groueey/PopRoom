@@ -6,6 +6,7 @@ import {
   GraduationCap,
   LayoutGrid,
   Lock,
+  MessageCircle,
   PartyPopper,
   Unlock,
 } from 'lucide-react-native';
@@ -14,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
@@ -34,7 +36,7 @@ import {
   MotionPressable,
 } from '../../src/components/ui/Motion';
 import { QUERY_KEYS } from '../../src/lib/queryClient';
-import { TEMPLATE_LIST } from '../../src/lib/templates';
+import { ROOM_TEMPLATES, TEMPLATE_LIST } from '../../src/lib/templates';
 import { CARD_SHADOW, THEME_COLORS } from '../../src/lib/theme';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useUiStore } from '../../src/stores/uiStore';
@@ -85,6 +87,10 @@ export default function CreateRoomScreen() {
   const userId = session?.user.id ?? '';
 
   const [templateType, setTemplateType] = useState<TemplateType>('campus');
+  const [chatEnabled, setChatEnabled] = useState<boolean>(
+    ROOM_TEMPLATES.campus.chatEnabled,
+  );
+  const [chatManuallyToggled, setChatManuallyToggled] = useState(false);
   const [title, setTitle] = useState('');
   const [announcement, setAnnouncement] = useState('');
   const [eventStartAt, setEventStartAt] = useState('');
@@ -94,6 +100,13 @@ export default function CreateRoomScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const titleLength = Array.from(title.trim()).length;
+
+  const handleSelectTemplate = (nextType: TemplateType) => {
+    setTemplateType(nextType);
+    if (!chatManuallyToggled) {
+      setChatEnabled(ROOM_TEMPLATES[nextType].chatEnabled);
+    }
+  };
 
   const applyQuickWindow = (startOffsetDays: number, endOffsetDays: number) => {
     setEventStartAt(formatQuickDate(startOffsetDays, 9));
@@ -114,6 +127,7 @@ export default function CreateRoomScreen() {
         announcement,
         eventStartAt: eventStartAt || null,
         eventEndAt: eventEndAt || null,
+        chatEnabled,
       });
     } catch (err) {
       setErrorText(mapRoomError(err));
@@ -129,6 +143,7 @@ export default function CreateRoomScreen() {
         announcement,
         eventStartAt: eventStartAt || null,
         eventEndAt: eventEndAt || null,
+        chatEnabled,
       });
 
       queryClient.setQueryData(QUERY_KEYS.roomDetail(room.id), room);
@@ -190,7 +205,7 @@ export default function CreateRoomScreen() {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   scaleTo={0.98}
-                  onPress={() => setTemplateType(preset.type)}
+                  onPress={() => handleSelectTemplate(preset.type)}
                   style={CARD_SHADOW}
                   className={`rounded-[22px] border p-4 ${
                     selected
@@ -436,6 +451,67 @@ export default function CreateRoomScreen() {
               );
             })}
           </View>
+
+          <Text className="mb-2.5 text-sm font-bold text-ink">
+            房间聊天室
+          </Text>
+          <Card className="mb-5">
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="flex-1 flex-row items-start gap-3">
+                <View
+                  className={`mt-0.5 h-9 w-9 items-center justify-center rounded-xl border ${
+                    chatEnabled
+                      ? 'border-primaryBorder bg-primarySoft'
+                      : 'border-lineSoft bg-surface'
+                  }`}
+                >
+                  <MessageCircle
+                    size={18}
+                    color={
+                      chatEnabled ? THEME_COLORS.primary : THEME_COLORS.inkMuted
+                    }
+                  />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row flex-wrap items-center gap-1.5">
+                    <Text className="text-sm font-bold text-ink">
+                      开启房间聊天室
+                    </Text>
+                    <Badge
+                      label={
+                        ROOM_TEMPLATES[templateType].chatEnabled
+                          ? '当前模板默认开启'
+                          : '当前模板默认关闭'
+                      }
+                      variant={
+                        ROOM_TEMPLATES[templateType].chatEnabled
+                          ? 'primary'
+                          : 'neutral'
+                      }
+                    />
+                  </View>
+                  <Text className="mt-1 text-xs leading-5 text-inkMuted">
+                    开启后房间内显示「协作看板 | 聊天室」双 Tab，支持 @提醒 与聊完转积木
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                accessibilityLabel="开启房间聊天室"
+                value={chatEnabled}
+                onValueChange={(nextValue) => {
+                  setChatManuallyToggled(true);
+                  setChatEnabled(nextValue);
+                }}
+                trackColor={{
+                  false: THEME_COLORS.switchOffTrack,
+                  true: THEME_COLORS.primaryBorder,
+                }}
+                thumbColor={
+                  chatEnabled ? THEME_COLORS.primary : THEME_COLORS.switchOffThumb
+                }
+              />
+            </View>
+          </Card>
 
           {errorText ? (
             <View className="mb-4 rounded-xl border border-[#FAD2D0] bg-[#FEF2F2] px-3.5 py-2.5">

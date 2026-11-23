@@ -11,7 +11,9 @@ import {
   Copy,
   FileText,
   Lock,
+  LogOut,
   RefreshCw,
+  Share2,
   Shield,
   Unlock,
   UserMinus,
@@ -38,7 +40,9 @@ import {
   archiveRoom,
   fetchRoomDetail,
   fetchRoomMembers,
+  formatRoomEventWindow,
   kickRoomMember,
+  leaveRoom,
   mapRoomError,
   resetRoomCode,
   reviewMemberApplication,
@@ -56,6 +60,7 @@ import { useRoomPermissions } from '../../../src/hooks/useRoomPermissions';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import { buildShareMessage } from '../../../src/lib/roomCode';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
+import { shareRoomInvite } from '../../../src/lib/shareInvite';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
 import { THEME_COLORS } from '../../../src/lib/theme';
 import { useAuthStore } from '../../../src/stores/authStore';
@@ -89,6 +94,23 @@ function getRoleBadgeVariant(
     return 'warning';
   }
   return 'neutral';
+}
+
+function formatIsoToDateTimeInput(iso: string | null): string {
+  if (!iso) {
+    return '';
+  }
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) {
+    return '';
+  }
+  const date = new Date(ms);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
 /** Room settings, 6-char invite/reset, approval queue, member roles, logs link, and archival screen. */
@@ -159,6 +181,7 @@ export default function RoomSettingsScreen() {
     roomStatus: room?.status ?? 'active',
     currentUserId,
     allowMemberCreatePoll: room?.allow_member_create_poll ?? true,
+    chatEnabled: room?.chat_enabled ?? false,
   });
 
   const [titleDraft, setTitleDraft] = useState('');
@@ -166,6 +189,9 @@ export default function RoomSettingsScreen() {
   const [joinModeDraft, setJoinModeDraft] = useState<JoinMode>('passcode');
   const [allowMemberCreatePollDraft, setAllowMemberCreatePollDraft] =
     useState(true);
+  const [chatEnabledDraft, setChatEnabledDraft] = useState(false);
+  const [eventStartDraft, setEventStartDraft] = useState('');
+  const [eventEndDraft, setEventEndDraft] = useState('');
   const [savingMetadata, setSavingMetadata] = useState(false);
 
   const [resetCodeModalVisible, setResetCodeModalVisible] = useState(false);
@@ -183,6 +209,9 @@ export default function RoomSettingsScreen() {
   const [archiveModalVisible, setArchiveModalVisible] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
+  const [leaveModalVisible, setLeaveModalVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
   useEffect(() => {
     if (!room) {
       return;
@@ -191,6 +220,9 @@ export default function RoomSettingsScreen() {
     setAnnouncementDraft(room.announcement ?? '');
     setJoinModeDraft(room.join_mode);
     setAllowMemberCreatePollDraft(room.allow_member_create_poll);
+    setChatEnabledDraft(room.chat_enabled);
+    setEventStartDraft(formatIsoToDateTimeInput(room.event_start_at));
+    setEventEndDraft(formatIsoToDateTimeInput(room.event_end_at));
   }, [room]);
 
   const invalidateRoomQueries = async () => {
@@ -225,6 +257,27 @@ export default function RoomSettingsScreen() {
     }
   };
 
+  const handleShareInvite = async () => {
+    if (!room) {
+      return;
+    }
+    try {
+      const inviteUrl = Linking.createURL('room/join', {
+        queryParams: { code: room.room_code },
+      });
+      const outcome = await shareRoomInvite({
+        title: room.title,
+        roomCode: room.room_code,
+        inviteUrl,
+      });
+      if (outcome === 'copied') {
+        showToast('已复制邀请口令与链接', 'success');
+      }
+    } catch {
+      showToast('分享失败，请使用复制口令手动分享', 'error');
+    }
+  };
+
   const handleConfirmResetCode = async () => {
     if (!room || !permissions.canResetRoomCode) {
       return;
@@ -253,6 +306,9 @@ export default function RoomSettingsScreen() {
         announcement: announcementDraft,
         join_mode: joinModeDraft,
         allow_member_create_poll: allowMemberCreatePollDraft,
+        chat_enabled: chatEnabledDraft,
+        event_start_at: eventStartDraft.trim() || null,
+        event_end_at: eventEndDraft.trim() || null,
       });
       queryClient.setQueryData(QUERY_KEYS.roomDetail(room.id), updated);
       await invalidateRoomQueries();
@@ -346,6 +402,29 @@ export default function RoomSettingsScreen() {
     }
   };
 
+  const handleConfirmLeave = async () => {
+    if (!room || !permissions.canLeaveRoom) {
+      return;
+    }
+    setLeaving(true);
+    try {
+      await leaveRoom(room.id);
+      setLeaveModalVisible(false);
+      await queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.rooms(currentUserId ?? undefined),
+      });
+      queryClient.removeQueries({
+        queryKey: QUERY_KEYS.roomDetail(room.id),
+      });
+      showToast('已退出该房间', 'success');
+      router.replace('/(tabs)');
+    } catch (err) {
+      showToast(mapRoomError(err), 'error');
+    } finally {
+      setLeaving(false);
+    }
+  };
+
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -420,11 +499,20 @@ export default function RoomSettingsScreen() {
   const isRefreshing = roomRefetching || membersRefetching;
   const templateName = ROOM_TEMPLATES[room.template_type].name;
   const titleLen = Array.from(titleDraft.trim()).length;
+  const roomEventStartFormatted = formatIsoToDateTimeInput(room.event_start_at);
+  const roomEventEndFormatted = formatIsoToDateTimeInput(room.event_end_at);
+  const readOnlyEventWindow = formatRoomEventWindow(
+    room.event_start_at,
+    room.event_end_at,
+  );
   const hasMetadataChanges =
     titleDraft.trim() !== room.title ||
     announcementDraft.trim() !== (room.announcement ?? '') ||
     joinModeDraft !== room.join_mode ||
-    allowMemberCreatePollDraft !== room.allow_member_create_poll;
+    allowMemberCreatePollDraft !== room.allow_member_create_poll ||
+    chatEnabledDraft !== room.chat_enabled ||
+    eventStartDraft.trim() !== roomEventStartFormatted ||
+    eventEndDraft.trim() !== roomEventEndFormatted;
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
@@ -504,29 +592,39 @@ export default function RoomSettingsScreen() {
             </View>
 
             {!permissions.isArchived ? (
-              <View className="flex-row gap-2.5">
-                <View className="flex-1">
-                  <Button
-                    title="复制口令"
-                    variant="secondary"
-                    size="md"
-                    fullWidth
-                    leftIcon={<Copy size={16} color={THEME_COLORS.primaryDeep} />}
-                    onPress={handleCopyInvite}
-                  />
-                </View>
-                {permissions.canResetRoomCode ? (
+              <View className="gap-2.5">
+                <View className="flex-row gap-2.5">
                   <View className="flex-1">
                     <Button
-                      title="重置房间码"
-                      variant="ghost"
+                      title="分享邀请"
+                      variant="primary"
                       size="md"
                       fullWidth
-                      leftIcon={<RefreshCw size={16} color={THEME_COLORS.inkMuted} />}
-                      className="border border-line bg-white"
-                      onPress={() => setResetCodeModalVisible(true)}
+                      leftIcon={<Share2 size={16} color="#FFFFFF" />}
+                      onPress={handleShareInvite}
                     />
                   </View>
+                  <View className="flex-1">
+                    <Button
+                      title="复制口令"
+                      variant="secondary"
+                      size="md"
+                      fullWidth
+                      leftIcon={<Copy size={16} color={THEME_COLORS.primaryDeep} />}
+                      onPress={handleCopyInvite}
+                    />
+                  </View>
+                </View>
+                {permissions.canResetRoomCode ? (
+                  <Button
+                    title="重置房间码"
+                    variant="ghost"
+                    size="md"
+                    fullWidth
+                    leftIcon={<RefreshCw size={16} color={THEME_COLORS.inkMuted} />}
+                    className="border border-line bg-white"
+                    onPress={() => setResetCodeModalVisible(true)}
+                  />
                 ) : null}
               </View>
             ) : null}
@@ -624,7 +722,7 @@ export default function RoomSettingsScreen() {
                   </View>
                 </View>
 
-                <View className="mb-4 flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
+                <View className="mb-3.5 flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
                   <View className="flex-1 pr-3">
                     <Text className="text-xs font-semibold text-ink">
                       允许普通成员发起新投票
@@ -635,6 +733,7 @@ export default function RoomSettingsScreen() {
                   </View>
                   <Switch
                     value={allowMemberCreatePollDraft}
+                    disabled={!permissions.canEditRoomSettings}
                     onValueChange={setAllowMemberCreatePollDraft}
                     trackColor={{
                       false: THEME_COLORS.switchOffTrack,
@@ -646,6 +745,78 @@ export default function RoomSettingsScreen() {
                         : THEME_COLORS.switchOffThumb
                     }
                   />
+                </View>
+
+                <View className="mb-3.5 flex-row items-center justify-between rounded-2xl border border-lineSoft bg-surface px-3.5 py-2.5">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-xs font-semibold text-ink">
+                      开启房间聊天室
+                    </Text>
+                    <Text className="mt-0.5 text-[11px] text-inkMuted">
+                      开启后房间内显示「协作看板 | 聊天室」双 Tab，支持 @提醒 与聊完转积木
+                    </Text>
+                  </View>
+                  <Switch
+                    accessibilityLabel="开启房间聊天室"
+                    value={chatEnabledDraft}
+                    disabled={!permissions.canEditRoomSettings}
+                    onValueChange={setChatEnabledDraft}
+                    trackColor={{
+                      false: THEME_COLORS.switchOffTrack,
+                      true: THEME_COLORS.primaryBorder,
+                    }}
+                    thumbColor={
+                      chatEnabledDraft
+                        ? THEME_COLORS.primary
+                        : THEME_COLORS.switchOffThumb
+                    }
+                  />
+                </View>
+
+                <View className="mb-4">
+                  <View className="mb-1.5 flex-row items-center justify-between">
+                    <Text className="text-xs font-semibold text-inkMuted">
+                      活动开始时间
+                    </Text>
+                    {eventStartDraft || eventEndDraft ? (
+                      <MotionPressable
+                        scaleTo={0.94}
+                        onPress={() => {
+                          setEventStartDraft('');
+                          setEventEndDraft('');
+                        }}
+                      >
+                        <Text className="text-xs font-medium text-primaryDeep">
+                          清空时间
+                        </Text>
+                      </MotionPressable>
+                    ) : null}
+                  </View>
+                  <TextInput
+                    value={eventStartDraft}
+                    onChangeText={setEventStartDraft}
+                    editable={permissions.canEditRoomSettings}
+                    placeholder="YYYY-MM-DD HH:mm，留空则不限制"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
+                    autoCapitalize="none"
+                    className="mb-3 rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
+                  />
+
+                  <Text className="mb-1.5 text-xs font-semibold text-inkMuted">
+                    活动结束时间
+                  </Text>
+                  <TextInput
+                    value={eventEndDraft}
+                    onChangeText={setEventEndDraft}
+                    editable={permissions.canEditRoomSettings}
+                    placeholder="YYYY-MM-DD HH:mm，留空则不限制"
+                    placeholderTextColor={THEME_COLORS.inkSubtle}
+                    autoCapitalize="none"
+                    className="rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink"
+                  />
+                  <Text className="mt-1.5 text-[11px] leading-4 text-inkSubtle">
+                    设置活动结束时间后，超过 7 天系统将自动归档为只读
+                  </Text>
                 </View>
 
                 <Button
@@ -671,6 +842,21 @@ export default function RoomSettingsScreen() {
                     {room.announcement || '暂无公告'}
                   </Text>
                 </View>
+                <View className="flex-row items-center justify-between pt-1">
+                  <Text className="text-xs text-inkSubtle">房间聊天室</Text>
+                  <Badge
+                    label={room.chat_enabled ? '已开启' : '未开启'}
+                    variant={room.chat_enabled ? 'primary' : 'neutral'}
+                  />
+                </View>
+                {readOnlyEventWindow ? (
+                  <View>
+                    <Text className="text-xs text-inkSubtle">活动时间</Text>
+                    <Text className="mt-0.5 text-sm text-inkMuted">
+                      {readOnlyEventWindow}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             )}
           </Card>
@@ -903,6 +1089,26 @@ export default function RoomSettingsScreen() {
               </View>
             </Card>
           ) : null}
+
+          {permissions.canLeaveRoom ? (
+            <Card className="border-[#FAD2D0] bg-white">
+              <Text className="text-sm font-bold text-ink">退出房间</Text>
+              <Text className="mt-1 text-xs leading-5 text-inkMuted">
+                退出后你将离开此房间，后续可凭有效房间码重新加入。
+              </Text>
+              <View className="mt-3">
+                <Button
+                  title="退出房间"
+                  variant="ghost"
+                  fullWidth
+                  leftIcon={<LogOut size={16} color={THEME_COLORS.danger} />}
+                  textClassName="text-[#C94545] font-semibold"
+                  className="border border-[#FAD2D0] bg-[#FEF2F2]/60"
+                  onPress={() => setLeaveModalVisible(true)}
+                />
+              </View>
+            </Card>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -979,6 +1185,31 @@ export default function RoomSettingsScreen() {
             variant="ghost"
             fullWidth
             onPress={() => setArchiveModalVisible(false)}
+          />
+        </View>
+      </SheetModal>
+
+      <SheetModal
+        visible={leaveModalVisible}
+        onClose={() => setLeaveModalVisible(false)}
+        title="确认退出该房间？"
+      >
+        <Text className="mb-5 text-sm leading-6 text-inkMuted">
+          退出后你将离开此房间，后续可凭有效房间码重新加入
+        </Text>
+        <View className="gap-2.5">
+          <Button
+            title="确认退出房间"
+            variant="danger"
+            fullWidth
+            loading={leaving}
+            onPress={handleConfirmLeave}
+          />
+          <Button
+            title="取消"
+            variant="ghost"
+            fullWidth
+            onPress={() => setLeaveModalVisible(false)}
           />
         </View>
       </SheetModal>
