@@ -5,6 +5,7 @@ import {
   formatActivityLogEntry,
   formatActivityLogTimestamp,
   getActivityActionMeta,
+  resolveActivityLogActorName,
 } from '@/src/lib/activityLogHelpers';
 import type { ActivityLogRow } from '@/src/types/database';
 
@@ -406,6 +407,58 @@ describe('activityLogHelpers', () => {
       expect(leftRoomNull.canRestore).toBe(false);
       expect(leftRoomNull.summary).toBe('小李 退出了房间');
       expect(leftRoomNull.detail).toBe('成员已主动离开该活动房间');
+
+      const departedWithNullActor = formatActivityLogEntry(
+        makeLog({
+          id: 'log-lr-departed-null',
+          action: 'leave_room',
+          target_table: 'room_members',
+          before_snapshot: {
+            role: 'member',
+            nickname: '小满',
+          },
+        }),
+        null,
+        true,
+      );
+      expect(departedWithNullActor.canRestore).toBe(false);
+      expect(departedWithNullActor.summary).toBe('小满 退出了房间');
+      expect(departedWithNullActor.detail).toContain('成员');
+
+      const departedWithFallbackActor = formatActivityLogEntry(
+        makeLog({
+          id: 'log-lr-departed-fallback',
+          action: 'leave_room',
+          target_table: 'room_members',
+          before_snapshot: {
+            role: 'admin',
+            nickname: '小满',
+          },
+        }),
+        '系统成员',
+        true,
+      );
+      expect(departedWithFallbackActor.summary).toBe('小满 退出了房间');
+      expect(departedWithFallbackActor.detail).toContain('管理员');
+
+      const leaveLog = makeLog({
+        id: 'log-lr-resolve',
+        action: 'leave_room',
+        target_table: 'room_members',
+        before_snapshot: {
+          role: 'member',
+          nickname: '小满',
+        },
+      });
+      expect(resolveActivityLogActorName(leaveLog, null)).toBe('小满');
+      expect(resolveActivityLogActorName(leaveLog, '系统成员')).toBe('小满');
+      expect(resolveActivityLogActorName(leaveLog, '现昵称')).toBe('现昵称');
+      expect(
+        resolveActivityLogActorName(
+          makeLog({ action: 'leave_room', before_snapshot: null }),
+          null,
+        ),
+      ).toBe('系统成员');
     });
   });
 

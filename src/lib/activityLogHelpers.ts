@@ -322,6 +322,28 @@ function formatDeleteMessageEntry(
   };
 }
 
+/**
+ * Resolves the display actor name for an activity log entry.
+ * For `leave_room`, falls back to `before_snapshot.nickname` when the current profile nickname is missing or `'系统成员'`.
+ */
+export function resolveActivityLogActorName(
+  log: ActivityLogRow,
+  actorName: string | null | undefined,
+): string {
+  const trimmedActor = typeof actorName === 'string' ? actorName.trim() : '';
+  if (log.action === 'leave_room') {
+    const snapshot = isRecord(log.before_snapshot) ? log.before_snapshot : null;
+    const snapshotNickname = readNonEmptyString(snapshot, 'nickname');
+    if (trimmedActor && trimmedActor !== '系统成员') {
+      return trimmedActor;
+    }
+    if (snapshotNickname) {
+      return snapshotNickname;
+    }
+  }
+  return trimmedActor || '系统成员';
+}
+
 function formatLeaveRoomEntry(
   log: ActivityLogRow,
   safeActor: string,
@@ -329,10 +351,14 @@ function formatLeaveRoomEntry(
   const snapshot = isRecord(log.before_snapshot) ? log.before_snapshot : null;
   const rawRole = readNonEmptyString(snapshot, 'role');
   const roleLabel = rawRole ? (MEMBER_ROLE_LABELS[rawRole] ?? rawRole) : null;
+  const displayActor =
+    safeActor !== '系统成员'
+      ? safeActor
+      : (readNonEmptyString(snapshot, 'nickname') ?? safeActor);
 
   return {
     id: log.id,
-    summary: `${safeActor} 退出了房间`,
+    summary: `${displayActor} 退出了房间`,
     detail: roleLabel
       ? `原身份：${roleLabel} · 已主动离开该活动房间`
       : '成员已主动离开该活动房间',
@@ -348,10 +374,11 @@ function formatLeaveRoomEntry(
  */
 export function formatActivityLogEntry(
   log: ActivityLogRow,
-  actorName: string,
+  actorName: string | null | undefined,
   canUndoDelete: boolean,
 ): FormattedActivityLog {
-  const safeActor = actorName.trim() || '系统成员';
+  const safeActor =
+    (typeof actorName === 'string' ? actorName.trim() : '') || '系统成员';
 
   switch (log.action) {
     case 'delete_item':

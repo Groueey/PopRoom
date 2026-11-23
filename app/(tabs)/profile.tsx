@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -83,7 +84,12 @@ export default function ProfileScreen() {
     enabled: Boolean(userId),
   });
 
-  const { data: blockedUsers = [] } = useQuery({
+  const {
+    data: blockedUsers = [],
+    isLoading: blockedLoading,
+    isError: blockedError,
+    refetch: refetchBlockedUsers,
+  } = useQuery({
     queryKey: QUERY_KEYS.userBlocks(userId),
     queryFn: () => fetchMyBlockedUsers(userId),
     enabled: Boolean(userId),
@@ -385,7 +391,31 @@ export default function ProfileScreen() {
             {blockedOpen ? (
               <AnimatedPanelReveal>
                 <View className="mt-3 border-t border-lineSoft pt-3">
-                  {blockedUsers.length === 0 ? (
+                  {blockedLoading ? (
+                    <View className="flex-row items-center justify-center gap-2 py-4">
+                      <ActivityIndicator
+                        size="small"
+                        color={THEME_COLORS.primary}
+                      />
+                      <Text className="text-xs text-inkMuted">
+                        正在加载已屏蔽用户...
+                      </Text>
+                    </View>
+                  ) : blockedError ? (
+                    <View className="items-center py-3">
+                      <Text className="text-center text-xs leading-5 text-[#C94545]">
+                        加载已屏蔽用户失败，请重试
+                      </Text>
+                      <View className="mt-2.5">
+                        <Button
+                          title="重新加载"
+                          size="sm"
+                          variant="secondary"
+                          onPress={() => void refetchBlockedUsers()}
+                        />
+                      </View>
+                    </View>
+                  ) : blockedUsers.length === 0 ? (
                     <Text className="py-3 text-center text-xs leading-5 text-inkSubtle">
                       暂无已屏蔽用户，在房间聊天室长按消息可屏蔽对应成员
                     </Text>

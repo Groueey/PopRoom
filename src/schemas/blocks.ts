@@ -177,9 +177,9 @@ export const ChatMessageMetadataSchema = z.object({
 });
 export type ChatMessageMetadata = z.infer<typeof ChatMessageMetadataSchema>;
 
-/** Safely parses a raw `room_messages.metadata` payload or returns defaults for null/undefined/non-object inputs. */
+/** Safely parses a raw `room_messages.metadata` payload or returns defaults for null/undefined/non-object/array inputs. */
 export function parseChatMessageMetadata(raw: unknown): ChatMessageMetadata {
   return ChatMessageMetadataSchema.parse(
-    raw && typeof raw === 'object' ? raw : {},
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {},
   );
 }

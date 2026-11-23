@@ -184,7 +184,11 @@ export function ScheduleBlock({
     setTitleInput(externalCreateDraft.title);
     setLocationNameInput('');
     setOwnerIdInput(currentUserId || null);
-    setNotesInput(externalCreateDraft.details);
+    setNotesInput(
+      Array.from(externalCreateDraft.details)
+        .slice(0, MAX_SCHEDULE_NOTES_LENGTH)
+        .join(''),
+    );
     setFormError(null);
     setFormVisible(true);
     onConsumeExternalCreateDraft?.();

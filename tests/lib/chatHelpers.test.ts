@@ -460,6 +460,14 @@ describe('buildBlockPrefillFromMessage, isCurrentUserMentioned & formatChatTimes
     expect(result.details.startsWith('第二行说明\n')).toBe(true);
     expect(Array.from(result.details)).toHaveLength(400);
 
+    const scheduleResult = buildBlockPrefillFromMessage(
+      `${longTitle}\n${'😀'.repeat(350)}`,
+      'schedule',
+    );
+    expect(Array.from(scheduleResult.title)).toHaveLength(60);
+    expect(Array.from(scheduleResult.details)).toHaveLength(300);
+    expect(scheduleResult.details).toBe('😀'.repeat(300));
+
     expect(buildBlockPrefillFromMessage('  买两箱水  ', 'schedule')).toEqual({
       title: '买两箱水',
       details: '',

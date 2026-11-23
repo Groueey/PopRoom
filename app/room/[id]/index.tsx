@@ -227,7 +227,7 @@ export default function RoomBoardScreen() {
     enabled: Boolean(roomId && room?.chat_enabled),
   });
 
-  const { data: lastReadAt = null, isFetched: chatReadFetched } = useQuery({
+  const { data: lastReadAt, isFetched: chatReadFetched } = useQuery({
     queryKey: QUERY_KEYS.roomChatRead(roomId, currentUserId ?? undefined),
     queryFn: () => fetchRoomChatRead(roomId, currentUserId ?? ''),
     enabled: Boolean(roomId && currentUserId && room?.chat_enabled),
@@ -331,6 +331,10 @@ export default function RoomBoardScreen() {
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMarkedReadStampRef = useRef<string | null>(null);
+  const prevRoomChatRef = useRef<{
+    roomId: string;
+    chatEnabled: boolean;
+  } | null>(null);
 
   const [justAddedBlockId, setJustAddedBlockId] = useState<string | null>(null);
   const clearJustAddedBlock = useCallback(() => {
@@ -341,16 +345,23 @@ export default function RoomBoardScreen() {
   }, []);
 
   const unreadChatCount = useMemo(() => {
-    if (!room?.chat_enabled) {
+    if (!room?.chat_enabled || (!chatReadFetched && lastReadAt === undefined)) {
       return 0;
     }
     return countUnreadChatMessages(
       messages,
-      lastReadAt,
+      lastReadAt ?? null,
       currentUserId,
       blockedUserIds,
     );
-  }, [room?.chat_enabled, messages, lastReadAt, currentUserId, blockedUserIds]);
+  }, [
+    room?.chat_enabled,
+    chatReadFetched,
+    messages,
+    lastReadAt,
+    currentUserId,
+    blockedUserIds,
+  ]);
 
   const latestServerMessageStamp = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -387,10 +398,24 @@ export default function RoomBoardScreen() {
   }, []);
 
   useEffect(() => {
-    if (room && !room.chat_enabled && activeTab === 'chat') {
-      setActiveTab('board');
-      showToast('房主已关闭聊天室', 'info');
+    if (!room) {
+      return;
     }
+    const prev = prevRoomChatRef.current;
+    if (!room.chat_enabled && activeTab === 'chat') {
+      setActiveTab('board');
+      if (
+        prev !== null &&
+        prev.roomId === room.id &&
+        prev.chatEnabled === true
+      ) {
+        showToast('房主已关闭聊天室', 'info');
+      }
+    }
+    prevRoomChatRef.current = {
+      roomId: room.id,
+      chatEnabled: room.chat_enabled,
+    };
   }, [room, activeTab, showToast]);
 
   useEffect(() => {
@@ -436,7 +461,7 @@ export default function RoomBoardScreen() {
 
     queryClient.setQueryData<string | null>(readKey, optimisticReadIso);
 
-    void markRoomChatRead(roomId, currentUserId)
+    void markRoomChatRead(roomId, currentUserId, optimisticReadIso)
       .then((serverReadIso) => {
         const serverMs = Date.parse(serverReadIso);
         const resolvedIso =

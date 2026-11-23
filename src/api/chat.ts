@@ -53,7 +53,7 @@ export interface SendRoomMessageInput {
   metadata?: Partial<ChatMessageMetadata>;
 }
 
-/** Fetches up to 200 non-deleted chat messages for a room ordered chronologically. */
+/** Fetches up to the latest 200 non-deleted chat messages for a room ordered chronologically. */
 export async function fetchRoomMessages(
   roomId: string,
 ): Promise<ParsedRoomMessage[]> {
@@ -62,7 +62,7 @@ export async function fetchRoomMessages(
     .select(ROOM_MESSAGE_COLUMNS)
     .eq('room_id', roomId)
     .eq('is_deleted', false)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(200);
 
   if (error) {
@@ -246,16 +246,23 @@ export async function fetchRoomChatRead(
   return (data as { last_read_at?: string | null } | null)?.last_read_at ?? null;
 }
 
-/** Upserts the current user's `room_chat_reads` cursor to `nowIso` and returns `nowIso`. */
+/** Upserts the current user's `room_chat_reads` cursor (clamped to `>= minReadAtIso` when provided) and returns the persisted ISO timestamp. */
 export async function markRoomChatRead(
   roomId: string,
   userId: string,
+  minReadAtIso?: string,
 ): Promise<string> {
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const minMs = minReadAtIso ? Date.parse(minReadAtIso) : Number.NaN;
+  const effectiveIso =
+    Number.isFinite(minMs) && minMs > nowMs
+      ? new Date(minMs).toISOString()
+      : new Date(nowMs).toISOString();
+
   const { error } = await supabase
     .from('room_chat_reads')
     .upsert(
-      { room_id: roomId, user_id: userId, last_read_at: nowIso },
+      { room_id: roomId, user_id: userId, last_read_at: effectiveIso },
       { onConflict: 'room_id,user_id' },
     );
 
@@ -263,5 +270,5 @@ export async function markRoomChatRead(
     throw toRoomApiError(error);
   }
 
-  return nowIso;
+  return effectiveIso;
 }

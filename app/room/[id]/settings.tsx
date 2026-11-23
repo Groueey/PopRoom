@@ -408,16 +408,19 @@ export default function RoomSettingsScreen() {
     }
     setLeaving(true);
     try {
-      await leaveRoom(room.id);
-      setLeaveModalVisible(false);
-      await queryClient.invalidateQueries({
+      const leftRoomId = room.id;
+      await leaveRoom(leftRoomId);
+      void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.rooms(currentUserId ?? undefined),
       });
-      queryClient.removeQueries({
-        queryKey: QUERY_KEYS.roomDetail(room.id),
-      });
+      setLeaveModalVisible(false);
       showToast('已退出该房间', 'success');
       router.replace('/(tabs)');
+      setTimeout(() => {
+        queryClient.removeQueries({
+          queryKey: QUERY_KEYS.roomDetail(leftRoomId),
+        });
+      }, 300);
     } catch (err) {
       showToast(mapRoomError(err), 'error');
     } finally {

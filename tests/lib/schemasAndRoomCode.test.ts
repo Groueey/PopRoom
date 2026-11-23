@@ -265,6 +265,14 @@ describe('Zod block schemas', () => {
       mentionAll: false,
       mentionUserIds: [],
     });
+    expect(parseChatMessageMetadata([])).toEqual({
+      mentionAll: false,
+      mentionUserIds: [],
+    });
+    expect(parseChatMessageMetadata(['unexpected'])).toEqual({
+      mentionAll: false,
+      mentionUserIds: [],
+    });
 
     const parsed = parseChatMessageMetadata({
       mentionAll: true,

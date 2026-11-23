@@ -140,6 +140,9 @@ export function useRoomRealtime(
           invalidateForTable('room_messages');
         },
       )
+      .on('broadcast', { event: 'message_deleted' }, () => {
+        invalidateForTable('room_messages');
+      })
       .subscribe();
 
     return () => {

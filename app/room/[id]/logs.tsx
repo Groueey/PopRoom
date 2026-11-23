@@ -50,6 +50,7 @@ import {
   formatActivityLogEntry,
   formatActivityLogTimestamp,
   getActivityActionMeta,
+  resolveActivityLogActorName,
 } from '../../../src/lib/activityLogHelpers';
 import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
@@ -504,7 +505,10 @@ export default function RoomLogsScreen() {
                   (log.actor_id
                     ? (memberProfileByUserId.get(log.actor_id) ?? null)
                     : null);
-                const actorName = actorProfile?.nickname ?? '系统成员';
+                const actorName = resolveActivityLogActorName(
+                  log,
+                  actorProfile?.nickname ?? null,
+                );
                 const formatted = formatActivityLogEntry(
                   log,
                   actorName,

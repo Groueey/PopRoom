@@ -55,6 +55,7 @@ import {
   validateReportReasonInput,
 } from '../../lib/chatHelpers';
 import { QUERY_KEYS } from '../../lib/queryClient';
+import { supabase } from '../../lib/supabase';
 import { CARD_SHADOW, THEME_COLORS } from '../../lib/theme';
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
@@ -205,10 +206,19 @@ export function ChatRoomView({
     () =>
       members.filter(
         (member) =>
-          member.status === 'active' && member.user_id !== currentUserId,
+          member.status === 'active' &&
+          member.user_id !== currentUserId &&
+          !blockedUserIds.has(member.user_id),
       ),
-    [members, currentUserId],
+    [members, currentUserId, blockedUserIds],
   );
+
+  useEffect(() => {
+    setMentionUserIds((prev) => {
+      const next = prev.filter((id) => !blockedUserIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [blockedUserIds]);
 
   const visibleMessages = useMemo(
     () => filterVisibleChatMessages(messages, blockedUserIds),
@@ -509,6 +519,23 @@ export function ChatRoomView({
       void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.activityLogs(roomId),
       });
+      try {
+        const channels = supabase.getChannels();
+        const activeChannel =
+          channels.find((ch) => ch.topic === `realtime:room:${roomId}`) ??
+          channels.find((ch) => ch.topic.endsWith(`:room:${roomId}`));
+        if (activeChannel) {
+          void Promise.resolve(
+            activeChannel.send({
+              type: 'broadcast',
+              event: 'message_deleted',
+              payload: {},
+            }),
+          ).catch(() => undefined);
+        }
+      } catch {
+        // Ignore broadcast errors so delete UX is never disrupted.
+      }
       showToast('已删除该消息', 'success');
     },
   });

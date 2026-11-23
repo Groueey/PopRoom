@@ -240,12 +240,12 @@ export function buildBlockReminderMessage(
   };
 }
 
-/** Extracts a prefilled title (<=60 code points) and details (<=400 code points) from chat text. */
+/** Extracts a prefilled title (<=60 code points) and details (<=300 for schedule, <=400 for task) from chat text. */
 export function buildBlockPrefillFromMessage(
   content: string,
   target: 'task' | 'schedule',
 ): { title: string; details: string } {
-  void target;
+  const maxDetailsLength = target === 'schedule' ? 300 : 400;
   const trimmed = typeof content === 'string' ? content.trim() : '';
   if (!trimmed) {
     return { title: '', details: '' };
@@ -259,7 +259,7 @@ export function buildBlockPrefillFromMessage(
   const firstLine = nonEmptyLines[0] ?? '';
   const title = Array.from(firstLine).slice(0, 60).join('');
   const remaining = nonEmptyLines.slice(1).join('\n');
-  const details = Array.from(remaining).slice(0, 400).join('');
+  const details = Array.from(remaining).slice(0, maxDetailsLength).join('');
 
   return { title, details };
 }

@@ -109,7 +109,7 @@ describe('chat API layer', () => {
     );
     expect(mockEqRoom).toHaveBeenCalledWith('room_id', 'r1');
     expect(mockEqDeleted).toHaveBeenCalledWith('is_deleted', false);
-    expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: true });
+    expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
     expect(mockLimit).toHaveBeenCalledWith(200);
     expect(messages.map((m) => m.id)).toEqual(['m1', 'm2']);
     expect(messages[0]?.metadata).toEqual({
@@ -275,5 +275,33 @@ describe('chat API layer', () => {
       { onConflict: 'room_id,user_id' },
     );
     expect(Number.isNaN(Date.parse(updatedCursor))).toBe(false);
+  });
+
+  it('markRoomChatRead clamps persisted last_read_at to >= future minReadAtIso for clock-skew safety', async () => {
+    const futureIso = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const mockUpsert = vi.fn().mockResolvedValue({ error: null });
+    mockFrom.mockReturnValueOnce({ upsert: mockUpsert });
+
+    const persistedIso = await markRoomChatRead('r1', 'u1', futureIso);
+
+    expect(Date.parse(persistedIso)).toBeGreaterThanOrEqual(
+      Date.parse(futureIso),
+    );
+    expect(persistedIso).toBe(futureIso);
+    expect(mockUpsert).toHaveBeenCalledWith(
+      {
+        room_id: 'r1',
+        user_id: 'u1',
+        last_read_at: futureIso,
+      },
+      { onConflict: 'room_id,user_id' },
+    );
+
+    const pastIso = '2020-01-01T00:00:00.000Z';
+    const mockUpsertPast = vi.fn().mockResolvedValue({ error: null });
+    mockFrom.mockReturnValueOnce({ upsert: mockUpsertPast });
+
+    const nowCursor = await markRoomChatRead('r1', 'u1', pastIso);
+    expect(Date.parse(nowCursor)).toBeGreaterThan(Date.parse(pastIso));
   });
 });
