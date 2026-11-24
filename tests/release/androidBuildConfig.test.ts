@@ -14,6 +14,7 @@ describe('Android standalone build configuration', () => {
     const expo = appJson.expo;
     expect(expo.icon).toBe('./assets/icon.png');
     expect(expo.scheme).toBe('poproom');
+    expect(expo.backgroundColor).toBe('#F6F5F2');
     expect(expo.splash).toEqual({
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
@@ -44,6 +45,18 @@ describe('Android standalone build configuration', () => {
     expect(plugins).toContain('expo-router');
     expect(plugins).toContain('./plugins/withAndroidMapQueries');
 
+    const splashEntry = plugins.find(
+      (entry): entry is [string, Record<string, unknown>] =>
+        Array.isArray(entry) && entry[0] === 'expo-splash-screen',
+    );
+    expect(splashEntry).toBeDefined();
+    expect(splashEntry?.[1]).toMatchObject({
+      image: './assets/splash-icon.png',
+      backgroundColor: '#F6F5F2',
+      resizeMode: 'contain',
+      imageWidth: 200,
+    });
+
     const imagePickerEntry = plugins.find(
       (entry): entry is [string, Record<string, unknown>] =>
         Array.isArray(entry) && entry[0] === 'expo-image-picker',
@@ -52,6 +65,10 @@ describe('Android standalone build configuration', () => {
     expect(imagePickerEntry?.[1].microphonePermission).toBe(false);
     expect(String(imagePickerEntry?.[1].photosPermission)).toContain('相册');
     expect(String(imagePickerEntry?.[1].cameraPermission)).toContain('相机');
+
+    const pkg = readJson<{ dependencies: Record<string, string> }>('package.json');
+    expect(pkg.dependencies['expo-splash-screen']).toBeDefined();
+    expect(pkg.dependencies['expo-system-ui']).toBeDefined();
   });
 
   it('configures eas.json with Android internal APK preview profile', () => {

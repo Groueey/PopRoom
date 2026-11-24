@@ -2,10 +2,15 @@ import { Tabs } from 'expo-router';
 import { Sparkles, User } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { computeTabBarDimensions } from '../../src/lib/androidLayoutHelpers';
 import { THEME_COLORS } from '../../src/lib/theme';
 
 /** Bottom tab navigator providing PopRoom's gentle white & tangerine 2-tab layout (`活动` and `我的`). */
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const tabBarDimensions = computeTabBarDimensions(Platform.OS, insets.bottom);
+
   return (
     <Tabs
       screenOptions={{
@@ -21,7 +26,8 @@ export default function TabsLayout() {
           backgroundColor: '#FFFFFF',
           borderTopColor: THEME_COLORS.line,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 64,
+          height: tabBarDimensions.height,
+          paddingBottom: tabBarDimensions.paddingBottom,
           paddingTop: 6,
         },
       }}

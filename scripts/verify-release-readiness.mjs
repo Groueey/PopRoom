@@ -86,6 +86,23 @@ export function evaluateReleaseReadiness(snapshot) {
     );
   }
 
+  const splashPlugin = plugins.find(
+    (entry) => Array.isArray(entry) && entry[0] === 'expo-splash-screen',
+  );
+  if (!splashPlugin) {
+    errors.push(
+      'app.json 缺少 expo-splash-screen 插件配置（Expo SDK 58 独立包将忽略顶层 splash 配置）',
+    );
+  } else {
+    const splashOpts = splashPlugin[1] ?? {};
+    if (
+      typeof splashOpts.image !== 'string' ||
+      !existingSet.has(splashOpts.image)
+    ) {
+      errors.push('expo-splash-screen 插件引用的启动屏图片缺失或非有效 PNG');
+    }
+  }
+
   const imagePickerPlugin = plugins.find(
     (entry) => Array.isArray(entry) && entry[0] === 'expo-image-picker',
   );
@@ -214,9 +231,16 @@ function runCli() {
     ? JSON.parse(fs.readFileSync(easJsonPath, 'utf8'))
     : null;
 
+  const splashPluginEntry = Array.isArray(appJson?.expo?.plugins)
+    ? appJson.expo.plugins.find(
+        (entry) => Array.isArray(entry) && entry[0] === 'expo-splash-screen',
+      )
+    : undefined;
+
   const candidateAssets = [
     appJson?.expo?.icon,
     appJson?.expo?.splash?.image,
+    splashPluginEntry?.[1]?.image,
     appJson?.expo?.android?.adaptiveIcon?.foregroundImage,
   ].filter((v) => typeof v === 'string' && v.trim().length > 0);
 

@@ -36,6 +36,15 @@ function makeValidSnapshot(): ReleaseSnapshot {
         plugins: [
           'expo-router',
           [
+            'expo-splash-screen',
+            {
+              image: './assets/splash-icon.png',
+              backgroundColor: '#F6F5F2',
+              resizeMode: 'contain',
+              imageWidth: 200,
+            },
+          ],
+          [
             'expo-image-picker',
             {
               photosPermission: '相册权限',
@@ -103,6 +112,18 @@ describe('evaluateReleaseReadiness', () => {
     const strictResult = evaluateReleaseReadiness({ ...snap, strict: true });
     expect(strictResult.ok).toBe(false);
     expect(strictResult.errors.some((e) => e.includes('projectId'))).toBe(true);
+  });
+
+  it('fails if expo-splash-screen plugin is missing in app.json', () => {
+    const snap = makeValidSnapshot();
+    snap.appJson.expo.plugins = (snap.appJson.expo.plugins ?? []).filter(
+      (p) => !(Array.isArray(p) && p[0] === 'expo-splash-screen'),
+    );
+    const result = evaluateReleaseReadiness(snap);
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.includes('expo-splash-screen'))).toBe(
+      true,
+    );
   });
 
   it('warns loudly when local .env lacks real Supabase config and always reminds about EAS env vars', () => {

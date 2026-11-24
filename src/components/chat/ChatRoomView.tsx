@@ -42,6 +42,7 @@ import {
   mapRoomError,
 } from '../../api/rooms';
 import type { RoomPermissions } from '../../hooks/useRoomPermissions';
+import { getChatKeyboardAvoidingBehavior } from '../../lib/androidLayoutHelpers';
 import {
   MAX_CHAT_MESSAGE_LENGTH,
   MAX_REPORT_REASON_LENGTH,
@@ -839,7 +840,7 @@ export function ChatRoomView({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={getChatKeyboardAvoidingBehavior(Platform.OS)}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 96 : 0}
       className="flex-1 bg-surface"
     >
