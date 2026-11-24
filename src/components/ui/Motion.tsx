@@ -214,7 +214,7 @@ export function AnimatedBlockShell({
                 borderRadius: 22,
                 borderWidth: 2,
                 borderColor: THEME_COLORS.primary,
-                backgroundColor: 'rgba(242, 132, 58, 0.06)',
+                backgroundColor: 'rgba(224, 90, 43, 0.06)',
               },
               glowStyle,
             ]}
@@ -339,13 +339,15 @@ export interface AnimatedCheckBadgeProps {
   checked: boolean;
   size?: number;
   iconSize?: number;
+  accentColor?: string;
 }
 
-/** Circular warm-orange selection indicator that pops gently when activated. */
+/** Circular selection indicator that pops gently when activated. */
 export function AnimatedCheckBadge({
   checked,
   size = 20,
   iconSize = 12,
+  accentColor = THEME_COLORS.primary,
 }: AnimatedCheckBadgeProps) {
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
@@ -376,8 +378,8 @@ export function AnimatedCheckBadge({
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 1.5,
-          borderColor: checked ? THEME_COLORS.primary : '#DCD3CA',
-          backgroundColor: checked ? THEME_COLORS.primary : '#FFFFFF',
+          borderColor: checked ? accentColor : '#D4CEC6',
+          backgroundColor: checked ? accentColor : '#FFFFFF',
         },
         animatedStyle,
       ]}

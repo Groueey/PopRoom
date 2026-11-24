@@ -8,7 +8,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { CARD_SHADOW, THEME_COLORS } from '../../lib/theme';
+import { BLOCK_ACCENTS, CARD_SHADOW, THEME_COLORS } from '../../lib/theme';
 import type { ChatMessageMetadata } from '../../schemas/blocks';
 import type { BlockType } from '../../types/database';
 import { Badge } from '../ui/Badge';
@@ -22,22 +22,23 @@ export interface BlockReminderCardProps {
 }
 
 function ReminderBlockIcon({ type }: { type?: BlockType }) {
+  const color = type ? BLOCK_ACCENTS[type].deep : THEME_COLORS.primaryDeep;
   switch (type) {
     case 'poll':
-      return <BarChart3 size={16} color={THEME_COLORS.primaryDeep} />;
+      return <BarChart3 size={16} color={color} />;
     case 'task':
-      return <CheckSquare size={16} color={THEME_COLORS.primaryDeep} />;
+      return <CheckSquare size={16} color={color} />;
     case 'schedule':
-      return <CalendarClock size={16} color={THEME_COLORS.primaryDeep} />;
+      return <CalendarClock size={16} color={color} />;
     case 'expense':
-      return <Wallet size={16} color={THEME_COLORS.primaryDeep} />;
+      return <Wallet size={16} color={color} />;
     default:
-      return <BellRing size={16} color={THEME_COLORS.primaryDeep} />;
+      return <BellRing size={16} color={color} />;
   }
 }
 
 /**
- * Warm tangerine reminder card linking a chat notice directly back to an active
+ * Warm terracotta reminder card linking a chat notice directly back to an active
  * room collaboration block (poll, task, schedule, or expense).
  */
 export function BlockReminderCard({
@@ -47,17 +48,42 @@ export function BlockReminderCard({
 }: BlockReminderCardProps) {
   const linkedBlockId = metadata.linkedBlockId;
   const linkedTitle = metadata.linkedTitle?.trim();
+  const accent = metadata.linkedBlockType
+    ? BLOCK_ACCENTS[metadata.linkedBlockType]
+    : BLOCK_ACCENTS.poll;
 
   return (
     <View
-      style={CARD_SHADOW}
-      className="rounded-2xl border border-primaryBorder bg-primarySoft p-3.5"
+      style={[
+        CARD_SHADOW,
+        {
+          backgroundColor: accent.soft,
+          borderColor: accent.border,
+          borderWidth: 1,
+        },
+      ]}
+      className="rounded-2xl p-3.5"
     >
       <View className="flex-row items-center gap-2">
-        <View className="h-7 w-7 items-center justify-center rounded-xl border border-primaryBorder bg-white">
+        <View
+          style={{ borderColor: accent.border }}
+          className="h-7 w-7 items-center justify-center rounded-full border bg-white"
+        >
           <ReminderBlockIcon type={metadata.linkedBlockType} />
         </View>
-        <Badge label="催办提醒" variant="primary" size="sm" />
+        <Badge
+          label="催办提醒"
+          variant={
+            metadata.linkedBlockType === 'task'
+              ? 'success'
+              : metadata.linkedBlockType === 'schedule'
+                ? 'info'
+                : metadata.linkedBlockType === 'expense'
+                  ? 'warning'
+                  : 'primary'
+          }
+          size="sm"
+        />
       </View>
 
       {linkedTitle ? (

@@ -49,7 +49,6 @@ import type { ProfileSummary, RoomMemberWithProfile } from '../../types/database
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 import {
   AnimatedItemRow,
   AnimatedProgressBar,
@@ -57,8 +56,9 @@ import {
   MotionPressable,
 } from '../ui/Motion';
 import { SheetModal } from '../ui/SheetModal';
-import { THEME_COLORS } from '../../lib/theme';
+import { BLOCK_ACCENTS, THEME_COLORS } from '../../lib/theme';
 
+const EXPENSE_ACCENT = BLOCK_ACCENTS.expense;
 const MAX_EXPENSE_TITLE_LENGTH = 60;
 const MAX_EXPENSE_AMOUNT_YUAN = 1_000_000;
 
@@ -709,39 +709,27 @@ export function ExpenseBlock({
   };
 
   return (
-    <Card
-      className={highlighted ? 'mb-3.5 border-2 border-primary' : 'mb-3.5'}
-      style={
-        highlighted
-          ? { borderWidth: 2, borderColor: THEME_COLORS.primary }
-          : undefined
-      }
-    >
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
-            <Wallet size={18} color={THEME_COLORS.primary} />
-          </View>
-
-          <View className="flex-1">
-            <View className="mb-1 flex-row flex-wrap items-center gap-1.5">
-              <Badge
-                label={isBudgetMode ? '预算报销' : 'AA 分账'}
-                variant="primary"
-              />
-              <Badge label={currency} variant="neutral" />
-              {isBudgetMode && isOverspent ? (
-                <Badge label="超支预警" variant="danger" />
-              ) : null}
+    <View className="pb-4">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <View
+              style={{ backgroundColor: EXPENSE_ACCENT.soft }}
+              className="h-7 w-7 items-center justify-center rounded-full"
+            >
+              <Wallet size={14} color={EXPENSE_ACCENT.accent} />
             </View>
-
-            <Text className="text-base font-bold text-ink" numberOfLines={2}>
+            <Text className="flex-1 text-lg font-bold text-ink" numberOfLines={2}>
               {block.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-inkMuted">
-              {items.length} 笔账目 · 累计消费{' '}
-              {formatCents(totalSpentCents, currency)}
+          </View>
+          <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+            <Text className="text-xs text-inkMuted">
+              {items.length} 笔账目 · {isBudgetMode ? '预算报销' : 'AA 分账'} ({currency})
             </Text>
+            {isBudgetMode && isOverspent ? (
+              <Badge label="超支预警" variant="danger" />
+            ) : null}
           </View>
         </View>
 
@@ -754,7 +742,7 @@ export function ExpenseBlock({
                 disabled={!canMoveUp || reordering}
                 onPress={onMoveUp}
                 scaleTo={0.9}
-                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                className={`h-8 w-8 items-center justify-center rounded-full border ${
                   canMoveUp && !reordering
                     ? 'border-primaryBorder bg-primarySoft'
                     : 'border-line bg-surface opacity-45'
@@ -775,7 +763,7 @@ export function ExpenseBlock({
                 disabled={!canMoveDown || reordering}
                 onPress={onMoveDown}
                 scaleTo={0.9}
-                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                className={`h-8 w-8 items-center justify-center rounded-full border ${
                   canMoveDown && !reordering
                     ? 'border-primaryBorder bg-primarySoft'
                     : 'border-line bg-surface opacity-45'
@@ -797,7 +785,7 @@ export function ExpenseBlock({
               accessibilityLabel={`删除积木 ${block.title}`}
               onPress={() => onRequestDeleteBlock(block)}
               scaleTo={0.9}
-              className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
+              className="h-8 w-8 items-center justify-center rounded-full bg-surface"
             >
               <Trash2 size={15} color={THEME_COLORS.inkMuted} />
             </MotionPressable>
@@ -805,13 +793,27 @@ export function ExpenseBlock({
         </View>
       </View>
 
+      {highlighted ? (
+        <View
+          style={{ backgroundColor: EXPENSE_ACCENT.soft }}
+          className="mt-2.5 self-start rounded-full px-2.5 py-0.5"
+        >
+          <Text
+            style={{ color: EXPENSE_ACCENT.deep }}
+            className="text-[11px] font-semibold"
+          >
+            已定位到此费用模块
+          </Text>
+        </View>
+      ) : null}
+
       {isBudgetMode ? (
         <View
-          className={`mt-3.5 rounded-2xl border p-3.5 ${
-            isOverspent
-              ? 'border-[#FAD2D0] bg-[#FEF2F2]/80'
-              : 'border-line bg-primaryMist'
-          }`}
+          style={{
+            backgroundColor: isOverspent ? '#FEF2F2' : '#FAF6EE',
+            borderColor: isOverspent ? '#F8CFCF' : '#F0E3C8',
+          }}
+          className="mt-4 rounded-2xl border p-4"
         >
           <View className="flex-row items-center justify-between gap-2">
             <Text className="text-xs font-bold text-ink">社团 / 活动预算总览</Text>
@@ -823,42 +825,45 @@ export function ExpenseBlock({
                 }
                 onPress={handleOpenBudgetModal}
                 scaleTo={0.94}
-                className="flex-row items-center gap-1 rounded-xl border border-primaryBorder bg-white px-2.5 py-1"
+                className="flex-row items-center gap-1 rounded-full bg-white px-2.5 py-1"
               >
-                <Settings2 size={12} color={THEME_COLORS.primaryDeep} />
-                <Text className="text-[11px] font-semibold text-primaryDeep">
+                <Settings2 size={12} color={EXPENSE_ACCENT.deep} />
+                <Text
+                  style={{ color: EXPENSE_ACCENT.deep }}
+                  className="text-[11px] font-semibold"
+                >
                   {totalBudgetCents !== null ? '编辑预算' : '设置预算'}
                 </Text>
               </MotionPressable>
             ) : null}
           </View>
 
-          <View className="mt-3 flex-row gap-2">
-            <View className="flex-1 rounded-xl border border-lineSoft bg-white p-2.5">
-              <Text className="text-[10px] text-inkSubtle">总预算</Text>
-              <Text className="mt-0.5 text-sm font-bold text-ink">
+          <View className="mt-3.5 flex-row items-baseline justify-between gap-3">
+            <View className="flex-1">
+              <Text className="text-[11px] text-inkSubtle">总预算</Text>
+              <Text className="mt-0.5 text-base font-bold text-ink">
                 {totalBudgetCents !== null
                   ? formatCents(totalBudgetCents, currency)
                   : '未设置'}
               </Text>
             </View>
-            <View className="flex-1 rounded-xl border border-lineSoft bg-white p-2.5">
-              <Text className="text-[10px] text-inkSubtle">已支出</Text>
-              <Text className="mt-0.5 text-sm font-bold text-ink">
+            <View className="flex-1">
+              <Text className="text-[11px] text-inkSubtle">已支出</Text>
+              <Text className="mt-0.5 text-base font-bold text-ink">
                 {formatCents(totalSpentCents, currency)}
               </Text>
             </View>
-            <View className="flex-1 rounded-xl border border-lineSoft bg-white p-2.5">
-              <Text className="text-[10px] text-inkSubtle">
+            <View className="flex-1 items-end">
+              <Text className="text-[11px] text-inkSubtle">
                 {isOverspent ? '超出预算' : '剩余预算'}
               </Text>
               <Text
-                className={`mt-0.5 text-sm font-bold ${
+                className={`mt-0.5 text-base font-bold ${
                   remainingCents === null
                     ? 'text-inkSubtle'
                     : isOverspent
-                      ? 'text-[#C94545]'
-                      : 'text-[#287B5B]'
+                      ? 'text-[#C23B3B]'
+                      : 'text-[#226F53]'
                 }`}
               >
                 {remainingCents === null
@@ -871,23 +876,23 @@ export function ExpenseBlock({
           </View>
 
           {totalBudgetCents !== null ? (
-            <View className="mt-3">
+            <View className="mt-3.5">
               <AnimatedProgressBar
                 percent={budgetProgressPercent}
-                height={9}
+                height={7}
                 fillColor={
                   isOverspent
                     ? THEME_COLORS.danger
                     : budgetProgressPercent >= 85
                       ? THEME_COLORS.warning
-                      : THEME_COLORS.primary
+                      : EXPENSE_ACCENT.accent
                 }
-                trackColor={THEME_COLORS.line}
+                trackColor={EXPENSE_ACCENT.track}
               />
               <View className="mt-1.5 flex-row items-center justify-between">
                 <Text
                   className={`text-[11px] font-medium ${
-                    isOverspent ? 'text-[#C94545]' : 'text-inkMuted'
+                    isOverspent ? 'text-[#C23B3B]' : 'text-inkMuted'
                   }`}
                 >
                   {isOverspent
@@ -899,7 +904,7 @@ export function ExpenseBlock({
                 {isOverspent ? (
                   <View className="flex-row items-center gap-1">
                     <AlertTriangle size={12} color={THEME_COLORS.danger} />
-                    <Text className="text-[11px] font-bold text-[#C94545]">
+                    <Text className="text-[11px] font-bold text-[#C23B3B]">
                       注意控费
                     </Text>
                   </View>
@@ -915,21 +920,34 @@ export function ExpenseBlock({
           )}
         </View>
       ) : (
-        <View className="mt-3.5 rounded-2xl border border-line bg-primaryMist p-3.5">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-xs font-bold text-ink">成员净收支（AA 汇总）</Text>
-            <Text className="text-xs font-bold text-primaryDeep">
-              共 {formatCents(totalSpentCents, currency)}
-            </Text>
+        <View
+          style={{ backgroundColor: '#FAF6EE', borderColor: '#F0E3C8' }}
+          className="mt-4 rounded-2xl border p-4"
+        >
+          <View className="flex-row items-baseline justify-between border-b border-dashed border-[#E5D8BE] pb-3">
+            <View>
+              <Text className="text-[11px] text-inkMuted">累计消费（AA 汇总）</Text>
+              <Text className="mt-0.5 text-2xl font-bold text-ink">
+                {formatCents(totalSpentCents, currency)}
+              </Text>
+            </View>
+            {members.length > 0 && totalSpentCents > 0 ? (
+              <Text
+                style={{ color: EXPENSE_ACCENT.deep }}
+                className="text-xs font-semibold"
+              >
+                人均约 {formatCents(Math.round(totalSpentCents / members.length), currency)}
+              </Text>
+            ) : null}
           </View>
 
           {splitSummary.balances.length === 0 ? (
-            <Text className="mt-2 text-xs text-inkSubtle">
+            <Text className="mt-3 text-xs text-inkSubtle">
               记入第一笔账目后，将自动计算成员应收应付及最少转账方案
             </Text>
           ) : (
             <>
-              <View className="mt-2.5 flex-row flex-wrap gap-2">
+              <View className="mt-3 flex-row flex-wrap gap-1.5">
                 {splitSummary.balances.map((balance) => {
                   const profile = memberProfileMap.get(balance.userId);
                   const nickname = profile?.nickname ?? '成员';
@@ -939,12 +957,12 @@ export function ExpenseBlock({
                   return (
                     <View
                       key={`bal-${balance.userId}`}
-                      className={`flex-row items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+                      className={`flex-row items-center gap-1.5 rounded-full px-2.5 py-1 ${
                         isPositive
-                          ? 'border-[#CBEAD9] bg-[#EEF8F3]'
+                          ? 'bg-[#ECF7F2]'
                           : isNegative
-                            ? 'border-primaryBorder bg-primarySoft'
-                            : 'border-line bg-white'
+                            ? 'bg-primarySoft'
+                            : 'bg-white'
                       }`}
                     >
                       <Avatar
@@ -959,29 +977,29 @@ export function ExpenseBlock({
                       <Text
                         className={`text-xs font-bold ${
                           isPositive
-                            ? 'text-[#287B5B]'
+                            ? 'text-[#226F53]'
                             : isNegative
                               ? 'text-primaryDeep'
                               : 'text-inkMuted'
                         }`}
                       >
                         {isPositive
-                          ? `+${formatCents(balance.netCents, currency)} 应收`
+                          ? `+${formatCents(balance.netCents, currency)}`
                           : isNegative
-                            ? `${formatCents(balance.netCents, currency)} 应付`
-                            : `${formatCents(0, currency)} 已平`}
+                            ? formatCents(balance.netCents, currency)
+                            : '已平'}
                       </Text>
                     </View>
                   );
                 })}
               </View>
 
-              <View className="mt-3 border-t border-lineSoft pt-3">
+              <View className="mt-3.5 border-t border-dashed border-[#E5D8BE] pt-3">
                 <Text className="mb-2 text-xs font-bold text-ink">
                   最少转账结算方案
                 </Text>
                 {splitSummary.transfers.length === 0 ? (
-                  <Text className="text-xs text-[#287B5B]">
+                  <Text className="text-xs font-medium text-[#226F53]">
                     当前账目已全员平账，无需额外转账
                   </Text>
                 ) : (
@@ -1001,7 +1019,7 @@ export function ExpenseBlock({
                       return (
                         <View
                           key={`tx-${transfer.fromUserId}-${transfer.toUserId}-${idx}`}
-                          className="flex-row items-center justify-between gap-2 rounded-xl border border-line bg-white px-3 py-2"
+                          className="flex-row items-center justify-between gap-2 rounded-xl bg-white/90 px-3 py-2"
                         >
                           <View className="flex-1 flex-row items-center gap-1.5">
                             <Avatar
@@ -1014,13 +1032,16 @@ export function ExpenseBlock({
                               className="flex-1 text-xs font-medium text-ink"
                               numberOfLines={2}
                             >
-                              {fromName} 应向 {toName} 转账{' '}
-                              <Text className="font-bold text-primaryDeep">
-                                {amountText}
-                              </Text>
+                              {fromName} → {toName}
                             </Text>
                           </View>
-                          <ArrowRight size={13} color={THEME_COLORS.primary} />
+                          <Text
+                            style={{ color: EXPENSE_ACCENT.deep }}
+                            className="text-xs font-bold"
+                          >
+                            {amountText}
+                          </Text>
+                          <ArrowRight size={12} color={EXPENSE_ACCENT.accent} />
                           <Avatar
                             nickname={toName}
                             color={toProfile?.avatar_color}
@@ -1038,124 +1059,144 @@ export function ExpenseBlock({
         </View>
       )}
 
-      {sortedItems.length === 0 ? (
-        <View className="mt-3 rounded-2xl border border-dashed border-line bg-primaryMist px-4 py-4">
-          <Text className="text-center text-xs text-inkSubtle">
-            暂无消费明细{canCreateExpense ? '，点击下方按钮记入第一笔账目' : ''}
-          </Text>
-        </View>
-      ) : (
-        <LayoutAnimationConfig skipEntering>
-          <View className="mt-3 gap-2.5">
-            {sortedItems.map((item) => {
-              const payerProfile = memberProfileMap.get(item.data.paidByUserId);
-              const payerName = payerProfile?.nickname ?? '成员';
-              const dateLabel = formatExpenseDateLabel(item.data.spentAt);
-              const canEditOrDelete = permissions.canEditOrDeleteItem(
-                item.created_by,
-              );
-              const itemCents = Math.round(item.data.amount * 100);
+      <View className="mt-5">
+        <Text className="mb-1 text-xs font-semibold text-inkMuted">
+          消费明细 ({sortedItems.length})
+        </Text>
 
-              return (
-                <AnimatedItemRow key={item.id}>
-                  <View className="rounded-2xl border border-line bg-primaryMist p-3.5">
-                    <View className="flex-row items-start justify-between gap-2.5">
-                      <View className="flex-1">
-                        <View className="flex-row items-center justify-between gap-2">
-                          <Text
-                            className="flex-1 text-sm font-bold text-ink"
-                            numberOfLines={2}
-                          >
-                            {item.data.title}
-                          </Text>
-                          <Text className="text-base font-bold text-primaryDeep">
-                            {formatCents(itemCents, currency)}
-                          </Text>
-                        </View>
+        {sortedItems.length === 0 ? (
+          <View className="mt-2 rounded-2xl border border-dashed border-line bg-surface/60 px-4 py-7">
+            <Text className="text-center text-xs text-inkSubtle">
+              暂无消费明细{canCreateExpense ? '，点击下方按钮记入第一笔账目' : ''}
+            </Text>
+          </View>
+        ) : (
+          <LayoutAnimationConfig skipEntering>
+            <View>
+              {sortedItems.map((item) => {
+                const payerProfile = memberProfileMap.get(item.data.paidByUserId);
+                const payerName = payerProfile?.nickname ?? '成员';
+                const dateLabel = formatExpenseDateLabel(item.data.spentAt);
+                const canEditOrDelete = permissions.canEditOrDeleteItem(
+                  item.created_by,
+                );
+                const itemCents = Math.round(item.data.amount * 100);
 
-                        <View className="mt-2 flex-row flex-wrap items-center gap-2">
-                          <View className="flex-row items-center gap-1.5">
-                            <Avatar
-                              nickname={payerName}
-                              color={payerProfile?.avatar_color}
-                              imageUrl={payerProfile?.avatar_url}
-                              size="xs"
-                            />
-                            <Text className="text-xs font-medium text-ink/80">
-                              {payerName} 垫付
+                return (
+                  <AnimatedItemRow key={item.id}>
+                    <View className="border-b border-lineSoft py-3.5">
+                      <View className="flex-row items-start justify-between gap-3">
+                        <View className="flex-1">
+                          <View className="flex-row items-baseline justify-between gap-2">
+                            <Text
+                              className="flex-1 text-sm font-bold text-ink"
+                              numberOfLines={2}
+                            >
+                              {item.data.title}
+                            </Text>
+                            <Text
+                              style={{ color: EXPENSE_ACCENT.deep }}
+                              className="text-base font-bold"
+                            >
+                              {formatCents(itemCents, currency)}
                             </Text>
                           </View>
 
-                          <View className="flex-row items-center gap-1 rounded-full border border-line bg-white px-2 py-0.5">
-                            <Users size={10} color={THEME_COLORS.inkMuted} />
-                            <Text className="text-[10px] font-medium text-inkMuted">
-                              {item.data.participantIds.length} 人分摊
-                            </Text>
-                          </View>
+                          <View className="mt-1.5 flex-row flex-wrap items-center gap-2">
+                            <View className="flex-row items-center gap-1">
+                              <Avatar
+                                nickname={payerName}
+                                color={payerProfile?.avatar_color}
+                                imageUrl={payerProfile?.avatar_url}
+                                size="xs"
+                              />
+                              <Text className="text-xs text-inkMuted">
+                                {payerName} 垫付
+                              </Text>
+                            </View>
 
-                          {dateLabel ? (
-                            <Text className="text-[11px] text-inkSubtle">
-                              {dateLabel}
-                            </Text>
-                          ) : null}
+                            <View className="flex-row items-center gap-1 rounded-full bg-surface px-2 py-0.5">
+                              <Users size={10} color={THEME_COLORS.inkMuted} />
+                              <Text className="text-[10px] font-medium text-inkMuted">
+                                {item.data.participantIds.length} 人分摊
+                              </Text>
+                            </View>
+
+                            {dateLabel ? (
+                              <Text className="text-[11px] text-inkSubtle">
+                                {dateLabel}
+                              </Text>
+                            ) : null}
+                          </View>
                         </View>
+
+                        {item.data.receiptUrl ? (
+                          <ReceiptThumbnail
+                            key={item.data.receiptUrl}
+                            canonicalUrl={item.data.receiptUrl}
+                            onPress={() => setPreviewReceiptUrl(item.data.receiptUrl)}
+                          />
+                        ) : null}
                       </View>
 
-                      {item.data.receiptUrl ? (
-                        <ReceiptThumbnail
-                          key={item.data.receiptUrl}
-                          canonicalUrl={item.data.receiptUrl}
-                          onPress={() => setPreviewReceiptUrl(item.data.receiptUrl)}
-                        />
+                      {canEditOrDelete ? (
+                        <View className="mt-2 flex-row justify-end gap-2">
+                          <MotionPressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`编辑消费 ${item.data.title}`}
+                            onPress={() => handleOpenEditForm(item)}
+                            scaleTo={0.94}
+                            className="flex-row items-center gap-1 rounded-full bg-surface px-2.5 py-1"
+                          >
+                            <Edit3 size={11} color={THEME_COLORS.inkMuted} />
+                            <Text className="text-[11px] font-semibold text-inkMuted">
+                              编辑
+                            </Text>
+                          </MotionPressable>
+                          <MotionPressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`删除消费 ${item.data.title}`}
+                            onPress={() => setDeleteItemTarget(item)}
+                            scaleTo={0.94}
+                            className="flex-row items-center gap-1 rounded-full bg-[#FEF2F2] px-2.5 py-1"
+                          >
+                            <Trash2 size={11} color={THEME_COLORS.danger} />
+                            <Text className="text-[11px] font-semibold text-[#C23B3B]">
+                              删除
+                            </Text>
+                          </MotionPressable>
+                        </View>
                       ) : null}
                     </View>
-
-                    {canEditOrDelete ? (
-                      <View className="mt-2.5 flex-row justify-end gap-2 border-t border-lineSoft pt-2">
-                        <MotionPressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`编辑消费 ${item.data.title}`}
-                          onPress={() => handleOpenEditForm(item)}
-                          scaleTo={0.94}
-                          className="flex-row items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1"
-                        >
-                          <Edit3 size={12} color={THEME_COLORS.inkMuted} />
-                          <Text className="text-[11px] font-semibold text-inkMuted">
-                            编辑
-                          </Text>
-                        </MotionPressable>
-                        <MotionPressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`删除消费 ${item.data.title}`}
-                          onPress={() => setDeleteItemTarget(item)}
-                          scaleTo={0.94}
-                          className="flex-row items-center gap-1 rounded-lg border border-[#FAD2D0] bg-white px-2.5 py-1"
-                        >
-                          <Trash2 size={12} color={THEME_COLORS.danger} />
-                          <Text className="text-[11px] font-semibold text-[#C94545]">
-                            删除
-                          </Text>
-                        </MotionPressable>
-                      </View>
-                    ) : null}
-                  </View>
-                </AnimatedItemRow>
-              );
-            })}
-          </View>
-        </LayoutAnimationConfig>
-      )}
+                  </AnimatedItemRow>
+                );
+              })}
+            </View>
+          </LayoutAnimationConfig>
+        )}
+      </View>
 
       {canCreateExpense ? (
-        <View className="mt-3.5 border-t border-lineSoft pt-3">
-          <Button
-            title="记一笔消费"
-            variant="secondary"
-            size="sm"
-            fullWidth
-            leftIcon={<Plus size={14} color={THEME_COLORS.primaryDeep} />}
+        <View className="mt-5">
+          <MotionPressable
+            accessibilityRole="button"
+            accessibilityLabel="记一笔消费"
             onPress={handleOpenCreateForm}
-          />
+            scaleTo={0.97}
+            style={{
+              backgroundColor: EXPENSE_ACCENT.soft,
+              borderColor: EXPENSE_ACCENT.border,
+            }}
+            className="flex-row items-center justify-center gap-1.5 rounded-2xl border py-3"
+          >
+            <Plus size={15} color={EXPENSE_ACCENT.deep} strokeWidth={2.4} />
+            <Text
+              style={{ color: EXPENSE_ACCENT.deep }}
+              className="text-sm font-semibold"
+            >
+              记一笔消费
+            </Text>
+          </MotionPressable>
         </View>
       ) : null}
 
@@ -1556,6 +1597,6 @@ export function ExpenseBlock({
           />
         </View>
       </SheetModal>
-    </Card>
+    </View>
   );
 }

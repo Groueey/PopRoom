@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 /** Semantic color variants supported by `Badge`. */
-export type BadgeVariant = 'primary' | 'neutral' | 'success' | 'warning' | 'danger';
+export type BadgeVariant = 'primary' | 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
 /** Size presets supported by `Badge`. */
 export type BadgeSize = 'sm' | 'md';
@@ -20,17 +20,19 @@ export interface BadgeProps {
 const CONTAINER_VARIANT_CLASSES: Record<BadgeVariant, string> = {
   primary: 'bg-primarySoft border border-primaryBorder',
   neutral: 'bg-surface border border-line',
-  success: 'bg-[#EEF8F3] border border-[#CBEAD9]',
-  warning: 'bg-[#FEF7E8] border border-[#F5DFB3]',
-  danger: 'bg-[#FEF2F2] border border-[#FAD2D0]',
+  success: 'bg-[#ECF7F2] border border-[#C4E5D6]',
+  warning: 'bg-[#FDF6E9] border border-[#F3DFB8]',
+  danger: 'bg-[#FEF2F2] border border-[#F8CFCF]',
+  info: 'bg-[#EEF4FD] border border-[#C9DCFA]',
 };
 
 const TEXT_VARIANT_CLASSES: Record<BadgeVariant, string> = {
   primary: 'text-primaryDeep',
   neutral: 'text-inkMuted',
-  success: 'text-[#287B5B]',
-  warning: 'text-[#A66214]',
-  danger: 'text-[#C94545]',
+  success: 'text-[#226F53]',
+  warning: 'text-[#9B5F0F]',
+  danger: 'text-[#C23B3B]',
+  info: 'text-[#2E5CB8]',
 };
 
 const SIZE_CLASSES: Record<BadgeSize, string> = {

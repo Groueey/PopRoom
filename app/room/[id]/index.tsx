@@ -7,12 +7,13 @@ import {
   Archive,
   ArrowUpDown,
   BarChart3,
-  Calendar,
   CalendarClock,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   LayoutGrid,
   Megaphone,
@@ -20,7 +21,6 @@ import {
   Plus,
   Settings,
   Share2,
-  Users,
   Wallet,
 } from 'lucide-react-native';
 import React, {
@@ -82,10 +82,9 @@ import { Badge } from '../../../src/components/ui/Badge';
 import { Button } from '../../../src/components/ui/Button';
 import { Card } from '../../../src/components/ui/Card';
 import {
-  AnimatedBlockShell,
   AnimatedCheckBadge,
   AnimatedPanelReveal,
-  LayoutAnimationConfig,
+  AnimatedProgressBar,
   MotionPressable,
 } from '../../../src/components/ui/Motion';
 import { OfflineSyncBanner } from '../../../src/components/ui/OfflineSyncBanner';
@@ -103,6 +102,13 @@ import {
   moveBlockInOrder,
 } from '../../../src/lib/blockOrderHelpers';
 import {
+  type BlockOverviewPreview,
+  buildBlockOverviewSummary,
+  collectBoardPendingActions,
+  formatCompactChatTime,
+  selectRecentChatPreviewMessages,
+} from '../../../src/lib/boardOverviewHelpers';
+import {
   type ParsedRoomMessage,
   buildBlockPrefillFromMessage,
   buildBlockReminderMessage,
@@ -112,7 +118,7 @@ import { QUERY_KEYS } from '../../../src/lib/queryClient';
 import { resolveRoomScreenState } from '../../../src/lib/roomScreenState';
 import { shareRoomInvite } from '../../../src/lib/shareInvite';
 import { ROOM_TEMPLATES } from '../../../src/lib/templates';
-import { FLOATING_SHADOW, THEME_COLORS } from '../../../src/lib/theme';
+import { BLOCK_ACCENTS, CARD_SHADOW, THEME_COLORS } from '../../../src/lib/theme';
 import type { PollTally } from '../../../src/schemas/blocks';
 import { useAuthStore } from '../../../src/stores/authStore';
 import { useUiStore } from '../../../src/stores/uiStore';
@@ -452,6 +458,10 @@ export default function RoomBoardScreen() {
   const canOpenAddBlockSheet = allowedBlockTypes.length > 0;
 
   const [activeTab, setActiveTab] = useState<RoomActiveTab>('board');
+  const [selectedBoardView, setSelectedBoardView] = useState<'overview' | string>(
+    'overview',
+  );
+  const [announcementExpanded, setAnnouncementExpanded] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
   const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
     null,
@@ -485,19 +495,13 @@ export default function RoomBoardScreen() {
   const [deletingBlock, setDeletingBlock] = useState(false);
 
   const boardScrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
-  const blockOffsetsRef = useRef<Record<string, number>>({});
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMarkedReadStampRef = useRef<string | null>(null);
   const prevRoomChatRef = useRef<{
     roomId: string;
     chatEnabled: boolean;
   } | null>(null);
 
-  const [justAddedBlockId, setJustAddedBlockId] = useState<string | null>(null);
-  const clearJustAddedBlock = useCallback(() => {
-    setJustAddedBlockId(null);
-  }, []);
   const clearPendingBlockDraft = useCallback(() => {
     setPendingBlockDraft(null);
   }, []);
@@ -533,12 +537,22 @@ export default function RoomBoardScreen() {
 
   useEffect(() => {
     setActiveTab('board');
+    setSelectedBoardView('overview');
+    setAnnouncementExpanded(false);
     setReorderMode(false);
     setHighlightedBlockId(null);
     setPendingBlockDraft(null);
-    blockOffsetsRef.current = {};
     lastMarkedReadStampRef.current = null;
   }, [roomId]);
+
+  useEffect(() => {
+    if (
+      selectedBoardView !== 'overview' &&
+      !blocks.some((entry) => entry.id === selectedBoardView)
+    ) {
+      setSelectedBoardView('overview');
+    }
+  }, [blocks, selectedBoardView]);
 
   useEffect(() => {
     lastMarkedReadStampRef.current = null;
@@ -548,9 +562,6 @@ export default function RoomBoardScreen() {
     return () => {
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current);
-      }
-      if (scrollTimerRef.current) {
-        clearTimeout(scrollTimerRef.current);
       }
     };
   }, []);
@@ -708,25 +719,6 @@ export default function RoomBoardScreen() {
     ],
   );
 
-  const scheduleScrollToBlock = useCallback((blockId: string, delayMs = 140) => {
-    if (scrollTimerRef.current) {
-      clearTimeout(scrollTimerRef.current);
-    }
-    scrollTimerRef.current = setTimeout(() => {
-      requestAnimationFrame(() => {
-        const targetY = blockOffsetsRef.current[blockId];
-        if (typeof targetY === 'number') {
-          boardScrollRef.current?.scrollTo({
-            y: Math.max(0, targetY - 12),
-            animated: true,
-          });
-        } else {
-          boardScrollRef.current?.scrollToEnd({ animated: true });
-        }
-      });
-    }, delayMs);
-  }, []);
-
   const triggerHighlightBlock = useCallback((blockId: string) => {
     if (highlightTimerRef.current) {
       clearTimeout(highlightTimerRef.current);
@@ -746,10 +738,12 @@ export default function RoomBoardScreen() {
         showToast('该协作积木已不存在或已被移除', 'info');
         return;
       }
+      setReorderMode(false);
+      setSelectedBoardView(blockId);
       triggerHighlightBlock(blockId);
-      scheduleScrollToBlock(blockId, 140);
+      boardScrollRef.current?.scrollTo({ y: 0, animated: false });
     },
-    [blocks, scheduleScrollToBlock, showToast, triggerHighlightBlock],
+    [blocks, showToast, triggerHighlightBlock],
   );
 
   const handleSendBlockReminder = useCallback(
@@ -873,7 +867,6 @@ export default function RoomBoardScreen() {
                 });
 
           targetBlockId = created.id;
-          setJustAddedBlockId(created.id);
           queryClient.setQueryData<ParsedBlock[]>(
             QUERY_KEYS.roomBlocks(room.id),
             (old = []) =>
@@ -894,8 +887,9 @@ export default function RoomBoardScreen() {
 
       setReorderMode(false);
       setActiveTab('board');
+      setSelectedBoardView(targetBlockId);
       triggerHighlightBlock(targetBlockId);
-      scheduleScrollToBlock(targetBlockId, 180);
+      boardScrollRef.current?.scrollTo({ y: 0, animated: false });
       setPendingBlockDraft({
         targetBlockId,
         nonce: Date.now(),
@@ -912,7 +906,6 @@ export default function RoomBoardScreen() {
       queryClient,
       showToast,
       triggerHighlightBlock,
-      scheduleScrollToBlock,
     ],
   );
 
@@ -1084,18 +1077,23 @@ export default function RoomBoardScreen() {
 
     try {
       const payload = buildCreateBlockPayload();
-      const created = await createBlock(payload);
+      const created = (await createBlock(payload)) as ParsedBlock;
       setAddSheetVisible(false);
-      setJustAddedBlockId(created.id);
+      queryClient.setQueryData<ParsedBlock[]>(
+        QUERY_KEYS.roomBlocks(roomId),
+        (old = []) =>
+          old.some((entry) => entry.id === created.id) ? old : [...old, created],
+      );
+      setReorderMode(false);
+      setSelectedBoardView(created.id);
+      triggerHighlightBlock(created.id);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.roomBlocks(roomId) }),
         queryClient.invalidateQueries({
           queryKey: QUERY_KEYS.roomPollTallies(roomId),
         }),
       ]);
-      setTimeout(() => {
-        boardScrollRef.current?.scrollToEnd({ animated: true });
-      }, 180);
+      boardScrollRef.current?.scrollTo({ y: 0, animated: false });
       showToast('已添加新积木', 'success');
     } catch (err) {
       setAddBlockError(mapRoomError(err));
@@ -1108,10 +1106,14 @@ export default function RoomBoardScreen() {
     if (!deleteTarget || !permissions.canManageBlocks) {
       return;
     }
+    const deletedId = deleteTarget.id;
     setDeletingBlock(true);
     try {
-      await deleteBlock(deleteTarget.id);
+      await deleteBlock(deletedId);
       setDeleteTarget(null);
+      if (selectedBoardView === deletedId) {
+        setSelectedBoardView('overview');
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.roomBlocks(roomId) }),
         queryClient.invalidateQueries({
@@ -1125,6 +1127,55 @@ export default function RoomBoardScreen() {
       setDeletingBlock(false);
     }
   };
+
+  const blockOverviewSummaries = useMemo(
+    () =>
+      new Map(
+        blocks.map((block) => [
+          block.id,
+          buildBlockOverviewSummary(
+            block,
+            talliesByBlockId.get(block.id) ?? [],
+            activeMembers.length,
+          ),
+        ]),
+      ),
+    [blocks, talliesByBlockId, activeMembers.length],
+  );
+
+  const pendingBoardActions = useMemo(
+    () =>
+      collectBoardPendingActions({
+        blocks,
+        talliesByBlockId,
+        currentUserId,
+        isReadOnly: permissions.isReadOnly,
+      }),
+    [blocks, talliesByBlockId, currentUserId, permissions.isReadOnly],
+  );
+
+  const focusedBlock = useMemo(() => {
+    if (selectedBoardView === 'overview') {
+      return null;
+    }
+    return blocks.find((entry) => entry.id === selectedBoardView) ?? null;
+  }, [blocks, selectedBoardView]);
+
+  const memberNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const member of activeMembers) {
+      map.set(member.user_id, member.profiles?.nickname ?? '成员');
+    }
+    return map;
+  }, [activeMembers]);
+
+  const recentChatMessages = useMemo(
+    () =>
+      room?.chat_enabled
+        ? selectRecentChatPreviewMessages(messages, blockedUserIds, 2)
+        : [],
+    [room?.chat_enabled, messages, blockedUserIds],
+  );
 
   const screenState = resolveRoomScreenState({
     mode: 'board',
@@ -1204,14 +1255,103 @@ export default function RoomBoardScreen() {
 
   const isChatVisible = room.chat_enabled && activeTab === 'chat';
   const unreadBadgeText = unreadChatCount > 99 ? '99+' : String(unreadChatCount);
+  const isFocusedBlockView = !isChatVisible && focusedBlock !== null;
+
+  const shouldShowExpandedAnnouncement =
+    announcementSummary.hasAnnouncement &&
+    ((!announcementSummary.hasCurrentUserAcked && !permissions.isReadOnly) ||
+      announcementExpanded);
+
+  const renderFocusedBlock = (block: ParsedBlock) => {
+    const isHighlighted = highlightedBlockId === block.id;
+    switch (block.type) {
+      case 'poll':
+        return (
+          <PollBlock
+            block={block}
+            items={block.items}
+            tallies={talliesByBlockId.get(block.id) ?? []}
+            members={activeMembers}
+            permissions={permissions}
+            onRequestDeleteBlock={
+              permissions.canManageBlocks ? setDeleteTarget : undefined
+            }
+            highlighted={isHighlighted}
+            onSendReminder={
+              permissions.canSendBlockReminder
+                ? () => void handleSendBlockReminder(block)
+                : undefined
+            }
+            sendingReminder={sendingReminderBlockId === block.id}
+          />
+        );
+      case 'task':
+        return (
+          <TaskBlock
+            block={block}
+            items={block.items}
+            members={activeMembers}
+            permissions={permissions}
+            onRequestDeleteBlock={
+              permissions.canManageBlocks ? setDeleteTarget : undefined
+            }
+            highlighted={isHighlighted}
+            onSendReminder={
+              permissions.canSendBlockReminder
+                ? () => void handleSendBlockReminder(block)
+                : undefined
+            }
+            sendingReminder={sendingReminderBlockId === block.id}
+            externalCreateDraft={
+              pendingBlockDraft?.targetBlockId === block.id
+                ? pendingBlockDraft
+                : null
+            }
+            onConsumeExternalCreateDraft={clearPendingBlockDraft}
+          />
+        );
+      case 'schedule':
+        return (
+          <ScheduleBlock
+            block={block}
+            items={block.items}
+            members={activeMembers}
+            permissions={permissions}
+            onRequestDeleteBlock={
+              permissions.canManageBlocks ? setDeleteTarget : undefined
+            }
+            highlighted={isHighlighted}
+            externalCreateDraft={
+              pendingBlockDraft?.targetBlockId === block.id
+                ? pendingBlockDraft
+                : null
+            }
+            onConsumeExternalCreateDraft={clearPendingBlockDraft}
+          />
+        );
+      case 'expense':
+        return (
+          <ExpenseBlock
+            block={block}
+            items={block.items}
+            members={activeMembers}
+            permissions={permissions}
+            onRequestDeleteBlock={
+              permissions.canManageBlocks ? setDeleteTarget : undefined
+            }
+            highlighted={isHighlighted}
+          />
+        );
+    }
+  };
 
   return (
     <SafeAreaView
-      className="flex-1 bg-surface"
+      className={isFocusedBlockView ? 'flex-1 bg-white' : 'flex-1 bg-surface'}
       edges={isChatVisible ? ['top'] : ['top', 'bottom']}
     >
-      <View className="flex-row items-center justify-between border-b border-line bg-white px-4 py-3">
-        <View className="flex-1 flex-row items-center gap-2.5 pr-2">
+      <View className="flex-row items-center justify-between bg-white px-4 pb-2.5 pt-2.5">
+        <View className="flex-1 flex-row items-center gap-2 pr-2">
           <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="返回活动大厅"
@@ -1223,7 +1363,7 @@ export default function RoomBoardScreen() {
           </MotionPressable>
 
           <View className="flex-1">
-            <Text className="text-base font-bold text-ink" numberOfLines={1}>
+            <Text className="text-[16px] font-bold text-ink" numberOfLines={1}>
               {room.title}
             </Text>
             <View className="mt-0.5 flex-row items-center gap-1.5">
@@ -1235,7 +1375,7 @@ export default function RoomBoardScreen() {
                 accessibilityLabel={`分享或复制房间码 ${room.room_code}`}
                 onPress={() => void handleShareRoomInvite()}
                 scaleTo={0.94}
-                className="flex-row items-center gap-1 rounded-full border border-primaryBorder bg-primarySoft px-2 py-0.5"
+                className="flex-row items-center gap-1 rounded-full bg-primarySoft px-2 py-0.5"
               >
                 <Text className="text-[11px] font-bold tracking-wider text-primaryDeep">
                   {room.room_code}
@@ -1246,7 +1386,7 @@ export default function RoomBoardScreen() {
           </View>
         </View>
 
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-1.5">
           <MotionPressable
             accessibilityRole="button"
             accessibilityLabel="导出复盘"
@@ -1254,7 +1394,7 @@ export default function RoomBoardScreen() {
             scaleTo={0.92}
             className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <Share2 size={17} color={THEME_COLORS.ink} />
+            <Share2 size={16} color={THEME_COLORS.inkMuted} />
           </MotionPressable>
           <MotionPressable
             accessibilityRole="button"
@@ -1263,34 +1403,43 @@ export default function RoomBoardScreen() {
             scaleTo={0.92}
             className="h-9 w-9 items-center justify-center rounded-full bg-surface"
           >
-            <Settings size={17} color={THEME_COLORS.ink} />
+            <Settings size={16} color={THEME_COLORS.inkMuted} />
           </MotionPressable>
         </View>
       </View>
 
       {room.chat_enabled ? (
-        <View className="border-b border-line bg-white px-4 py-2">
-          <View className="flex-row gap-1 rounded-2xl border border-lineSoft bg-surface p-1">
+        <View
+          className={`bg-white px-4 pb-2 ${
+            isChatVisible ? 'border-b border-line' : ''
+          }`}
+        >
+          <View className="flex-row gap-1 rounded-xl bg-surface p-1">
             <MotionPressable
               accessibilityRole="tab"
               accessibilityState={{ selected: activeTab === 'board' }}
               accessibilityLabel="协作看板"
               onPress={() => setActiveTab('board')}
               flex
-              scaleTo={0.97}
-              className={`flex-row items-center justify-center gap-1.5 rounded-xl py-2 ${
-                activeTab === 'board' ? 'bg-primary' : 'bg-transparent'
+              scaleTo={0.98}
+              style={activeTab === 'board' ? CARD_SHADOW : undefined}
+              className={`flex-row items-center justify-center gap-1.5 rounded-[10px] py-1.5 ${
+                activeTab === 'board' ? 'bg-white' : 'bg-transparent'
               }`}
             >
               <LayoutGrid
-                size={14}
+                size={13}
                 color={
-                  activeTab === 'board' ? '#FFFFFF' : THEME_COLORS.inkMuted
+                  activeTab === 'board'
+                    ? THEME_COLORS.primary
+                    : THEME_COLORS.inkMuted
                 }
               />
               <Text
-                className={`text-xs font-bold ${
-                  activeTab === 'board' ? 'text-white' : 'text-inkMuted'
+                className={`text-xs ${
+                  activeTab === 'board'
+                    ? 'font-bold text-ink'
+                    : 'font-medium text-inkMuted'
                 }`}
               >
                 协作看板
@@ -1310,25 +1459,32 @@ export default function RoomBoardScreen() {
                 setActiveTab('chat');
               }}
               flex
-              scaleTo={0.97}
-              className={`flex-row items-center justify-center gap-1.5 rounded-xl py-2 ${
-                activeTab === 'chat' ? 'bg-primary' : 'bg-transparent'
+              scaleTo={0.98}
+              style={activeTab === 'chat' ? CARD_SHADOW : undefined}
+              className={`flex-row items-center justify-center gap-1.5 rounded-[10px] py-1.5 ${
+                activeTab === 'chat' ? 'bg-white' : 'bg-transparent'
               }`}
             >
               <MessageCircle
-                size={14}
-                color={activeTab === 'chat' ? '#FFFFFF' : THEME_COLORS.inkMuted}
+                size={13}
+                color={
+                  activeTab === 'chat'
+                    ? THEME_COLORS.primary
+                    : THEME_COLORS.inkMuted
+                }
               />
               <Text
-                className={`text-xs font-bold ${
-                  activeTab === 'chat' ? 'text-white' : 'text-inkMuted'
+                className={`text-xs ${
+                  activeTab === 'chat'
+                    ? 'font-bold text-ink'
+                    : 'font-medium text-inkMuted'
                 }`}
               >
                 聊天室
               </Text>
               {activeTab === 'board' && unreadChatCount > 0 ? (
                 <View
-                  style={{ backgroundColor: THEME_COLORS.danger }}
+                  style={{ backgroundColor: THEME_COLORS.primary }}
                   className="min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5"
                 >
                   <Text className="text-[10px] font-bold leading-3 text-white">
@@ -1338,6 +1494,122 @@ export default function RoomBoardScreen() {
               ) : null}
             </MotionPressable>
           </View>
+        </View>
+      ) : null}
+
+      {!isChatVisible ? (
+        <View className="flex-row items-center border-b border-line bg-white py-2.5">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="flex-1"
+            contentContainerStyle={{
+              paddingLeft: 16,
+              paddingRight: canOpenAddBlockSheet && !reorderMode ? 10 : 16,
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
+            <MotionPressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: selectedBoardView === 'overview' }}
+              accessibilityLabel="看板总览"
+              onPress={() => {
+                setSelectedBoardView('overview');
+                boardScrollRef.current?.scrollTo({ y: 0, animated: false });
+              }}
+              scaleTo={0.96}
+              style={{
+                backgroundColor:
+                  selectedBoardView === 'overview'
+                    ? THEME_COLORS.primary
+                    : THEME_COLORS.lineSoft,
+              }}
+              className="flex-row items-center gap-1.5 rounded-full px-3.5 py-1.5"
+            >
+              <LayoutGrid
+                size={12}
+                color={
+                  selectedBoardView === 'overview'
+                    ? '#FFFFFF'
+                    : THEME_COLORS.inkMuted
+                }
+              />
+              <Text
+                className={`text-xs ${
+                  selectedBoardView === 'overview'
+                    ? 'font-bold text-white'
+                    : 'font-medium text-inkMuted'
+                }`}
+              >
+                总览
+              </Text>
+            </MotionPressable>
+
+            {blocks.map((block) => {
+              const isSelected = selectedBoardView === block.id;
+              const palette = BLOCK_ACCENTS[block.type];
+              const summary = blockOverviewSummaries.get(block.id);
+
+              return (
+                <MotionPressable
+                  key={`pill-${block.id}`}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={block.title}
+                  onPress={() => {
+                    setReorderMode(false);
+                    setSelectedBoardView(block.id);
+                    boardScrollRef.current?.scrollTo({ y: 0, animated: false });
+                  }}
+                  scaleTo={0.96}
+                  style={{
+                    backgroundColor: isSelected
+                      ? palette.accent
+                      : THEME_COLORS.lineSoft,
+                  }}
+                  className="flex-row items-center gap-1.5 rounded-full px-3.5 py-1.5"
+                >
+                  <View
+                    style={{
+                      backgroundColor: isSelected ? '#FFFFFF' : palette.accent,
+                    }}
+                    className="h-1.5 w-1.5 rounded-full"
+                  />
+                  <Text
+                    className={`text-xs ${
+                      isSelected
+                        ? 'font-bold text-white'
+                        : 'font-medium text-ink/85'
+                    }`}
+                    numberOfLines={1}
+                  >
+                    {summary?.pillText ?? block.title}
+                  </Text>
+                </MotionPressable>
+              );
+            })}
+          </ScrollView>
+
+          {canOpenAddBlockSheet && !reorderMode ? (
+            <View className="border-l border-lineSoft pl-2.5 pr-4">
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  permissions.canManageBlocks ? '添加积木' : '发起新投票'
+                }
+                onPress={handleOpenAddSheet}
+                scaleTo={0.92}
+                className="h-7 w-7 items-center justify-center rounded-full border border-primaryBorder bg-primarySoft"
+              >
+                <Plus
+                  size={14}
+                  color={THEME_COLORS.primaryDeep}
+                  strokeWidth={2.5}
+                />
+              </MotionPressable>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -1358,416 +1630,868 @@ export default function RoomBoardScreen() {
             }
           />
         </View>
-      ) : (
-        <>
-          <ScrollView
-            ref={boardScrollRef}
-            className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: 36 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing && !blocksLoading}
-                onRefresh={handleRefreshAll}
-                tintColor={THEME_COLORS.primary}
-                colors={[THEME_COLORS.primary]}
+      ) : isFocusedBlockView && focusedBlock ? (
+        <ScrollView
+          ref={boardScrollRef}
+          className="flex-1 bg-white"
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing && !blocksLoading}
+              onRefresh={handleRefreshAll}
+              tintColor={BLOCK_ACCENTS[focusedBlock.type].accent}
+              colors={[BLOCK_ACCENTS[focusedBlock.type].accent]}
+            />
+          }
+        >
+          {screenState.kind === 'ready' && screenState.syncWarning ? (
+            <View className="px-4 pt-3">
+              <OfflineSyncBanner
+                message={screenState.syncWarning}
+                onRetry={handleRefreshAll}
+                retrying={isRefreshing}
               />
-            }
-          >
-        {screenState.kind === 'ready' && screenState.syncWarning ? (
-          <OfflineSyncBanner
-            message={screenState.syncWarning}
-            onRetry={handleRefreshAll}
-            retrying={isRefreshing}
-          />
-        ) : null}
+            </View>
+          ) : null}
 
-        {permissions.isArchived ? (
-          <View className="mb-4 flex-row items-center gap-2.5 rounded-2xl border border-[#F5DFB3] bg-[#FEF7E8] px-4 py-3">
-            <Archive size={18} color={THEME_COLORS.warning} />
-            <View className="flex-1">
-              <Text className="text-xs font-bold text-[#8C5210]">
-                活动已归档 · 全员只读模式
-              </Text>
-              <Text className="mt-0.5 text-xs text-[#A66214]">
-                归档后仅支持浏览记录与导出复盘长图 / PDF，不可再修改积木或条目
+          {permissions.isArchived ? (
+            <View className="mx-4 mt-3 flex-row items-center gap-2 rounded-2xl border border-[#F3DFB8] bg-[#FDF6E9] px-3.5 py-2.5">
+              <Archive size={15} color={THEME_COLORS.warning} />
+              <Text className="flex-1 text-xs font-medium text-[#9B5F0F]">
+                活动已归档 · 当前为只读复盘模式
               </Text>
             </View>
-          </View>
-        ) : null}
+          ) : null}
 
-        <Card className="mb-4 overflow-hidden">
-          <View className="mb-2.5 flex-row items-center justify-between gap-2">
-            <View className="flex-row items-center gap-2">
-              <View className="h-6 w-6 items-center justify-center rounded-lg bg-primarySoft">
-                <Megaphone size={13} color={THEME_COLORS.primary} />
+          <View className="px-4 pt-4">{renderFocusedBlock(focusedBlock)}</View>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          ref={boardScrollRef}
+          className="flex-1 bg-surface px-4 pt-3.5"
+          contentContainerStyle={{ paddingBottom: 36 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing && !blocksLoading}
+              onRefresh={handleRefreshAll}
+              tintColor={THEME_COLORS.primary}
+              colors={[THEME_COLORS.primary]}
+            />
+          }
+        >
+          {screenState.kind === 'ready' && screenState.syncWarning ? (
+            <OfflineSyncBanner
+              message={screenState.syncWarning}
+              onRetry={handleRefreshAll}
+              retrying={isRefreshing}
+            />
+          ) : null}
+
+          {permissions.isArchived ? (
+            <View className="mb-3.5 flex-row items-center gap-2.5 rounded-2xl border border-[#F3DFB8] bg-[#FDF6E9] px-3.5 py-3">
+              <Archive size={17} color={THEME_COLORS.warning} />
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-[#8A510A]">
+                  活动已归档 · 全员只读模式
+                </Text>
+                <Text className="mt-0.5 text-[11px] text-[#9B5F0F]">
+                  仅支持浏览记录与导出复盘长图 / PDF
+                </Text>
               </View>
-              <Text className="text-xs font-bold text-ink">房间公告</Text>
-              {announcementSummary.hasAnnouncement ? (
-                <Badge
-                  label={
-                    announcementSummary.hasCurrentUserAcked
-                      ? '已收到'
-                      : '待读确认'
-                  }
-                  variant={
-                    announcementSummary.hasCurrentUserAcked
-                      ? 'success'
-                      : 'warning'
-                  }
-                />
-              ) : null}
             </View>
-            <View className="flex-row items-center gap-1.5">
-              {myMembership ? (
-                <Badge
-                  label={ROLE_LABELS[myMembership.role]}
-                  variant={
-                    myMembership.role === 'host'
-                      ? 'primary'
-                      : myMembership.role === 'admin'
-                        ? 'warning'
-                        : 'neutral'
-                  }
-                />
-              ) : null}
-              {eventWindow ? (
-                <View className="flex-row items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5">
-                  <Calendar size={11} color={THEME_COLORS.inkMuted} />
-                  <Text className="text-[11px] font-medium text-inkMuted">
-                    {eventWindow}
+          ) : null}
+
+          {announcementSummary.hasAnnouncement ? (
+            shouldShowExpandedAnnouncement ? (
+              <View className="mb-3.5 rounded-2xl border border-[#F3E2D4] bg-[#FDF6F0] px-3.5 py-3">
+                <View className="flex-row items-center justify-between gap-2">
+                  <View className="flex-row items-center gap-2">
+                    <Megaphone size={14} color={THEME_COLORS.primary} />
+                    <Text className="text-xs font-bold text-ink">房间公告</Text>
+                    <Text className="text-[11px] text-[#8C6B54]">
+                      已收到 {announcementSummary.ackedCount}/
+                      {announcementSummary.totalCount}
+                    </Text>
+                  </View>
+                  {myMembership && myMembership.role !== 'member' ? (
+                    <Badge
+                      label={ROLE_LABELS[myMembership.role]}
+                      variant={
+                        myMembership.role === 'host' ? 'primary' : 'warning'
+                      }
+                    />
+                  ) : null}
+                </View>
+
+                <Text className="mt-2 text-[13px] leading-5 text-ink/90">
+                  {room.announcement}
+                </Text>
+
+                <View className="mt-2.5 flex-row items-center justify-between">
+                  <MotionPressable
+                    accessibilityRole="button"
+                    accessibilityLabel="查看公告已读确认名单"
+                    onPress={() => setAckSheetVisible(true)}
+                    scaleTo={0.96}
+                    className="flex-row items-center gap-0.5 py-1"
+                  >
+                    <Text className="text-[11px] font-semibold text-[#8C6B54]">
+                      查看已读名单
+                    </Text>
+                    <ChevronRight size={12} color="#8C6B54" />
+                  </MotionPressable>
+
+                  {!announcementSummary.hasCurrentUserAcked &&
+                  !permissions.isReadOnly ? (
+                    <MotionPressable
+                      accessibilityRole="button"
+                      accessibilityLabel="我已阅读并确认收到"
+                      disabled={ackAnnouncementMutation.isPending}
+                      onPress={() => {
+                        setAnnouncementExpanded(false);
+                        ackAnnouncementMutation.mutate();
+                      }}
+                      scaleTo={0.95}
+                      className="flex-row items-center gap-1 rounded-full bg-primary px-3.5 py-1.5"
+                    >
+                      {ackAnnouncementMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <CheckCircle2 size={13} color="#FFFFFF" />
+                      )}
+                      <Text className="text-xs font-semibold text-white">
+                        我已收到
+                      </Text>
+                    </MotionPressable>
+                  ) : (
+                    <MotionPressable
+                      accessibilityRole="button"
+                      accessibilityLabel="收起公告"
+                      onPress={() => setAnnouncementExpanded(false)}
+                      scaleTo={0.95}
+                      className="rounded-full bg-white px-3 py-1"
+                    >
+                      <Text className="text-[11px] font-semibold text-inkMuted">
+                        收起
+                      </Text>
+                    </MotionPressable>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <MotionPressable
+                accessibilityRole="button"
+                accessibilityLabel="展开房间公告"
+                onPress={() => setAnnouncementExpanded(true)}
+                scaleTo={0.985}
+                className="mb-3.5 flex-row items-center justify-between gap-2 rounded-2xl border border-line bg-white px-3.5 py-2.5"
+              >
+                <View className="flex-1 flex-row items-center gap-2">
+                  <CheckCircle2 size={14} color={THEME_COLORS.success} />
+                  <Text
+                    className="flex-1 text-xs text-inkMuted"
+                    numberOfLines={1}
+                  >
+                    <Text className="font-semibold text-ink">
+                      公告已确认 ({announcementSummary.ackedCount}/
+                      {announcementSummary.totalCount})
+                    </Text>
+                    {' · '}
+                    {room.announcement}
                   </Text>
+                </View>
+                <Text className="text-[11px] font-semibold text-inkSubtle">
+                  展开
+                </Text>
+              </MotionPressable>
+            )
+          ) : permissions.isAdminOrHost && !permissions.isReadOnly ? (
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel="前往发布房间公告"
+              onPress={() => router.push(`/room/${room.id}/settings` as Href)}
+              scaleTo={0.985}
+              className="mb-3.5 flex-row items-center justify-between rounded-2xl border border-dashed border-line bg-white/80 px-3.5 py-2.5"
+            >
+              <View className="flex-row items-center gap-2">
+                <Megaphone size={13} color={THEME_COLORS.inkSubtle} />
+                <Text className="text-xs text-inkMuted">
+                  暂无房间公告，点此发布集合通知或活动规则
+                </Text>
+              </View>
+              <ChevronRight size={14} color={THEME_COLORS.inkSubtle} />
+            </MotionPressable>
+          ) : null}
+
+          {pendingBoardActions.length > 0 ? (
+            <View className="mb-4 rounded-2xl border border-primaryBorder bg-[#FFF9F6] px-3.5 py-1">
+              {pendingBoardActions.map((action, idx) => {
+                const dotColor =
+                  action.kind === 'poll'
+                    ? BLOCK_ACCENTS.poll.accent
+                    : BLOCK_ACCENTS.task.accent;
+                const ctaBg =
+                  action.kind === 'poll'
+                    ? BLOCK_ACCENTS.poll.soft
+                    : BLOCK_ACCENTS.task.soft;
+                const ctaText =
+                  action.kind === 'poll'
+                    ? BLOCK_ACCENTS.poll.deep
+                    : BLOCK_ACCENTS.task.deep;
+
+                return (
+                  <View
+                    key={action.id}
+                    className={`flex-row items-center justify-between gap-2 py-2.5 ${
+                      idx > 0 ? 'border-t border-[#F7E5DD]' : ''
+                    }`}
+                  >
+                    <View className="flex-1 flex-row items-center gap-2">
+                      <View
+                        style={{ backgroundColor: dotColor }}
+                        className="h-2 w-2 rounded-full"
+                      />
+                      <Text
+                        className="flex-1 text-xs font-medium text-ink"
+                        numberOfLines={1}
+                      >
+                        {action.text}
+                      </Text>
+                    </View>
+                    <MotionPressable
+                      accessibilityRole="button"
+                      accessibilityLabel={action.ctaLabel}
+                      onPress={() => {
+                        setReorderMode(false);
+                        setSelectedBoardView(action.blockId);
+                        boardScrollRef.current?.scrollTo({
+                          y: 0,
+                          animated: false,
+                        });
+                      }}
+                      scaleTo={0.94}
+                      style={{ backgroundColor: ctaBg }}
+                      className="rounded-full px-2.5 py-1"
+                    >
+                      <Text
+                        style={{ color: ctaText }}
+                        className="text-[11px] font-semibold"
+                      >
+                        {action.ctaLabel}
+                      </Text>
+                    </MotionPressable>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {blocksLoading && blocks.length === 0 ? (
+            <View className="items-center py-12">
+              <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+              <Text className="mt-3 text-xs text-inkMuted">
+                正在同步协作模块...
+              </Text>
+            </View>
+          ) : blocks.length === 0 ? (
+            <View
+              style={CARD_SHADOW}
+              className="items-center rounded-[22px] border border-line bg-white px-6 py-10"
+            >
+              <View className="mb-3 h-12 w-12 items-center justify-center rounded-full bg-primarySoft">
+                <LayoutGrid size={22} color={THEME_COLORS.primary} />
+              </View>
+              <Text className="text-base font-bold text-ink">
+                房间还没有协作模块
+              </Text>
+              <Text className="mt-1.5 text-center text-xs leading-5 text-inkMuted">
+                {canOpenAddBlockSheet
+                  ? '添加投票、分工、日程轴或 AA 分账，点击顶部胶囊即可专注协作'
+                  : permissions.isArchived
+                    ? '该活动已归档，当前处于只读复盘模式'
+                    : '等待房主或管理员添加协作模块'}
+              </Text>
+              {canOpenAddBlockSheet ? (
+                <View className="mt-4">
+                  <Button
+                    title={
+                      permissions.canManageBlocks ? '添加第一个积木' : '发起新投票'
+                    }
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<Plus size={15} color="#FFFFFF" strokeWidth={2.4} />}
+                    onPress={handleOpenAddSheet}
+                  />
                 </View>
               ) : null}
             </View>
-          </View>
+          ) : (
+            <>
+              <View className="mb-2 flex-row items-center justify-between px-1">
+                <Text className="text-xs font-semibold text-inkMuted">
+                  {reorderMode
+                    ? '点击右侧箭头调整模块顺序'
+                    : `当前协作结论 · ${blocks.length} 个模块`}
+                </Text>
+                {permissions.canReorderBlocks && blocks.length > 1 ? (
+                  <MotionPressable
+                    accessibilityRole="button"
+                    accessibilityLabel={reorderMode ? '完成排序' : '调整顺序'}
+                    onPress={() => setReorderMode((prev) => !prev)}
+                    scaleTo={0.95}
+                    className={`flex-row items-center gap-1 rounded-full px-2.5 py-1 ${
+                      reorderMode
+                        ? 'bg-primarySoft'
+                        : 'bg-transparent'
+                    }`}
+                  >
+                    <ArrowUpDown
+                      size={12}
+                      color={
+                        reorderMode
+                          ? THEME_COLORS.primaryDeep
+                          : THEME_COLORS.inkMuted
+                      }
+                    />
+                    <Text
+                      className={`text-xs font-semibold ${
+                        reorderMode ? 'text-primaryDeep' : 'text-inkMuted'
+                      }`}
+                    >
+                      {reorderMode ? '完成排序' : '调整顺序'}
+                    </Text>
+                  </MotionPressable>
+                ) : null}
+              </View>
 
-          <Text
-            className={`text-sm leading-5 ${
-              room.announcement ? 'text-ink/85' : 'text-inkSubtle'
-            }`}
-          >
-            {room.announcement ||
-              '暂无公告，房主或管理员可在右上角设置中发布集合通知与活动规则'}
-          </Text>
+              <View
+                style={CARD_SHADOW}
+                className="overflow-hidden rounded-[22px] border border-line bg-white"
+              >
+                {blocks.map((block, index) => {
+                  const palette = BLOCK_ACCENTS[block.type];
+                  const summary = blockOverviewSummaries.get(block.id);
+                  const canMoveUp = index > 0;
+                  const canMoveDown = index < blocks.length - 1;
+                  const reordering = reorderBlocksMutation.isPending;
 
-          {announcementSummary.hasAnnouncement ? (
-            <View className="mt-3 gap-2.5">
-              {!announcementSummary.hasCurrentUserAcked &&
-              !permissions.isReadOnly ? (
-                <Button
-                  title="我已阅读并确认收到"
-                  variant="primary"
-                  size="sm"
-                  fullWidth
-                  loading={ackAnnouncementMutation.isPending}
-                  leftIcon={<CheckCircle2 size={15} color="#FFFFFF" />}
-                  onPress={() => ackAnnouncementMutation.mutate()}
-                />
-              ) : null}
+                  const renderPreview = (preview?: BlockOverviewPreview) => {
+                    if (!preview || reorderMode) {
+                      return null;
+                    }
+
+                    switch (preview.kind) {
+                      case 'schedule':
+                        return (
+                          <View className="mt-2.5 gap-1.5 pl-0.5">
+                            {preview.nodes.map((node, nodeIdx) => (
+                              <View
+                                key={node.id}
+                                className="flex-row items-center gap-2"
+                              >
+                                <Text className="w-10 text-[11px] font-semibold text-inkMuted">
+                                  {node.time}
+                                </Text>
+                                <View
+                                  style={{
+                                    backgroundColor:
+                                      nodeIdx === 0
+                                        ? BLOCK_ACCENTS.schedule.accent
+                                        : BLOCK_ACCENTS.schedule.border,
+                                  }}
+                                  className="h-1.5 w-1.5 rounded-full"
+                                />
+                                <Text
+                                  className="flex-1 text-xs text-ink/90"
+                                  numberOfLines={1}
+                                >
+                                  {node.title}
+                                  {node.location ? (
+                                    <Text className="text-inkSubtle">
+                                      {' · '}
+                                      {node.location}
+                                    </Text>
+                                  ) : null}
+                                </Text>
+                              </View>
+                            ))}
+                            {preview.remainingCount > 0 ? (
+                              <Text className="pl-12 text-[11px] text-inkSubtle">
+                                还有 {preview.remainingCount} 个日程节点
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+
+                      case 'poll_options':
+                        return (
+                          <View className="mt-2.5 gap-1.5">
+                            {preview.options.map((opt) => (
+                              <View
+                                key={opt.id}
+                                className="relative overflow-hidden rounded-xl bg-surface px-2.5 py-1.5"
+                              >
+                                <AnimatedProgressBar
+                                  percent={opt.percent}
+                                  variant="backgroundFill"
+                                  fillColor={
+                                    opt.myVoted
+                                      ? BLOCK_ACCENTS.poll.barFill
+                                      : 'rgba(180, 170, 158, 0.22)'
+                                  }
+                                />
+                                <View className="flex-row items-center justify-between gap-2">
+                                  <Text
+                                    className="flex-1 text-xs font-medium text-ink"
+                                    numberOfLines={1}
+                                  >
+                                    {opt.label}
+                                  </Text>
+                                  <Text
+                                    style={{
+                                      color: opt.myVoted
+                                        ? BLOCK_ACCENTS.poll.deep
+                                        : THEME_COLORS.inkMuted,
+                                    }}
+                                    className="text-[11px] font-semibold"
+                                  >
+                                    {opt.votes} 票
+                                  </Text>
+                                </View>
+                              </View>
+                            ))}
+                            {preview.remainingCount > 0 ? (
+                              <Text className="text-[11px] text-inkSubtle">
+                                另有 {preview.remainingCount} 个候选项
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+
+                      case 'poll_slots':
+                        return (
+                          <View className="mt-2 flex-row flex-wrap gap-1.5">
+                            {preview.slots.map((slot) => (
+                              <View
+                                key={slot.id}
+                                style={{
+                                  backgroundColor: BLOCK_ACCENTS.poll.soft,
+                                }}
+                                className="rounded-full px-2.5 py-1"
+                              >
+                                <Text
+                                  style={{ color: BLOCK_ACCENTS.poll.deep }}
+                                  className="text-[11px] font-semibold"
+                                >
+                                  {slot.label} · {slot.votes} 人有空
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        );
+
+                      case 'tasks':
+                        return (
+                          <View className="mt-2 gap-1.5">
+                            {preview.items.map((task) => {
+                              const isDone = task.status === 'done';
+                              const isUnclaimed = task.status === 'unclaimed';
+                              return (
+                                <View
+                                  key={task.id}
+                                  className="flex-row items-center gap-2"
+                                >
+                                  <View
+                                    style={{
+                                      borderColor: isUnclaimed
+                                        ? '#BEB8B0'
+                                        : BLOCK_ACCENTS.task.accent,
+                                      backgroundColor: isDone
+                                        ? BLOCK_ACCENTS.task.accent
+                                        : isUnclaimed
+                                          ? 'transparent'
+                                          : BLOCK_ACCENTS.task.soft,
+                                      borderStyle: isUnclaimed
+                                        ? 'dashed'
+                                        : 'solid',
+                                    }}
+                                    className="h-3 w-3 rounded-full border-[1.5px]"
+                                  />
+                                  <Text
+                                    className={`flex-1 text-xs ${
+                                      isDone
+                                        ? 'text-inkSubtle line-through'
+                                        : 'text-ink/90'
+                                    }`}
+                                    numberOfLines={1}
+                                  >
+                                    {task.title}
+                                  </Text>
+                                  <Text
+                                    style={{
+                                      color: isUnclaimed
+                                        ? BLOCK_ACCENTS.task.deep
+                                        : THEME_COLORS.inkSubtle,
+                                    }}
+                                    className="text-[10px] font-medium"
+                                  >
+                                    {isDone
+                                      ? '已完成'
+                                      : isUnclaimed
+                                        ? '待认领'
+                                        : '进行中'}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                            {preview.remainingCount > 0 ? (
+                              <Text className="pl-5 text-[11px] text-inkSubtle">
+                                还有 {preview.remainingCount} 项分工
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+
+                      case 'expense_transfers':
+                        return (
+                          <View className="mt-2.5 gap-1 rounded-xl bg-[#FAF6EE] px-2.5 py-2">
+                            {preview.transfers.map((tx, txIdx) => (
+                              <View
+                                key={`${tx.fromUserId}-${tx.toUserId}-${txIdx}`}
+                                className="flex-row items-center justify-between gap-2"
+                              >
+                                <Text
+                                  className="flex-1 text-xs text-inkMuted"
+                                  numberOfLines={1}
+                                >
+                                  {memberNameById.get(tx.fromUserId) ?? '成员'}{' '}
+                                  →{' '}
+                                  {memberNameById.get(tx.toUserId) ?? '成员'}
+                                </Text>
+                                <Text
+                                  style={{ color: BLOCK_ACCENTS.expense.deep }}
+                                  className="text-xs font-bold"
+                                >
+                                  {tx.amountText}
+                                </Text>
+                              </View>
+                            ))}
+                            {preview.remainingCount > 0 ? (
+                              <Text className="text-[10px] text-inkSubtle">
+                                另有 {preview.remainingCount} 笔转账
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                    }
+                  };
+
+                  const hasRichPreview = Boolean(
+                    summary?.preview && !reorderMode,
+                  );
+
+                  const rowBody = (
+                    <View
+                      className={`px-4 py-3.5 ${
+                        index > 0 ? 'border-t border-lineSoft' : ''
+                      }`}
+                    >
+                      <View className="flex-row items-center gap-3">
+                        <View
+                          style={{ backgroundColor: palette.soft }}
+                          className="h-9 w-9 items-center justify-center rounded-full"
+                        >
+                          <BlockTypeIcon
+                            type={block.type}
+                            color={palette.accent}
+                            size={17}
+                          />
+                        </View>
+
+                        <View className="flex-1">
+                          <View className="flex-row items-center justify-between gap-2">
+                            <Text
+                              className="flex-1 text-sm font-bold text-ink"
+                              numberOfLines={1}
+                            >
+                              {block.title}
+                            </Text>
+                            {summary?.statText ? (
+                              <Text
+                                style={{
+                                  color: summary.isAlert
+                                    ? THEME_COLORS.danger
+                                    : palette.deep,
+                                }}
+                                className="text-xs font-bold"
+                              >
+                                {summary.statText}
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          {summary?.progressPercent !== undefined ? (
+                            <View className="mt-1.5">
+                              <AnimatedProgressBar
+                                percent={summary.progressPercent}
+                                height={5}
+                                fillColor={
+                                  summary.isAlert
+                                    ? THEME_COLORS.danger
+                                    : palette.accent
+                                }
+                                trackColor={palette.track}
+                              />
+                              {!hasRichPreview ? (
+                                <Text
+                                  className="mt-1 text-[11px] text-inkMuted"
+                                  numberOfLines={1}
+                                >
+                                  {summary.conclusion}
+                                </Text>
+                              ) : null}
+                            </View>
+                          ) : !hasRichPreview ? (
+                            <Text
+                              className="mt-0.5 text-xs text-inkMuted"
+                              numberOfLines={1}
+                            >
+                              {summary?.conclusion ?? ''}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        {reorderMode ? (
+                          <View className="flex-row items-center gap-1">
+                            <MotionPressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`上移模块 ${block.title}`}
+                              disabled={!canMoveUp || reordering}
+                              onPress={() => handleMoveBlock(block.id, 'up')}
+                              scaleTo={0.9}
+                              className={`h-8 w-8 items-center justify-center rounded-full border ${
+                                canMoveUp && !reordering
+                                  ? 'border-primaryBorder bg-primarySoft'
+                                  : 'border-line bg-surface opacity-40'
+                              }`}
+                            >
+                              <ChevronUp
+                                size={15}
+                                color={
+                                  canMoveUp && !reordering
+                                    ? THEME_COLORS.primaryDeep
+                                    : THEME_COLORS.inkSubtle
+                                }
+                              />
+                            </MotionPressable>
+                            <MotionPressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`下移模块 ${block.title}`}
+                              disabled={!canMoveDown || reordering}
+                              onPress={() => handleMoveBlock(block.id, 'down')}
+                              scaleTo={0.9}
+                              className={`h-8 w-8 items-center justify-center rounded-full border ${
+                                canMoveDown && !reordering
+                                  ? 'border-primaryBorder bg-primarySoft'
+                                  : 'border-line bg-surface opacity-40'
+                              }`}
+                            >
+                              <ChevronDown
+                                size={15}
+                                color={
+                                  canMoveDown && !reordering
+                                    ? THEME_COLORS.primaryDeep
+                                    : THEME_COLORS.inkSubtle
+                                }
+                              />
+                            </MotionPressable>
+                          </View>
+                        ) : (
+                          <ChevronRight
+                            size={16}
+                            color={THEME_COLORS.inkSubtle}
+                          />
+                        )}
+                      </View>
+
+                      {hasRichPreview ? (
+                        <View className="pl-12">
+                          {renderPreview(summary?.preview)}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+
+                  if (reorderMode) {
+                    return <View key={block.id}>{rowBody}</View>;
+                  }
+
+                  return (
+                    <MotionPressable
+                      key={block.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`进入 ${block.title}`}
+                      onPress={() => {
+                        setSelectedBoardView(block.id);
+                        boardScrollRef.current?.scrollTo({
+                          y: 0,
+                          animated: false,
+                        });
+                      }}
+                      scaleTo={0.985}
+                      pressOpacity={0.92}
+                    >
+                      {rowBody}
+                    </MotionPressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          {room.chat_enabled && !reorderMode ? (
+            <View className="mt-4">
+              <View className="mb-2 flex-row items-center justify-between px-1">
+                <Text className="text-xs font-semibold text-inkMuted">
+                  聊天室动态
+                </Text>
+                <MotionPressable
+                  accessibilityRole="button"
+                  accessibilityLabel="进入聊天室"
+                  onPress={() => setActiveTab('chat')}
+                  scaleTo={0.95}
+                  className="flex-row items-center gap-0.5"
+                >
+                  <Text className="text-xs font-semibold text-primaryDeep">
+                    去聊天
+                  </Text>
+                  <ChevronRight size={13} color={THEME_COLORS.primaryDeep} />
+                </MotionPressable>
+              </View>
 
               <MotionPressable
                 accessibilityRole="button"
-                accessibilityLabel="查看公告已读确认名单"
-                onPress={() => setAckSheetVisible(true)}
+                accessibilityLabel="查看聊天室最新消息"
+                onPress={() => setActiveTab('chat')}
                 scaleTo={0.985}
-                className="flex-row items-center justify-between rounded-xl border border-line bg-surface px-3 py-2"
+                style={CARD_SHADOW}
+                className="rounded-[20px] border border-line bg-white px-4 py-3"
               >
-                <View className="flex-1 flex-row items-center gap-2 pr-2">
-                  <CheckCircle2
-                    size={14}
-                    color={
-                      announcementSummary.unackedCount === 0
-                        ? THEME_COLORS.success
-                        : THEME_COLORS.primary
-                    }
-                  />
-                  <Text className="text-xs font-semibold text-ink">
-                    已收到 {announcementSummary.ackedCount} /{' '}
-                    {announcementSummary.totalCount} 人
-                  </Text>
-                  <Text
-                    className={`text-[11px] ${
-                      announcementSummary.unackedCount === 0
-                        ? 'font-medium text-[#2E8B67]'
-                        : 'text-inkMuted'
-                    }`}
-                    numberOfLines={1}
-                  >
-                    {announcementSummary.unackedCount === 0
-                      ? '· 全员已确认'
-                      : `· ${announcementSummary.unackedCount} 人待确认`}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-0.5">
-                  <Text className="text-[11px] font-semibold text-primaryDeep">
-                    查看名单
-                  </Text>
-                  <ChevronRight size={13} color={THEME_COLORS.primaryDeep} />
-                </View>
+                {recentChatMessages.length === 0 ? (
+                  <View className="flex-row items-center justify-between gap-2">
+                    <View className="flex-row items-center gap-2">
+                      <MessageCircle size={14} color={THEME_COLORS.inkSubtle} />
+                      <Text className="text-xs text-inkMuted">
+                        暂无讨论消息，发一条消息和大家打个招呼吧
+                      </Text>
+                    </View>
+                    <ChevronRight size={14} color={THEME_COLORS.inkSubtle} />
+                  </View>
+                ) : (
+                  <View>
+                    {recentChatMessages.map((msg, msgIdx) => {
+                      const senderName =
+                        msg.profiles?.nickname ??
+                        (msg.sender_id
+                          ? memberNameById.get(msg.sender_id)
+                          : undefined) ??
+                        '成员';
+                      const timeText = formatCompactChatTime(msg.created_at);
+                      const snippet =
+                        msg.msg_type === 'block_card'
+                          ? `[催办提醒] ${msg.content}`
+                          : msg.content;
+
+                      return (
+                        <View
+                          key={msg.id}
+                          className={`flex-row items-center gap-2.5 ${
+                            msgIdx > 0
+                              ? 'mt-2.5 border-t border-lineSoft pt-2.5'
+                              : ''
+                          }`}
+                        >
+                          <Avatar
+                            nickname={senderName}
+                            color={msg.profiles?.avatar_color}
+                            imageUrl={msg.profiles?.avatar_url}
+                            size="xs"
+                          />
+                          <View className="flex-1">
+                            <View className="flex-row items-center justify-between gap-2">
+                              <Text
+                                className="text-xs font-semibold text-ink"
+                                numberOfLines={1}
+                              >
+                                {senderName}
+                              </Text>
+                              {timeText ? (
+                                <Text className="text-[10px] text-inkSubtle">
+                                  {timeText}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <Text
+                              className="mt-0.5 text-xs text-inkMuted"
+                              numberOfLines={1}
+                            >
+                              {snippet}
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </MotionPressable>
             </View>
           ) : null}
 
           <MotionPressable
             accessibilityRole="button"
-            accessibilityLabel="查看房间成员"
+            accessibilityLabel="查看房间成员与设置"
             onPress={() => router.push(`/room/${room.id}/settings` as Href)}
             scaleTo={0.985}
-            className="mt-3.5 flex-row items-center justify-between border-t border-lineSoft pt-3"
+            className="mt-4 flex-row items-center justify-between px-1 py-1.5"
           >
-            <View className="flex-row items-center">
-              {activeMembers.slice(0, 6).map((member, index) => (
-                <View
-                  key={member.id}
-                  style={{ marginLeft: index === 0 ? 0 : -6 }}
-                  className="rounded-full border-2 border-white"
-                >
-                  <Avatar
-                    nickname={member.profiles?.nickname}
-                    color={member.profiles?.avatar_color}
-                    imageUrl={member.profiles?.avatar_url}
-                    size="xs"
-                  />
-                </View>
-              ))}
-              {activeMembers.length > 6 ? (
-                <View className="ml-1.5 rounded-full bg-primarySoft px-2 py-0.5">
-                  <Text className="text-[10px] font-semibold text-primaryDeep">
-                    +{activeMembers.length - 6}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Users size={13} color={THEME_COLORS.inkMuted} />
-              <Text className="text-xs font-medium text-inkMuted">
-                {activeMembers.length} 人协作中
+            <View className="flex-1 flex-row items-center gap-2 pr-2">
+              <View className="flex-row items-center">
+                {activeMembers.slice(0, 6).map((member, index) => (
+                  <View
+                    key={member.id}
+                    style={{ marginLeft: index === 0 ? 0 : -6 }}
+                    className="rounded-full border-2 border-surface"
+                  >
+                    <Avatar
+                      nickname={member.profiles?.nickname}
+                      color={member.profiles?.avatar_color}
+                      imageUrl={member.profiles?.avatar_url}
+                      size="xs"
+                    />
+                  </View>
+                ))}
+                {activeMembers.length > 6 ? (
+                  <View className="ml-1.5 rounded-full bg-primarySoft px-2 py-0.5">
+                    <Text className="text-[10px] font-semibold text-primaryDeep">
+                      +{activeMembers.length - 6}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text
+                className="flex-1 text-xs text-inkMuted"
+                numberOfLines={1}
+              >
+                {activeMembers.length} 人协作
+                {eventWindow ? ` · ${eventWindow}` : ''}
               </Text>
+            </View>
+            <View className="flex-row items-center gap-0.5">
+              <Text className="text-xs font-semibold text-inkMuted">管理</Text>
+              <ChevronRight size={13} color={THEME_COLORS.inkMuted} />
             </View>
           </MotionPressable>
-        </Card>
-
-        {blocksLoading && blocks.length === 0 ? (
-          <View className="items-center py-12">
-            <ActivityIndicator size="large" color={THEME_COLORS.primary} />
-            <Text className="mt-3 text-xs text-inkMuted">正在同步协作积木...</Text>
-          </View>
-        ) : blocks.length === 0 ? (
-          <Card className="items-center py-10">
-            <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
-              <LayoutGrid size={24} color={THEME_COLORS.primary} />
-            </View>
-            <Text className="text-base font-bold text-ink">
-              房间还没有协作积木
-            </Text>
-            <Text className="mt-1.5 px-6 text-center text-xs leading-5 text-inkMuted">
-              {canOpenAddBlockSheet
-                ? '点击下方「添加积木」，自由拼装投票、分工、日程轴或 AA 分账模块'
-                : permissions.isArchived
-                  ? '该活动已归档，当前处于只读复盘模式'
-                  : '等待房主或管理员添加协作积木'}
-            </Text>
-          </Card>
-        ) : (
-          <>
-            <View className="mb-3 flex-row items-center justify-between gap-2 px-0.5">
-              <Text className="text-xs font-semibold text-inkMuted">
-                {reorderMode
-                  ? '点击积木右上角箭头调整展示顺序'
-                  : `协作积木 · ${blocks.length} 个模块`}
-              </Text>
-              {permissions.canReorderBlocks && blocks.length > 1 ? (
-                <MotionPressable
-                  accessibilityRole="button"
-                  accessibilityLabel={reorderMode ? '完成排序' : '调整顺序'}
-                  onPress={() => setReorderMode((prev) => !prev)}
-                  scaleTo={0.95}
-                  className={`flex-row items-center gap-1 rounded-full border px-3 py-1.5 ${
-                    reorderMode
-                      ? 'border-primary bg-primarySoft'
-                      : 'border-line bg-white'
-                  }`}
-                >
-                  <ArrowUpDown
-                    size={12}
-                    color={
-                      reorderMode
-                        ? THEME_COLORS.primaryDeep
-                        : THEME_COLORS.inkMuted
-                    }
-                  />
-                  <Text
-                    className={`text-xs font-semibold ${
-                      reorderMode ? 'text-primaryDeep' : 'text-inkMuted'
-                    }`}
-                  >
-                    {reorderMode ? '完成排序' : '调整顺序'}
-                  </Text>
-                </MotionPressable>
-              ) : null}
-            </View>
-
-            <LayoutAnimationConfig skipEntering>
-              {blocks.map((block, index) => {
-                const isNewlyAdded = block.id === justAddedBlockId;
-                const isHighlighted = highlightedBlockId === block.id;
-                const canMoveUp = index > 0;
-                const canMoveDown = index < blocks.length - 1;
-                const reordering = reorderBlocksMutation.isPending;
-                const blockContent = (() => {
-                  switch (block.type) {
-                    case 'poll':
-                      return (
-                        <PollBlock
-                          block={block}
-                          items={block.items}
-                          tallies={talliesByBlockId.get(block.id) ?? []}
-                          members={activeMembers}
-                          permissions={permissions}
-                          onRequestDeleteBlock={
-                            permissions.canManageBlocks
-                              ? setDeleteTarget
-                              : undefined
-                          }
-                          highlighted={isHighlighted}
-                          reorderMode={reorderMode}
-                          canMoveUp={canMoveUp}
-                          canMoveDown={canMoveDown}
-                          reordering={reordering}
-                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
-                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
-                          onSendReminder={
-                            permissions.canSendBlockReminder
-                              ? () => void handleSendBlockReminder(block)
-                              : undefined
-                          }
-                          sendingReminder={sendingReminderBlockId === block.id}
-                        />
-                      );
-                    case 'task':
-                      return (
-                        <TaskBlock
-                          block={block}
-                          items={block.items}
-                          members={activeMembers}
-                          permissions={permissions}
-                          onRequestDeleteBlock={
-                            permissions.canManageBlocks
-                              ? setDeleteTarget
-                              : undefined
-                          }
-                          highlighted={isHighlighted}
-                          reorderMode={reorderMode}
-                          canMoveUp={canMoveUp}
-                          canMoveDown={canMoveDown}
-                          reordering={reordering}
-                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
-                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
-                          onSendReminder={
-                            permissions.canSendBlockReminder
-                              ? () => void handleSendBlockReminder(block)
-                              : undefined
-                          }
-                          sendingReminder={sendingReminderBlockId === block.id}
-                          externalCreateDraft={
-                            pendingBlockDraft?.targetBlockId === block.id
-                              ? pendingBlockDraft
-                              : null
-                          }
-                          onConsumeExternalCreateDraft={clearPendingBlockDraft}
-                        />
-                      );
-                    case 'schedule':
-                      return (
-                        <ScheduleBlock
-                          block={block}
-                          items={block.items}
-                          members={activeMembers}
-                          permissions={permissions}
-                          onRequestDeleteBlock={
-                            permissions.canManageBlocks
-                              ? setDeleteTarget
-                              : undefined
-                          }
-                          highlighted={isHighlighted}
-                          reorderMode={reorderMode}
-                          canMoveUp={canMoveUp}
-                          canMoveDown={canMoveDown}
-                          reordering={reordering}
-                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
-                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
-                          externalCreateDraft={
-                            pendingBlockDraft?.targetBlockId === block.id
-                              ? pendingBlockDraft
-                              : null
-                          }
-                          onConsumeExternalCreateDraft={clearPendingBlockDraft}
-                        />
-                      );
-                    case 'expense':
-                      return (
-                        <ExpenseBlock
-                          block={block}
-                          items={block.items}
-                          members={activeMembers}
-                          permissions={permissions}
-                          onRequestDeleteBlock={
-                            permissions.canManageBlocks
-                              ? setDeleteTarget
-                              : undefined
-                          }
-                          highlighted={isHighlighted}
-                          reorderMode={reorderMode}
-                          canMoveUp={canMoveUp}
-                          canMoveDown={canMoveDown}
-                          reordering={reordering}
-                          onMoveUp={() => handleMoveBlock(block.id, 'up')}
-                          onMoveDown={() => handleMoveBlock(block.id, 'down')}
-                        />
-                      );
-                  }
-                })();
-
-                return (
-                  <View
-                    key={block.id}
-                    onLayout={(event) => {
-                      blockOffsetsRef.current[block.id] =
-                        event.nativeEvent.layout.y;
-                    }}
-                  >
-                    <AnimatedBlockShell
-                      isNewlyAdded={isNewlyAdded}
-                      onHighlightEnd={
-                        isNewlyAdded ? clearJustAddedBlock : undefined
-                      }
-                    >
-                      {blockContent}
-                    </AnimatedBlockShell>
-                  </View>
-                );
-              })}
-            </LayoutAnimationConfig>
-          </>
-        )}
-          </ScrollView>
-
-          {canOpenAddBlockSheet && !reorderMode ? (
-            <View
-              style={FLOATING_SHADOW}
-              className="border-t border-line bg-white px-4 pb-3 pt-2.5"
-            >
-              <Button
-                title={permissions.canManageBlocks ? '添加积木' : '发起新投票'}
-                variant="primary"
-                size="lg"
-                fullWidth
-                leftIcon={<Plus size={18} color="#FFFFFF" strokeWidth={2.5} />}
-                onPress={handleOpenAddSheet}
-              />
-            </View>
-          ) : null}
-        </>
+        </ScrollView>
       )}
 
       <SheetModal
@@ -1789,6 +2513,7 @@ export default function RoomBoardScreen() {
         <View className="mb-4 gap-2.5">
           {allowedBlockTypes.map((type) => {
             const selected = selectedType === type;
+            const palette = BLOCK_ACCENTS[type];
             return (
               <MotionPressable
                 key={type}
@@ -1796,27 +2521,28 @@ export default function RoomBoardScreen() {
                 accessibilityState={{ selected }}
                 onPress={() => handleSelectBlockType(type)}
                 scaleTo={0.975}
-                className={`flex-row items-center gap-3 rounded-2xl border px-3.5 py-3 ${
-                  selected
-                    ? 'border-primary bg-primarySoft'
-                    : 'border-line bg-primaryMist'
-                }`}
+                style={{
+                  borderColor: selected ? palette.accent : THEME_COLORS.line,
+                  backgroundColor: selected
+                    ? palette.soft
+                    : THEME_COLORS.primaryMist,
+                }}
+                className="flex-row items-center gap-3 rounded-2xl border px-3.5 py-3"
               >
                 <View
-                  className={`h-10 w-10 items-center justify-center rounded-xl ${
-                    selected ? 'bg-white border border-primaryBorder' : 'bg-white border border-line'
-                  }`}
+                  style={{
+                    backgroundColor: selected ? '#FFFFFF' : palette.soft,
+                  }}
+                  className="h-10 w-10 items-center justify-center rounded-full"
                 >
-                  <BlockTypeIcon
-                    type={type}
-                    color={selected ? THEME_COLORS.primary : THEME_COLORS.inkMuted}
-                  />
+                  <BlockTypeIcon type={type} color={palette.accent} />
                 </View>
                 <View className="flex-1">
                   <Text
-                    className={`text-sm font-bold ${
-                      selected ? 'text-primaryDeep' : 'text-ink'
-                    }`}
+                    style={{
+                      color: selected ? palette.deep : THEME_COLORS.ink,
+                    }}
+                    className="text-sm font-bold"
                   >
                     {BLOCK_TYPE_LABELS[type]}
                   </Text>
@@ -1824,7 +2550,12 @@ export default function RoomBoardScreen() {
                     {BLOCK_TYPE_DESCRIPTIONS[type]}
                   </Text>
                 </View>
-                <AnimatedCheckBadge checked={selected} size={20} iconSize={12} />
+                <AnimatedCheckBadge
+                  checked={selected}
+                  size={20}
+                  iconSize={12}
+                  accentColor={palette.accent}
+                />
               </MotionPressable>
             );
           })}

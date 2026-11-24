@@ -48,7 +48,6 @@ import type { ProfileSummary, RoomMemberWithProfile } from '../../types/database
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 import {
   AnimatedCheckBadge,
   AnimatedItemRow,
@@ -57,23 +56,24 @@ import {
   MotionPressable,
 } from '../ui/Motion';
 import { SheetModal } from '../ui/SheetModal';
-import { THEME_COLORS } from '../../lib/theme';
+import { BLOCK_ACCENTS, THEME_COLORS } from '../../lib/theme';
 
+const POLL_ACCENT = BLOCK_ACCENTS.poll;
 const MAX_OPTION_LABEL_LENGTH = 60;
 
 const HEATMAP_CELL_CLASSES: Record<0 | 1 | 2 | 3 | 4, string> = {
   0: 'bg-surface border-line',
-  1: 'bg-[#FFF5EC] border-[#FDE2CA]',
-  2: 'bg-[#FFE7D1] border-[#FBCA9F]',
-  3: 'bg-[#F8BA85] border-[#F29A52]',
+  1: 'bg-[#FDF1EC] border-[#F6DDD2]',
+  2: 'bg-[#FAD8CA] border-[#F2BFA9]',
+  3: 'bg-[#EE9B7B] border-[#E47D55]',
   4: 'bg-primary border-primary',
 };
 
 const HEATMAP_TEXT_CLASSES: Record<0 | 1 | 2 | 3 | 4, string> = {
   0: 'text-inkMuted',
   1: 'text-primaryDeep',
-  2: 'text-[#B85114]',
-  3: 'text-[#6B2D08]',
+  2: 'text-[#9F3814]',
+  3: 'text-[#5A1F0A]',
   4: 'text-white',
 };
 
@@ -506,10 +506,10 @@ export function PollBlock({
             return (
               <AnimatedItemRow key={item.id}>
                 <View
-                  className={`overflow-hidden rounded-2xl border ${
+                  className={`overflow-hidden rounded-2xl ${
                     myVoted
-                      ? 'border-primary bg-primarySoft/60'
-                      : 'border-line bg-primaryMist'
+                      ? 'border-[1.5px] border-primary bg-primarySoft/50'
+                      : 'bg-surface'
                   }`}
                 >
                   <AnimatedProgressBar
@@ -517,8 +517,8 @@ export function PollBlock({
                     variant="backgroundFill"
                     fillColor={
                       myVoted
-                        ? 'rgba(242, 132, 58, 0.16)'
-                        : 'rgba(225, 214, 203, 0.42)'
+                        ? POLL_ACCENT.barFill
+                        : 'rgba(180, 170, 158, 0.20)'
                     }
                   />
 
@@ -786,58 +786,41 @@ export function PollBlock({
   };
 
   return (
-    <Card
-      className={highlighted ? 'mb-3.5 border-2 border-primary' : 'mb-3.5'}
-      style={
-        highlighted
-          ? { borderWidth: 2, borderColor: THEME_COLORS.primary }
-          : undefined
-      }
-    >
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="flex-1 flex-row items-start gap-2.5">
-          <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl border border-primaryBorder bg-primarySoft">
-            {block.config.mode === 'availability' ? (
-              <CalendarDays size={18} color={THEME_COLORS.primary} />
-            ) : (
-              <BarChart3 size={18} color={THEME_COLORS.primary} />
-            )}
-          </View>
-
-          <View className="flex-1">
-            <View className="mb-1 flex-row flex-wrap items-center gap-1.5">
-              <Badge
-                label={
-                  block.config.mode === 'availability' ? '时间热力图' : '方案投票'
-                }
-                variant="primary"
-              />
-              {block.config.mode === 'option' ? (
-                <Badge
-                  label={block.config.multiple ? '多选' : '单选'}
-                  variant="neutral"
-                />
-              ) : null}
-              {isAnonymous ? (
-                <Badge label="匿名" variant="neutral" />
-              ) : null}
-              {isLocked ? (
-                <Badge label="已锁定" variant="warning" />
-              ) : null}
-              {isExpired ? (
-                <Badge label="已截止" variant="danger" />
-              ) : null}
+    <View className="pb-4">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <View
+              style={{ backgroundColor: POLL_ACCENT.soft }}
+              className="h-7 w-7 items-center justify-center rounded-full"
+            >
+              {block.config.mode === 'availability' ? (
+                <CalendarDays size={14} color={POLL_ACCENT.accent} />
+              ) : (
+                <BarChart3 size={14} color={POLL_ACCENT.accent} />
+              )}
             </View>
-
-            <Text className="text-base font-bold text-ink" numberOfLines={2}>
+            <Text className="flex-1 text-lg font-bold text-ink" numberOfLines={2}>
               {block.title}
             </Text>
-            <Text className="mt-0.5 text-xs text-inkMuted">
+          </View>
+
+          <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+            <Text className="text-xs text-inkMuted">
               {block.config.mode === 'availability'
                 ? `${availabilityDates.length} 个候选日期 · ${members.length} 位成员`
                 : `${items.length} 个候选项 · 共 ${totalVotes} 票`}
               {deadlineHint ? ` · ${deadlineHint}` : ''}
             </Text>
+            {block.config.mode === 'option' ? (
+              <Badge
+                label={block.config.multiple ? '多选' : '单选'}
+                variant="neutral"
+              />
+            ) : null}
+            {isAnonymous ? <Badge label="匿名" variant="neutral" /> : null}
+            {isLocked ? <Badge label="已锁定" variant="warning" /> : null}
+            {isExpired ? <Badge label="已截止" variant="danger" /> : null}
           </View>
         </View>
 
@@ -850,7 +833,7 @@ export function PollBlock({
                 disabled={!canMoveUp || reordering}
                 onPress={onMoveUp}
                 scaleTo={0.9}
-                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                className={`h-8 w-8 items-center justify-center rounded-full border ${
                   canMoveUp && !reordering
                     ? 'border-primaryBorder bg-primarySoft'
                     : 'border-line bg-surface opacity-45'
@@ -871,7 +854,7 @@ export function PollBlock({
                 disabled={!canMoveDown || reordering}
                 onPress={onMoveDown}
                 scaleTo={0.9}
-                className={`h-8 w-8 items-center justify-center rounded-xl border ${
+                className={`h-8 w-8 items-center justify-center rounded-full border ${
                   canMoveDown && !reordering
                     ? 'border-primaryBorder bg-primarySoft'
                     : 'border-line bg-surface opacity-45'
@@ -896,7 +879,7 @@ export function PollBlock({
                   disabled={sendingReminder}
                   onPress={onSendReminder}
                   scaleTo={0.9}
-                  className="h-8 w-8 items-center justify-center rounded-xl border border-primaryBorder bg-primarySoft"
+                  className="h-8 w-8 items-center justify-center rounded-full bg-primarySoft"
                 >
                   {sendingReminder ? (
                     <ActivityIndicator size="small" color={THEME_COLORS.primaryDeep} />
@@ -913,10 +896,8 @@ export function PollBlock({
                   disabled={lockMutation.isPending}
                   onPress={() => lockMutation.mutate(!isLocked)}
                   scaleTo={0.94}
-                  className={`h-8 flex-row items-center gap-1 rounded-xl border px-2.5 ${
-                    isLocked
-                      ? 'border-[#F5DFB3] bg-[#FEF7E8]'
-                      : 'border-line bg-surface'
+                  className={`h-8 flex-row items-center gap-1 rounded-full px-2.5 ${
+                    isLocked ? 'bg-[#FDF6E9]' : 'bg-surface'
                   }`}
                 >
                   {isLocked ? (
@@ -926,7 +907,7 @@ export function PollBlock({
                   )}
                   <Text
                     className={`text-[11px] font-semibold ${
-                      isLocked ? 'text-[#A66214]' : 'text-inkMuted'
+                      isLocked ? 'text-[#9B5F0F]' : 'text-inkMuted'
                     }`}
                   >
                     {isLocked ? '解锁' : '锁定'}
@@ -940,7 +921,7 @@ export function PollBlock({
                   accessibilityLabel={`删除积木 ${block.title}`}
                   onPress={() => onRequestDeleteBlock(block)}
                   scaleTo={0.9}
-                  className="h-8 w-8 items-center justify-center rounded-xl border border-line bg-surface"
+                  className="h-8 w-8 items-center justify-center rounded-full bg-surface"
                 >
                   <Trash2 size={15} color={THEME_COLORS.inkMuted} />
                 </MotionPressable>
@@ -950,8 +931,16 @@ export function PollBlock({
         </View>
       </View>
 
+      {highlighted ? (
+        <View className="mt-2.5 self-start rounded-full bg-primarySoft px-2.5 py-0.5">
+          <Text className="text-[11px] font-semibold text-primaryDeep">
+            已定位到此投票模块
+          </Text>
+        </View>
+      ) : null}
+
       {isAnonymous ? (
-        <View className="mt-2.5 flex-row items-center gap-1.5 rounded-xl bg-surface px-3 py-1.5">
+        <View className="mt-3 flex-row items-center gap-1.5 rounded-xl bg-surface px-3 py-2">
           <EyeOff size={12} color={THEME_COLORS.inkMuted} />
           <Text className="text-[11px] text-inkMuted">
             匿名投票已开启，投票人头像与身份对所有人保密
@@ -964,7 +953,7 @@ export function PollBlock({
         : renderOptionMode()}
 
       {canAddOption || (block.config.mode === 'availability' && hasDeletableItems) ? (
-        <View className="mt-3.5 flex-row items-center gap-2 border-t border-lineSoft pt-3">
+        <View className="mt-5 flex-row items-center gap-2">
           {canAddOption ? (
             <Button
               title={
@@ -1216,6 +1205,6 @@ export function PollBlock({
           />
         </View>
       </SheetModal>
-    </Card>
+    </View>
   );
 }
