@@ -26,6 +26,7 @@ import {
   fetchMyRooms,
   findJoinedRoomByCode,
 } from '../src/api/rooms';
+import { AppErrorBoundary } from '../src/components/ui/AppErrorBoundary';
 import { MotionPressable } from '../src/components/ui/Motion';
 import {
   QUERY_KEYS,
@@ -398,7 +399,9 @@ export default function RootLayout() {
           persistOptions={{ persister: asyncStoragePersister }}
         >
           <BottomSheetModalProvider>
-            <RootNavigator />
+            <AppErrorBoundary>
+              <RootNavigator />
+            </AppErrorBoundary>
           </BottomSheetModalProvider>
         </PersistQueryClientProvider>
       </SafeAreaProvider>

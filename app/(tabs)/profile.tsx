@@ -1,13 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
 import { type Href, useRouter } from 'expo-router';
 import {
   Archive,
   Check,
   ChevronRight,
+  Copy,
   LogOut,
+  Smartphone,
   UserX,
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -35,6 +38,10 @@ import {
   MotionPressable,
 } from '../../src/components/ui/Motion';
 import { SheetModal } from '../../src/components/ui/SheetModal';
+import {
+  formatBetaDiagnosticsText,
+  getRuntimeAppBuildInfo,
+} from '../../src/lib/appVersion';
 import {
   clearCachedProfile,
   saveCachedProfile,
@@ -70,6 +77,8 @@ export default function ProfileScreen() {
   const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   const [signOutSheetVisible, setSignOutSheetVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  const buildInfo = useMemo(() => getRuntimeAppBuildInfo(), []);
 
   useEffect(() => {
     if (profile) {
@@ -463,6 +472,60 @@ export default function ProfileScreen() {
                 </View>
               </AnimatedPanelReveal>
             ) : null}
+          </Card>
+
+          <Card className="mb-4">
+            <View className="flex-row items-center justify-between gap-2">
+              <View className="flex-1 flex-row items-center gap-2.5">
+                <View className="h-9 w-9 items-center justify-center rounded-xl bg-primarySoft">
+                  <Smartphone size={18} color={THEME_COLORS.primary} />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-base font-bold text-ink">
+                      内测版本信息
+                    </Text>
+                    <Badge
+                      label={
+                        buildInfo.supabaseConfigured ? '云端已连接' : '未配置云端'
+                      }
+                      variant={
+                        buildInfo.supabaseConfigured ? 'success' : 'danger'
+                      }
+                    />
+                  </View>
+                  <Text className="mt-0.5 text-xs text-inkMuted">
+                    轻橘 PopRoom v{buildInfo.appVersion} · Build{' '}
+                    {buildInfo.buildNumber} ({buildInfo.platform})
+                  </Text>
+                  <Text
+                    className="mt-0.5 text-xs text-inkSubtle"
+                    numberOfLines={1}
+                  >
+                    节点：{buildInfo.supabaseHost}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View className="mt-3">
+              <Button
+                title="复制诊断信息"
+                size="sm"
+                variant="secondary"
+                fullWidth
+                leftIcon={<Copy size={14} color={THEME_COLORS.primaryDeep} />}
+                onPress={async () => {
+                  try {
+                    await Clipboard.setStringAsync(
+                      formatBetaDiagnosticsText(buildInfo, userId),
+                    );
+                    showToast('已复制内测诊断信息，可直接发给开发者', 'success');
+                  } catch {
+                    showToast('复制失败，请稍后重试', 'error');
+                  }
+                }}
+              />
+            </View>
           </Card>
 
           <Button
