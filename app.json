@@ -4,22 +4,65 @@
     "slug": "poproom",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "poproom",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F6F5F2"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.poproom.app"
     },
     "android": {
-      "package": "com.poproom.app"
+      "package": "com.poproom.app",
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E05A2B"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "poproom"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "轻橘 PopRoom 需要访问你的相册，用于上传任务实拍图和费用凭证。",
+          "cameraPermission": "轻橘 PopRoom 需要使用你的相机，用于现场拍摄任务进度或收据凭证。",
+          "microphonePermission": false,
+          "colors": {
+            "cropToolbarColor": "#E05A2B",
+            "cropToolbarIconColor": "#FFFFFF",
+            "cropToolbarActionTextColor": "#FFFFFF",
+            "cropBackButtonIconColor": "#FFFFFF",
+            "cropBackgroundColor": "#F6F5F2"
+          }
+        }
+      ],
+      "./plugins/withAndroidMapQueries"
     ],
     "experiments": {
       "typedRoutes": true

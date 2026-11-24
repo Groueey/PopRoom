@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release:check": "node scripts/verify-release-readiness.mjs",
+    "build:android:beta": "npx eas-cli build --platform android --profile preview"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.14",
