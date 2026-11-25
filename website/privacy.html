@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN" data-type="software" data-radius="round" data-ground="sky" data-buttons="arrow" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>隐私说明：轻橘 PopRoom 临时活动多人协作 App</title>
+<meta name="description" content="轻橘 PopRoom 的权限最小化原则、房间数据隔离机制与账号隐私说明。">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f6f5f2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<style>
+:root {
+  --p-bg: #f6f5f2; --p-surface: #eae6df; --p-ink: #1f1d1a; --p-muted: #66615b;
+  --p-accent: #e05a2b; --p-accent-ink: #111111; --p-action: #e05a2b; --p-action-ink: #111111;
+  --p-inv-bg: #1f1d1a; --p-inv-surface: #2b2926; --p-inv-ink: #f6f5f2; --p-inv-muted: #9c9b98;
+  --p-inv-accent: #e05a2b; --p-inv-accent-ink: #111111; --p-inv-action: #e05a2b; --p-inv-action-ink: #111111;
+  --font-display: "Reddit Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-text: "Reddit Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+}
+::selection { background: rgba(224, 90, 43, 0.2); color: #1f1d1a; }
+h1, h2 { text-wrap: balance; }
+p { text-wrap: pretty; }
+a.link { text-underline-offset: 0.22em; }
+.legal-body { max-width: 68ch; display: grid; gap: var(--s-5); }
+.legal-body h2 { font-size: var(--t-h3); margin-top: var(--s-3); }
+@media (max-width: 389px) {
+  .nav__logo { font-size: 15px; gap: 5px; }
+  .nav__logo svg { width: 20px; height: 20px; }
+  .nav:not(.is-open) .nav__actions .btn { padding-inline: 10px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">跳到正文</a>
+    <a class="nav__logo" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#E05A2B"/><rect x="12" y="12" width="40" height="40" rx="11" fill="#FFFDFB"/><rect x="18" y="18" width="12.5" height="12.5" rx="3.4" fill="#E05A2B"/><circle cx="24.25" cy="24.25" r="2.2" fill="#FFFAF6"/><rect x="33.5" y="18" width="12.5" height="12.5" rx="3.4" fill="#2A8565"/><rect x="18" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#3B6FD4"/><rect x="33.5" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#C47D16"/></svg>
+      轻橘 PopRoom
+    </a>
+    <nav class="nav__links" aria-label="主导航">
+      <div class="nav__item"><a class="nav__link" href="index.html#workspace">协作</a></div>
+      <div class="nav__item"><a class="nav__link" href="index.html#blocks">积木</a></div>
+      <div class="nav__item"><a class="nav__link" href="index.html#download">下载</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="index.html#download">下载内测版</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="打开菜单">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+<main id="top">
+  <section class="section" style="height:auto;min-height:100svh">
+    <div class="wrap">
+      <div class="section-head">
+        <h1>轻橘 PopRoom 隐私说明</h1>
+        <p>版本适用范围：轻橘 PopRoom v0.1.0（com.poproom.app）。</p>
+      </div>
+      <div class="legal-body">
+        <h2>权限最小化</h2>
+        <p>轻橘 PopRoom 仅在你主动上传任务实拍图或费用收据凭证时请求相册与相机权限，不请求麦克风录音、通讯录或后台定位权限。</p>
+        <h2>房间数据与行级隔离</h2>
+        <p>每个协作房间由服务端行级安全策略（RLS）隔离，仅已通过口令或房主审批的房间成员可读取该房间内的积木条目、媒体附件与聊天记录。任务图片与收据存储于私有存储桶，按房间签名访问。</p>
+        <h2>归档与本地缓存</h2>
+        <p>活动结束 7 天后房间自动转为只读归档，防止后续误改。本地离线缓存用于弱网环境下查看日程与看板，退出账号或卸载应用即可清除。</p>
+        <h2>内测诊断信息</h2>
+        <p>在「我的 → 内测版本信息」中复制的诊断文本仅包含版本号、Build 号、平台、脱敏用户前缀与云端连接状态，不含任何密钥或房间内容。</p>
+        <p><a class="link" href="index.html">返回轻橘 PopRoom 首页</a></p>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script>
+if (window.location.protocol === 'file:') {
+  const nav = document.querySelector('.nav');
+  const toggle = nav && nav.querySelector('.nav__toggle');
+  if (nav && toggle) {
+    toggle.addEventListener('click', () => {
+      const open = !nav.classList.contains('is-open');
+      nav.classList.toggle('is-open', open);
+      document.body.classList.toggle('nav-locked', open);
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+  }
+}
+</script>
+</body>
+</html>

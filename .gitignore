@@ -23,3 +23,15 @@ expo-env.d.ts
 # @end expo-cli
 # Superpowers SDD scratch
 .superpowers/
+
+# Website local verification artifacts & unused demo media
+website/.taste-skill/
+website/shots/
+website/assets/photos/
+website/assets/objects/
+website/assets/scenes/
+website/assets/components/
+website/assets/layout/img/
+website/assets/moments/_demo/
+website/assets/icons/demo/
+website/assets/icons/demo.html

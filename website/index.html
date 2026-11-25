@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="zh-CN" data-type="software" data-radius="round" data-ground="sky" data-buttons="arrow" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>轻橘 PopRoom：校园社团与朋友出游的临时多人协作 App</title>
+<meta name="description" content="一件事一个房间，轻橘 PopRoom 把时间投票、分工认领、日程导航与 AA 分账收进同一块看板，活动结束 7 天自动归档，现开放 Android 内测版下载。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="轻橘 PopRoom：临时活动多人协作 App">
+<meta property="og:description" content="4 套场景模板 10 秒建房，4 大积木同步协作，Android 独立安装包 v0.1.0 开放内测下载。">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f6f5f2">
+<!-- <link rel="canonical" href="https://poproom.example/"> -->
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reddit+Sans:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #f6f5f2; --p-surface: #eae6df; --p-ink: #1f1d1a; --p-muted: #66615b;
+  --p-accent: #e05a2b; --p-accent-ink: #111111; --p-action: #e05a2b; --p-action-ink: #111111;
+  --p-inv-bg: #1f1d1a; --p-inv-surface: #2b2926; --p-inv-ink: #f6f5f2; --p-inv-muted: #9c9b98;
+  --p-inv-accent: #e05a2b; --p-inv-accent-ink: #111111; --p-inv-action: #e05a2b; --p-inv-action-ink: #111111;
+  --font-display: "Reddit Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-text: "Reddit Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/ui/window/fragment.css">
+<link rel="stylesheet" href="assets/ui/chat/fragment.css">
+<link rel="stylesheet" href="assets/ui/stat/fragment.css">
+<link rel="stylesheet" href="assets/ui/checklist/fragment.css">
+<link rel="stylesheet" href="assets/ui/notify/fragment.css">
+<link rel="stylesheet" href="assets/ui/toggles/fragment.css">
+<link rel="stylesheet" href="assets/ui/calendar/fragment.css">
+<link rel="stylesheet" href="assets/ui/search/fragment.css">
+<link rel="stylesheet" href="assets/diagrams/diagram.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/liquid-type/moment.js">
+<link rel="modulepreload" href="assets/moments/line-carries-colour/moment.js">
+<style>
+  /* browser surfaces & typography craft (PopRoom warm tangerine-stone palette) */
+  ::selection { background: rgba(224, 90, 43, 0.2); color: #1f1d1a; }
+  .ground-inverse ::selection { background: rgba(224, 90, 43, 0.42); color: #f6f5f2; }
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  a.link, .footer__col a, .footer__legal a { text-underline-offset: 0.22em; }
+  .hero-facts dd, .rows__value, .ui-stat__num, .ui-win__age, .dl-mock__ver { font-variant-numeric: tabular-nums; }
+
+  /* WCAG AA contrast hardening inside product UI mockups + craft-floor cleanup */
+  .ui {
+    --u-muted: #55504a;
+    --u-soft: #59544e;
+    --u-accent-text: #8c3718;
+  }
+  .ly-live::before { animation: none; }
+  .ui-search__row.is-sel {
+    background: color-mix(in oklab, var(--u-accent) 10%, var(--u-bg));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--u-accent) 34%, transparent);
+  }
+  .rows > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .rows > li > .rows__name { min-width: 0; }
+  .rows > li > .rows__value { max-width: none; white-space: nowrap; flex-shrink: 0; text-align: right; }
+
+  /* hero split: align .ly-float with window left edge, keep buttons crisp on 1024, show full row text */
+  .hero--split .hero__media > .ly-float { position: absolute; left: 36px; bottom: 24px; right: auto; top: auto; }
+  .hero-win .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+  html[data-buttons="arrow"] .hero-copy .btn--secondary { padding-left: 0; }
+  @media (max-width: 639px) {
+    .hero--split .hero__media { min-height: 296px; }
+    .hero--split .hero__media > .stage { inset: 0 0 82px 0; overflow: hidden; }
+    .hero--split .hero__media .hero-win .ui-win__row:nth-child(n+3) { display: none; }
+    .hero--split .hero__media > .ly-float { left: 16px; right: 16px; bottom: 12px; max-width: none; }
+  }
+
+  /* preserve system.css 1H/2H section rhythm on CSS ground section (#blocks.bg-halo) */
+  main > section#blocks.bg-halo {
+    height: calc(var(--h, 1) * 100svh);
+    min-height: calc(var(--h, 1) * 100svh);
+    padding: var(--padt) 0 calc(var(--padb) + var(--bar));
+    display: flex;
+    flex-direction: column;
+    align-content: normal;
+  }
+  @media (min-width: 640px) and (max-width: 1279px) {
+    main > section#blocks.bg-halo { height: auto; min-height: calc(var(--h, 1) * 100svh); }
+  }
+  @media (max-width: 639px) {
+    main > section#blocks.bg-halo {
+      height: auto;
+      min-height: calc(var(--hm, var(--h, 1)) * 100lvh);
+      display: grid;
+    }
+  }
+
+  /* light UI cards on lit sky frame inside dark band (#tour) */
+  #tour .frame--lit .ui {
+    --u-bg: #ffffff;
+    --u-surface: #f4f2ee;
+    --u-ink: #1f1d1a;
+    --u-muted: #55504a;
+    --u-soft: #59544e;
+    --u-accent-text: #8c3718;
+    --u-line: rgba(31, 29, 26, 0.1);
+    --u-border: rgba(31, 29, 26, 0.14);
+    color: var(--u-ink);
+  }
+
+  /* prevent close__word ascender clipping on Reddit Sans */
+  .close__word { line-height: 1.02; overflow: visible; }
+
+  /* app-frame recipe (sections-library.md) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-6); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+
+  /* features-2x2 panel heights */
+  #blocks .panel { --p-h: 320px; }
+  @media (min-width: 640px) and (max-width: 1023px) { #blocks .panel { --p-h: 356px; } }
+  @media (max-width: 639px) {
+    #blocks .group .panel { --p-h: 164px; }
+    #blocks > .wrap > .grid .panel { --p-h: 224px; }
+    #blocks .stage { --fade-h: 40px; }
+  }
+
+  /* narrow phone (320px) nav fit so toggle stays inside 320px viewport */
+  @media (max-width: 389px) {
+    .nav__logo { font-size: 15px; gap: 5px; }
+    .nav__logo svg { width: 20px; height: 20px; }
+    .nav:not(.is-open) .nav__actions .btn { padding-inline: 10px; font-size: 13px; }
+  }
+
+  /* scenarios: split rows + lit template search frame */
+  #scenarios .frame--split { --ratio: 0px; min-height: 440px; }
+  @media (max-width: 1023px) { #scenarios .frame--split { min-height: 360px; } }
+
+  /* tabs-tour fixed-height panel copy & live stage */
+  .tour-copy { min-height: 144px; display: grid; align-content: start; gap: var(--s-4); margin-top: var(--s-5); }
+  #tour .frame--split { --ratio: 0px; min-height: 440px; }
+  #tour .tour-slot { position: absolute; inset: 0; }
+  #tour .tour-slot[hidden] { display: none; }
+  @media (max-width: 1023px) {
+    .tour-copy { min-height: 0; }
+    #tour .frame--split { min-height: 420px; }
+  }
+  @media (max-width: 639px) { #tour { --hm: 2; } #tour .frame--split { min-height: 460px; } }
+
+  /* flow diagram panel */
+  #flow .panel--dg { --p-h: 100%; min-height: 440px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--card); overflow: hidden; }
+  #flow .dg { height: 100%; min-height: 440px; }
+  @media (max-width: 1023px) { #flow .panel--dg, #flow .dg { min-height: 360px; } }
+
+  /* download window (left interactive tabs + right full-height release visual frame) */
+  .dl-panel { display: grid; gap: var(--s-4); align-content: start; min-height: 240px; margin-top: var(--s-4); }
+  .dl-panel[hidden] { display: none; }
+  .dl-code { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); font-family: var(--font-mono); font-size: var(--t-small); color: var(--ink); overflow-x: auto; }
+  .dl-code code { white-space: nowrap; }
+  .dl-status { font-size: var(--t-small); color: var(--muted); min-height: 20px; }
+  #download .dl-stage-panel { --p-h: 100%; min-height: 440px; border-radius: var(--r-lg); }
+  #download .ui-check.is-done .ui-check__label { text-decoration: none; color: var(--u-ink); }
+  #download .ui-check.is-done .ui-check__label::after { display: none; }
+  /* file:// direct-open atmospheric fallbacks (active only when ES module WebGL cannot load over file://) */
+  html.is-file-proto .hero__media[data-fx="gradient-mesh"] {
+    background:
+      radial-gradient(62% 58% at 18% 18%, rgba(224, 90, 43, 0.34), transparent 68%),
+      radial-gradient(56% 52% at 86% 24%, rgba(246, 245, 242, 0.88), transparent 70%),
+      radial-gradient(70% 62% at 72% 88%, rgba(224, 90, 43, 0.22), transparent 68%),
+      linear-gradient(135deg, #efe8dd 0%, #e6ddd0 52%, #f4ede3 100%);
+  }
+  html.is-file-proto #blocks .panel[data-fx-seed="21"] {
+    background: linear-gradient(180deg, #b8c5cb 0%, #c8c0b3 58%, #ccb08c 100%);
+  }
+  html.is-file-proto #blocks .panel[data-fx-seed="34"] {
+    background: linear-gradient(180deg, #e7dfd1 0%, #d9ccb7 58%, #c5a47d 100%);
+  }
+  html.is-file-proto #blocks .panel[data-fx-seed="47"] {
+    background: linear-gradient(180deg, #d7e2eb 0%, #c4d2df 58%, #8ea9c2 100%);
+  }
+  html.is-file-proto #blocks .panel[data-fx-seed="63"] {
+    background: linear-gradient(180deg, #dde4d7 0%, #cbd5c3 58%, #9cb193 100%);
+  }
+  html.is-file-proto .dg-node { cursor: pointer; }
+  html.is-file-proto #blocks .ui-check,
+  html.is-file-proto #tour .ui-check,
+  html.is-file-proto #scenarios .ui-search__row,
+  html.is-file-proto #tour .ui-cal__d:not(.is-out) { cursor: pointer; }
+  .dl-mock__head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--u-line); }
+  .dl-mock__meta { display: grid; gap: 2px; min-width: 0; }
+  .dl-mock__name { font-size: 14px; font-weight: 600; color: var(--u-ink); }
+  .dl-mock__ver { font-size: 12px; font-family: var(--font-mono); color: var(--u-muted); }
+  .dl-mock__os { margin-left: auto; flex: none; }
+  @media (max-width: 1023px) {
+    .dl-panel { min-height: 0; }
+    #download .dl-stage-panel { min-height: 380px; }
+  }
+  @media (max-width: 639px) {
+    #scenarios { --hm: 2; }
+    #download { --hm: 2; }
+    #flow { --hm: 2; }
+    #faq .faq > .faq__item { padding: 10px 0; gap: 4px; }
+    #faq .faq > .faq__item h3 { font-size: 16px; line-height: 1.35; }
+    #faq .faq > .faq__item p { font-size: 15px; line-height: 1.45; }
+  }
+</style>
+</head>
+<body>
+<!-- type: software
+     deal: hero split, nav nav-centre, close close-word, footer footer-statement (sky), rhythm dark-band, buttons arrow, mark PopRoom-SVG, palette brand-PaletteA (#F6F5F2/#EAE6DF/#1F1D1A/#E05A2B), type reddit (Reddit Sans + JetBrains Mono), radius round
+     effect: gradient-mesh (hero frame); card ground: painterly-landscape (blocks 2x2, still baked); css ground: blocks bg-halo (faq uses flat .ground-surface)
+     moments: liquid-type (#scenarios heading), line-carries-colour (#tour.ground-inverse) -->
+
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">跳到正文</a>
+    <a class="nav__logo" href="#top">
+      <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#E05A2B"/><rect x="12" y="12" width="40" height="40" rx="11" fill="#FFFDFB"/><rect x="18" y="18" width="12.5" height="12.5" rx="3.4" fill="#E05A2B"/><circle cx="24.25" cy="24.25" r="2.2" fill="#FFFAF6"/><rect x="33.5" y="18" width="12.5" height="12.5" rx="3.4" fill="#2A8565"/><rect x="18" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#3B6FD4"/><rect x="33.5" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#C47D16"/></svg>
+      轻橘 PopRoom
+    </a>
+    <nav class="nav__links" aria-label="主导航">
+      <div class="nav__item">
+        <a class="nav__link" href="#workspace">协作 <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">四大协作积木</p>
+              <a href="#blocks">方案与时间投票<span>热力图找出最多人有空的时段</span></a>
+              <a href="#blocks">分工与物资认领<span>公开认领任务并上传实拍图</span></a>
+              <a href="#tour">可视化日程轴<span>时间节点一键唤起高德百度</span></a>
+              <a href="#tour">预算与 AA 分账<span>按分计算最少次数转账方案</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">房间生命周期</p>
+              <a href="#scenarios">4 套场景模板<span>校园、出游、聚餐或空白拼装</span></a>
+              <a href="#flow">归档与复盘导出<span>7 天自动只读并导出长图 PDF</span></a>
+              <a href="#faq">口令与审批门禁<span>随时重置链接与操作日志回滚</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#scenarios">场景</a></div>
+      <div class="nav__item"><a class="nav__link" href="#blocks">积木</a></div>
+      <div class="nav__item"><a class="nav__link" href="#tour">演示</a></div>
+      <div class="nav__item"><a class="nav__link" href="#download">下载</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="#download">下载内测版</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="打开菜单">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <!-- 1. HERO (split + live gradient-mesh WebGL ground + PopRoom room board) -->
+  <section class="hero hero--split" data-enter aria-labelledby="hero-h">
+    <div class="wrap">
+      <div class="hero-text grid hero-split">
+        <div class="hero-copy span-5">
+          <p class="hero-notice">Android 独立安装包 v0.1.0 · Build 1 现已开放</p>
+          <h1 id="hero-h">临时活动多人协作 App</h1>
+          <p class="hero__lead">面向校园社团、朋友出游与小型聚会。一件事一个房间，把时间投票、分工认领、日程导航和 AA 分账收进同一块看板，结束 7 天后自动归档。</p>
+          <div class="btn-row">
+            <a class="btn btn--primary" href="#download">下载内测版<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+            <a class="btn btn--secondary" href="#workspace">查看看板</a>
+          </div>
+          <dl class="hero-facts">
+            <div><dt>协作积木</dt><dd>4 大原生模块</dd></div>
+            <div><dt>建房模板</dt><dd>4 套场景预设</dd></div>
+            <div><dt>自动归档</dt><dd>活动结束 7 天</dd></div>
+          </dl>
+        </div>
+        <div class="hero-visual frame hero__media span-6 start-7" data-fx="gradient-mesh" data-fx-seed="42" data-fx-palette='{"bg":"#e6ddd0","surface":"#f6f5f2","ink":"#1f1d1a","accent":"#e05a2b"}'>
+          <div class="stage stage--fade-br">
+            <div class="at-corner to-edge" style="--ax:36px;--ay:36px;--ay-sm:16px">
+              <div class="ui ui-panel ui-win hero-win" data-ui="window" data-open="待认领" data-work="进行中" data-done="已完成" role="img" aria-label="轻橘 PopRoom 秋季露营房间看板">
+                <div class="ui-win__bar">
+                  <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="ui-win__crumb">PopRoom <i>/</i> <b>秋季露营</b></span>
+                  <span class="ui-spacer"></span>
+                  <span class="ui-win__search" aria-hidden="true"><span class="ui-win__ph">口令 8429</span></span>
+                </div>
+                <div class="ui-win__body">
+                  <div class="ui-win__main">
+                    <div class="ui-win__cols" aria-hidden="true"><span>成员</span><span>积木条目</span><span>状态</span><span>更新</span></div>
+                    <ul class="ui-win__rows">
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">林</span><span class="ui-win__who">林溪</span><span class="ui-win__sub">确认周六出发时段 · 8/9 票</span><span class="ui-win__st" data-st>待认领</span><span class="ui-win__age">2分</span></li>
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">周</span><span class="ui-win__who">周屿</span><span class="ui-win__sub">采购两顶 4 人帐篷与地垫</span><span class="ui-win__st" data-st>待认领</span><span class="ui-win__age">5分</span></li>
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">陈</span><span class="ui-win__who">陈默</span><span class="ui-win__sub">09:00 学校东门集合导航</span><span class="ui-win__st" data-st>待认领</span><span class="ui-win__age">9分</span></li>
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">许</span><span class="ui-win__who">许嘉</span><span class="ui-win__sub">垫付营地门票 ¥680 · 上传凭证</span><span class="ui-win__st is-you" data-st>待结算</span><span class="ui-win__age">14分</span></li>
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">沈</span><span class="ui-win__who">沈念</span><span class="ui-win__sub">预约拼车大巴与司机电话</span><span class="ui-win__st is-done" data-st>已完成</span><span class="ui-win__age">22分</span></li>
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">陆</span><span class="ui-win__who">陆遥</span><span class="ui-win__sub">整理篝火烤肉采购清单</span><span class="ui-win__st is-done" data-st>已完成</span><span class="ui-win__age">31分</span></li>
+                      <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">苏</span><span class="ui-win__who">苏杭</span><span class="ui-win__sub">确认素食与过敏备注</span><span class="ui-win__st is-done" data-st>已完成</span><span class="ui-win__age">40分</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ly-float">
+            <div class="ly-float__row"><span class="ly-live">房间实时同步</span><span>口令进房</span></div>
+            <div class="ly-float__title">莫干山秋季露营 · 4 大积木已就位</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. APP-FRAME (whole product window across .wrap: room list + interactive room chat) -->
+  <section class="section" id="workspace" aria-labelledby="workspace-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5">
+          <h2 id="workspace-h">把一场活动的协作收进同一个房间</h2>
+        </div>
+        <div class="span-6 start-7 stack-4">
+          <p class="t-lead">左侧一览进行中房间与归档记录，右侧在协作看板与可控聊天室之间直接联动。聊天室长按任意消息就能转成分工或日程，再也不用爬楼翻群记录。</p>
+          <p><a class="link" href="#tour">交互体验四大积木</a></p>
+        </div>
+      </div>
+      <div class="ui app fill" role="img" aria-label="轻橘 PopRoom 活动大厅房间列表与房间内聊天转积木界面" data-ui-pause-host>
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window" data-open="进行中" data-work="同步中" data-done="已归档">
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb">活动大厅 <i>/</i> <b>进行中房间</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">房间码进房</span></span>
+            </div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-hidden="true">
+                <span class="ui-win__nav is-on"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M2.5 9h3l1 1.5h3l1-1.5h3"/><path d="M2.5 9 4 3.5h8L13.5 9v3.5h-11z"/></svg>进行中<em>4</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="6" r="2.5"/><path d="M3.5 13.5c.6-2.3 2.4-3.5 4.5-3.5s3.9 1.2 4.5 3.5"/></svg>我发起<em>2</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>待审批<em>1</em></span>
+                <span class="ui-win__nav"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>已归档</span>
+                <span class="ui-win__label">模板</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>校园社团</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>多人出游</span>
+                <span class="ui-win__nav"><span class="ui-win__hash">#</span>朋友聚餐</span>
+              </nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>房主</span><span>活动房间</span><span>状态</span><span>日程</span></div>
+                <ul class="ui-win__rows">
+                  <li class="ui-win__row is-sel" data-row><span class="ui-avatar" data-tone="1">林</span><span class="ui-win__who">林溪</span><span class="ui-win__sub">莫干山秋季露营 · 4 积木</span><span class="ui-win__st" data-st>进行中</span><span class="ui-win__age">周六</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">周</span><span class="ui-win__who">周屿</span><span class="ui-win__sub">摄影社秋季招新宣讲会</span><span class="ui-win__st" data-st>进行中</span><span class="ui-win__age">周日</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">陈</span><span class="ui-win__who">陈默</span><span class="ui-win__sub">计科 3 班周五晚火锅局</span><span class="ui-win__st" data-st>进行中</span><span class="ui-win__age">明晚</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">许</span><span class="ui-win__who">许嘉</span><span class="ui-win__sub">毕业晚会舞台物资筹备</span><span class="ui-win__st is-you" data-st>待催办</span><span class="ui-win__age">3天后</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">沈</span><span class="ui-win__who">沈念</span><span class="ui-win__sub">西湖骑行环线周末小队</span><span class="ui-win__st is-done" data-st>已归档</span><span class="ui-win__age">7天前</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">陆</span><span class="ui-win__who">陆遥</span><span class="ui-win__sub">读书会第 12 期选书投票</span><span class="ui-win__st is-done" data-st>已归档</span><span class="ui-win__age">14天前</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">苏</span><span class="ui-win__who">苏杭</span><span class="ui-win__sub">桌游夜拼房与零食 AA</span><span class="ui-win__st is-done" data-st>已归档</span><span class="ui-win__age">21天前</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">程</span><span class="ui-win__who">程安</span><span class="ui-win__sub">迎新晚会志愿排班看板</span><span class="ui-win__st is-done" data-st>已归档</span><span class="ui-win__age">上月</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">唐</span><span class="ui-win__who">唐宁</span><span class="ui-win__sub">国庆崇明岛两日露营</span><span class="ui-win__st is-done" data-st>已归档</span><span class="ui-win__age">上月</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open" data-ui-loop>
+          <div class="ui ui-panel ui-chat" data-ui="chat">
+            <div class="ui-head">
+              <span class="ui-agent" aria-hidden="true"></span>
+              <div class="ui-title">莫干山秋季露营 · 聊天室</div>
+              <span class="ui-chat__online">已开启</span>
+              <span class="ui-spacer"></span>
+            </div>
+            <div class="ui-chat__body">
+              <div class="ui-chat__day">今天 19:20 · 仅 @提及 触发推送</div>
+              <div class="ui-msg ui-msg--me" data-chat-q>
+                <span class="ui-msg__text">周六早上 9 点在学校东门集合，我顺路带 2 箱矿泉水和折叠桌。</span>
+              </div>
+              <div class="ui-msg ui-msg--bot" data-chat-a>
+                <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
+                <span class="ui-msg__col">
+                  <span class="ui-chat__answer">长按消息已转为<b>行李物资分工</b>，同步加入周六 09:00 <b>每日行程轴</b>并附带高德导航坐标。</span>
+                  <span class="ui-chat__srcs">
+                    <span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg>分工 · 矿泉水与折叠桌</span>
+                    <span class="ui-chat__src"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg>日程 · 09:00 东门集合</span>
+                  </span>
+                </span>
+              </div>
+              <div class="ui-msg ui-msg--me">
+                <span class="ui-msg__text">@全体成员 营地菜单投票今晚 22:00 截止，点卡片直接勾选。</span>
+              </div>
+              <div class="ui-msg ui-msg--bot">
+                <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
+                <span class="ui-msg__col">
+                  <span class="ui-chat__answer">积木催办卡片已发送：<b>晚餐烤肉方案投票</b>（已有 7 位成员完成投票，剩余 2 人）。</span>
+                </span>
+              </div>
+            </div>
+            <div class="ui-chat__input">
+              <span class="ui-chat__ph">输入消息，长按可转为分工或日程</span>
+              <span class="ui-chat__send" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. SCENARIOS (split-rows + Moment 1: liquid-type + live template selector) -->
+  <section class="section" id="scenarios" aria-labelledby="scenarios-h">
+    <div class="wrap">
+      <div class="grid fill">
+        <div class="span-5 split-col">
+          <div class="section-head" style="margin-bottom:0">
+            <h2 class="mo-lt__type" id="scenarios-h" data-moment="liquid-type" data-moment-opts='{"strength": 0.9}'>场景模板</h2>
+            <p>提供 4 套预设模板，选定活动类型后自动配好积木，口令门禁与聊天室开关按场景默认启用。</p>
+          </div>
+          <ul class="rows">
+            <li><span class="rows__name">校园 / 社团活动</span><span class="rows__value">4 积木 · 开聊天室</span></li>
+            <li><span class="rows__name">多人出游 / 野营</span><span class="rows__value">4 积木 · 开聊天室</span></li>
+            <li><span class="rows__name">聚餐 / 团建</span><span class="rows__value">2 积木 · 关聊天室</span></li>
+            <li><span class="rows__name">空白自定义</span><span class="rows__value">按需自由拼装</span></li>
+          </ul>
+          <p class="split-col__end"><a class="link" href="#download">下载客户端</a></p>
+        </div>
+
+        <div class="frame frame--split frame--lit frame--fill span-6 start-7">
+          <div class="stage stage--fade-b">
+            <div class="at-rise fit to-edge" style="--w:420px;--fit-max:420px;--ay:48px;--ay-sm:16px">
+              <div class="ui ui-panel ui-search" data-ui="search" role="img" aria-label="轻橘 PopRoom 新建房间场景模板选择器">
+                <div class="ui-search__field">
+                  <svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+                  <span class="ui-search__q"><span data-search-q>露营 社团 聚餐</span><i class="ui-search__caret"></i></span>
+                  <kbd class="ui-search__kbd">4 套模板</kbd>
+                </div>
+                <div class="ui-search__group">选择场景模板一键建房</div>
+                <ul class="ui-search__list" data-search-list>
+                  <li class="ui-search__row is-sel"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M2.5 6.5 8 3.5l5.5 3-5.5 3z"/><path d="M4.5 8v3.2c0 .8 1.6 1.8 3.5 1.8s3.5-1 3.5-1.8V8"/></svg></span><span class="ui-search__t"><b>校园社团</b> · 投票、分工、日程</span><span class="ui-search__m">4 积木</span></li>
+                  <li class="ui-search__row"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="m10.5 5.5-1.6 3.4-3.4 1.6 1.6-3.4z"/></svg></span><span class="ui-search__t"><b>多人出游</b> · 行程、物资、AA</span><span class="ui-search__m">4 积木</span></li>
+                  <li class="ui-search__row"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M5 2.5v11M3.5 2.5v4c0 1 .7 1.8 1.5 1.8s1.5-.8 1.5-1.8v-4M11 2.5v11M11 2.5c1.4.6 2 2 2 3.8v1.7h-2"/></svg></span><span class="ui-search__t"><b>聚餐团建</b> · 餐厅投票与分账</span><span class="ui-search__m">2 积木</span></li>
+                  <li class="ui-search__row"><span class="ui-search__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M3 5h10M3 11h10"/><circle cx="6" cy="5" r="1.5"/><circle cx="10" cy="11" r="1.5"/></svg></span><span class="ui-search__t"><b>空白房间</b> · 按需自由拼装</span><span class="ui-search__m">自定义</span></li>
+                </ul>
+                <div class="ui-search__foot"><span>4 位口令 / 房主审批</span><span>自动配置</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. FEATURES-2X2 (2 screens .g2 on bg-halo, still painterly-landscape card grounds) -->
+  <section class="section g2 bg-halo" id="blocks" aria-labelledby="blocks-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="blocks-h">高频协作全在底部抽屉完成。 <span class="muted">投票、分工、提醒与门禁各司其职。</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row card--open span-6">
+            <h3>统计方案与空闲时段票数</h3>
+            <p>支持单选、多选、匿名投票与日期热力图，一键锁票告别反复改期。</p>
+            <div class="panel" data-fx="painterly-landscape" data-fx-seed="21" data-fx-palette='{"bg":"#a3b0b6","accent":"#c49a6c"}' data-fx-params='{"drift":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}'>
+              <div class="stage stage--fade-b">
+                <div class="at-rise fit to-edge" style="--fit-max:390px;--ax:max(24px, 50% - 195px);--ay:44px;--ay-sm:16px" data-ui-loop>
+                  <div class="ui ui-panel ui-stat" data-ui="stat" data-from="72" data-to="89" data-suffix="%">
+                    <div class="ui-stat__head">
+                      <div class="ui-stat__top">
+                        <span class="ui-stat__label">周六上午空闲命中率</span>
+                        <span class="ui-stat__range">9 位成员</span>
+                      </div>
+                      <div class="ui-stat__line">
+                        <span class="ui-stat__num" data-stat-num>89%</span>
+                        <span class="ui-chip ui-chip--plain ui-stat__delta">8 / 9 人有空</span>
+                        <span class="ui-stat__sub">最佳出发时段</span>
+                      </div>
+                    </div>
+                    <div class="ui-stat__chart">
+                      <svg class="ui-stat__svg" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+                        <path class="ui-stat__grid" d="M0 30.5H400M0 60.5H400M0 90.5H400"/>
+                        <path class="ui-stat__cover" fill-rule="evenodd" d=""/>
+                        <g class="ui-stat__bars"><rect rx="3" x="0.00" y="68.00" width="21.14" height="52.00"/><rect rx="3" x="29.14" y="54.00" width="21.14" height="66.00"/><rect rx="3" x="58.29" y="60.00" width="21.14" height="60.00"/><rect rx="3" x="87.43" y="42.00" width="21.14" height="78.00"/><rect rx="3" x="116.57" y="48.00" width="21.14" height="72.00"/><rect rx="3" x="145.71" y="34.00" width="21.14" height="86.00"/><rect rx="3" x="174.86" y="40.00" width="21.14" height="80.00"/><rect rx="3" x="204.00" y="28.00" width="21.14" height="92.00"/><rect rx="3" x="233.14" y="36.00" width="21.14" height="84.00"/><rect rx="3" x="262.29" y="24.00" width="21.14" height="96.00"/><rect rx="3" x="291.43" y="30.00" width="21.14" height="90.00"/><rect rx="3" x="320.57" y="20.00" width="21.14" height="100.00"/><rect rx="3" x="349.71" y="26.00" width="21.14" height="94.00"/><rect rx="3" x="378.86" y="14.00" width="21.14" height="106.00"/></g>
+                      </svg>
+                      <div class="ui-stat__axis" aria-hidden="true"><span>周五晚</span><span>周六早</span><span>周日午</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card card--row card--open span-6">
+            <h3>认领分工物资并上传实拍</h3>
+            <p>任务公开认领后可流转状态、附最多 3 张现场实拍图，支持条目级轻评论。</p>
+            <div class="panel" data-fx="painterly-landscape" data-fx-seed="34" data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}' data-fx-params='{"drift":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}'>
+              <div class="stage stage--fade-b">
+                <div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:44px;--ay-sm:16px">
+                  <div class="ui ui-panel ui-checks" data-ui="checklist">
+                    <div class="ui-checks__head">
+                      <div class="ui-title">露营物资认领</div>
+                      <span class="ui-spacer"></span>
+                      <div class="ui-meta" data-checks-count>3 / 5 项完成</div>
+                    </div>
+                    <div class="ui-checks__bar"><i data-checks-bar style="--k:0.6"></i></div>
+                    <ul class="ui-checks__list">
+                      <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">林溪 · 2 顶四人防风帐篷（已拍实图）</span></li>
+                      <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">周屿 · 折叠蛋卷桌与 6 把露营椅</span></li>
+                      <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">沈念 · 拼车大巴车牌与集合点核对</span></li>
+                      <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">陈默 · 卡式炉气罐与烤肉食材</span></li>
+                      <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">待认领 · 应急医药箱与驱蚊液</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="grid">
+        <article class="card card--row card--open span-6">
+          <h3>仅在 5 类关键节点精准推送</h3>
+          <p>新投票、被指派、截止前 2 小时、活动集合前 2 小时与 @提及 才提醒，闲聊零弹窗。</p>
+          <div class="panel" data-fx="painterly-landscape" data-fx-seed="47" data-fx-palette='{"bg":"#c6d3df","surface":"#d6e0e9","ink":"#25303a","accent":"#3f6a92"}' data-fx-params='{"drift":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}'>
+            <div class="stage stage--fade-b">
+              <div class="at-rise fit" style="--fit-max:390px;--ax:max(24px, 50% - 195px);--ay:44px;--ay-sm:16px">
+                <div class="ui ui-notify" data-ui="notify">
+                  <ul class="ui-notify__list" data-notify-list>
+                    <li class="ui-note"><span class="ui-agent ui-note__av" aria-hidden="true"></span><span class="ui-note__text"><span class="ui-note__title">活动集合提醒<time>2小时后</time></span><span class="ui-note__body">09:00 学校东门集合，点击唤起地图导航</span></span><span class="ui-btn ui-btn--sm ui-note__btn">导航</span></li>
+                    <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="2">周</span><span class="ui-note__text"><span class="ui-note__title">林溪 @提及了你<time>5分前</time></span><span class="ui-note__body">烤肉炭火采购单已转入分工积木</span></span></li>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">新入房申请待审批<time>12分前</time></span><span class="ui-note__body">唐宁备注：摄影社大二器材组</span></span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card card--row card--open span-6">
+          <h3>掌控门禁安全与误删回滚</h3>
+          <p>服务端校验 4 位口令或房主审批，可随时重置链接，操作日志支持一键回滚。</p>
+          <div class="panel" data-fx="painterly-landscape" data-fx-seed="63" data-fx-palette='{"bg":"#cdd6c6","surface":"#dce3d6","ink":"#262d24","accent":"#6c8e63"}' data-fx-params='{"drift":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}'>
+            <div class="stage stage--fade-b">
+              <div class="at-right to-edge" style="--ax:32px;--ay:40px;--ay-sm:16px">
+                <div class="ui ui-panel ui-toggles" data-ui="toggles">
+                  <div class="ui-head">
+                    <svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 4v3.6c0 3-2.1 5.4-5 6.6-2.9-1.2-5-3.6-5-6.6V4z"/><path d="m5.8 8 1.6 1.6 3-3.2"/></svg>
+                    <div class="ui-title">房主治理开关</div>
+                    <span class="ui-spacer"></span>
+                    <div class="ui-meta" data-tg-count>4 / 5 开启</div>
+                  </div>
+                  <ul class="ui-toggles__list">
+                    <li class="ui-tg">
+                      <span class="ui-tg__text"><span class="ui-tg__label">4 位口令进房校验</span><span class="ui-tg__sub">重置链接后旧码立即失效</span></span>
+                      <button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="4 位口令进房校验"><i></i></button>
+                    </li>
+                    <li class="ui-tg">
+                      <span class="ui-tg__text"><span class="ui-tg__label">开启轻量聊天室</span><span class="ui-tg__sub">仅 @提及 与催办卡片推送</span></span>
+                      <button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="开启轻量聊天室"><i></i></button>
+                    </li>
+                    <li class="ui-tg">
+                      <span class="ui-tg__text"><span class="ui-tg__label">成员新入房需审批</span><span class="ui-tg__sub">大型社团招新建议开启</span></span>
+                      <button class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="成员新入房需审批"><i></i></button>
+                    </li>
+                    <li class="ui-tg">
+                      <span class="ui-tg__text"><span class="ui-tg__label">软删除日志防手滑</span><span class="ui-tg__sub">房主与管理员可一键回滚</span></span>
+                      <button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="软删除日志防手滑"><i></i></button>
+                    </li>
+                    <li class="ui-tg">
+                      <span class="ui-tg__text"><span class="ui-tg__label">结束 7 天自动归档</span><span class="ui-tg__sub">数据库锁定只读防篡改</span></span>
+                      <button class="ui-switch is-on" type="button" role="switch" aria-checked="true" aria-label="结束 7 天自动归档"><i></i></button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. TABS-TOUR (dark band + Moment 2: line-carries-colour scroll sweep!) -->
+  <section class="section ground-inverse" id="tour" data-moment="line-carries-colour" data-moment-opts='{"from": "base"}' aria-labelledby="tour-h">
+    <div class="wrap">
+      <div class="grid fill">
+        <div class="span-5 split-col">
+          <div class="section-head" style="margin-bottom:0">
+            <h2 id="tour-h">切换四块积木，看每一步怎么跑通</h2>
+            <p>点选下方四项常用操作，右侧实时切换对应的轻橘 PopRoom 协作视图。</p>
+          </div>
+          <div class="tabs" role="tablist" aria-label="四大积木互动演示">
+            <button class="tab" type="button" role="tab" id="t-1" aria-selected="true" aria-controls="tp-1 ts-1">认领现场物资</button>
+            <button class="tab" type="button" role="tab" id="t-2" aria-selected="false" aria-controls="tp-2 ts-2">投出活动日期</button>
+            <button class="tab" type="button" role="tab" id="t-3" aria-selected="false" aria-controls="tp-3 ts-3">唤起地图导航</button>
+            <button class="tab" type="button" role="tab" id="t-4" aria-selected="false" aria-controls="tp-4 ts-4">结算 AA 分账</button>
+          </div>
+          <div class="tour-copy">
+            <div role="tabpanel" id="tp-1" aria-labelledby="t-1">
+              <p>把帐篷、食材、音响或场地布置拆成独立条目，成员公开认领后更新进度并上传实拍照片。条目下方自带轻评论，不必回群刷屏。</p>
+              <p><a class="link" href="#download">下载客户端体验分工认领</a></p>
+            </div>
+            <div role="tabpanel" id="tp-2" aria-labelledby="t-2" hidden>
+              <p>选择候选日期与早中晚时段，成员在底部抽屉点选空闲格子，自动标出参与人数最多的两天。房主敲定后一键锁票，结果同步进日程轴。</p>
+              <p><a class="link" href="#download">下载客户端体验热力图投票</a></p>
+            </div>
+            <div role="tabpanel" id="tp-3" aria-labelledby="t-3" hidden>
+              <p>按天或筹备阶段排好集合时间与地点，Android 11+ 原生适配一键唤起高德地图或百度地图。断网时本地缓存仍可查看完整日程。</p>
+              <p><a class="link" href="#download">下载客户端体验日程导航</a></p>
+            </div>
+            <div role="tabpanel" id="tp-4" aria-labelledby="t-4" hidden>
+              <p>记录每笔垫付金额、参与分摊成员与收据照片，所有金额按分整数运算避免精度误差，双指针贪心算法给出最少次数的转账明细。</p>
+              <p><a class="link" href="#download">下载客户端体验 AA 分账</a></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame frame--split frame--lit frame--fill span-6 start-7" data-ui-pause-host>
+          <!-- Screen 1: Task checklist (default active tab, clean loop) -->
+          <div class="tour-slot" id="ts-1">
+            <div class="stage stage--fade-b">
+              <div class="at-rise fit" style="--w:400px;--fit-max:400px;--ay:48px;--ay-sm:16px" data-ui-loop>
+                <div class="ui ui-panel ui-checks" data-ui="checklist" role="img" aria-label="招新宣讲会现场分工认领清单">
+                  <div class="ui-checks__head">
+                    <div class="ui-title">招新宣讲会现场分工</div>
+                    <span class="ui-spacer"></span>
+                    <div class="ui-meta" data-checks-count>3 / 5 项完成</div>
+                  </div>
+                  <div class="ui-checks__bar"><i data-checks-bar style="--k:0.6"></i></div>
+                  <ul class="ui-checks__list">
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">预定大礼堂 203 教室与音响</span></li>
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">印制 60 份社团介绍折页</span></li>
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">架设签到二维码与迎新展板</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">调试大屏 HDMI 与翻页笔</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">活动结束拍摄合照并归档</span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Screen 2: Calendar (November 2026) -->
+          <div class="tour-slot" id="ts-2" hidden>
+            <div class="stage stage--fade-b">
+              <div class="at-rise fit to-edge" style="--w:420px;--fit-max:420px;--ay:32px;--ay-sm:16px">
+                <div class="ui ui-panel ui-calendar" data-ui="calendar" data-start="28" data-end="29" data-month="11月" role="img" aria-label="2026 年 11 月活动日程与空闲时段日历">
+                  <div class="ui-cal__head">
+                    <div class="ui-cal__month">2026 年 11 月</div>
+                    <span class="ui-spacer"></span>
+                    <span class="ui-chip ui-chip--plain ui-chip--ink" data-cal-range>11月 28 – 29</span>
+                  </div>
+                  <div class="ui-cal__dow" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+                  <div class="ui-cal__days">
+                    <span class="ui-cal__d is-out"><b>26</b></span><span class="ui-cal__d is-out"><b>27</b></span><span class="ui-cal__d is-out"><b>28</b></span><span class="ui-cal__d is-out"><b>29</b></span><span class="ui-cal__d is-out"><b>30</b></span><span class="ui-cal__d is-out"><b>31</b></span><span class="ui-cal__d" data-d="1"><b>1</b></span>
+                    <span class="ui-cal__d" data-d="2"><b>2</b></span><span class="ui-cal__d" data-d="3"><b>3</b></span><span class="ui-cal__d" data-d="4"><b>4</b></span><span class="ui-cal__d" data-d="5"><b>5</b></span><span class="ui-cal__d" data-d="6"><b>6</b></span><span class="ui-cal__d" data-d="7"><b>7</b></span><span class="ui-cal__d" data-d="8"><b>8</b></span>
+                    <span class="ui-cal__d" data-d="9"><b>9</b></span><span class="ui-cal__d" data-d="10"><b>10</b></span><span class="ui-cal__d" data-d="11"><b>11</b></span><span class="ui-cal__d" data-d="12"><b>12</b></span><span class="ui-cal__d" data-d="13"><b>13</b></span><span class="ui-cal__d" data-d="14"><b>14</b></span><span class="ui-cal__d" data-d="15"><b>15</b></span>
+                    <span class="ui-cal__d" data-d="16"><b>16</b></span><span class="ui-cal__d" data-d="17"><b>17</b></span><span class="ui-cal__d" data-d="18"><b>18</b></span><span class="ui-cal__d" data-d="19"><b>19</b></span><span class="ui-cal__d" data-d="20"><b>20</b></span><span class="ui-cal__d" data-d="21"><b>21</b></span><span class="ui-cal__d" data-d="22"><b>22</b></span>
+                    <span class="ui-cal__d" data-d="23"><b>23</b></span><span class="ui-cal__d" data-d="24"><b>24</b></span><span class="ui-cal__d is-today" data-d="25"><b>25</b></span><span class="ui-cal__d" data-d="26"><b>26</b></span><span class="ui-cal__d is-mark" data-d="27"><b>27</b></span><span class="ui-cal__d is-start" data-d="28"><b>28</b></span><span class="ui-cal__d is-end" data-d="29"><b>29</b></span>
+                    <span class="ui-cal__d" data-d="30"><b>30</b></span><span class="ui-cal__d is-out"><b>1</b></span><span class="ui-cal__d is-out"><b>2</b></span><span class="ui-cal__d is-out"><b>3</b></span><span class="ui-cal__d is-out"><b>4</b></span><span class="ui-cal__d is-out"><b>5</b></span><span class="ui-cal__d is-out"><b>6</b></span>
+                  </div>
+                  <div class="ui-cal__events">
+                    <div class="ui-cal__ev" data-ev="27">
+                      <span class="ui-cal__date"><b>27</b><i>11月</i></span>
+                      <span class="ui-cal__evtext"><span class="ui-cal__evtitle">物资采购截止</span><span class="ui-cal__evsub">20:00 确认帐篷与食材清单</span></span>
+                    </div>
+                    <div class="ui-cal__ev" data-ev="28">
+                      <span class="ui-cal__date"><b>28</b><i>11月</i></span>
+                      <span class="ui-cal__evtext"><span class="ui-cal__evtitle">莫干山露营出发</span><span class="ui-cal__evsub">09:00 东门集合 · 9 位成员</span></span>
+                    </div>
+                    <div class="ui-cal__ev" data-ev="29">
+                      <span class="ui-cal__date"><b>29</b><i>11月</i></span>
+                      <span class="ui-cal__evtext"><span class="ui-cal__evtitle">返程与 AA 结算</span><span class="ui-cal__evsub">16:30 归队并导出复盘长图</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Screen 3: Schedule stops with map launch -->
+          <div class="tour-slot" id="ts-3" hidden>
+            <div class="stage stage--fade-b">
+              <div class="at-rise fit" style="--fit-max:410px;--ax:max(24px, 50% - 205px);--ay:56px;--ay-sm:16px">
+                <div class="ui ui-notify" data-ui="notify">
+                  <ul class="ui-notify__list" data-notify-list>
+                    <li class="ui-note"><span class="ui-agent ui-note__av" aria-hidden="true"></span><span class="ui-note__text"><span class="ui-note__title">09:00 学校东门广场集合<time>第 1 站</time></span><span class="ui-note__body">负责人 林溪 · 核对拼车座位与物资装箱</span></span><span class="ui-btn ui-btn--sm ui-note__btn">高德</span></li>
+                    <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="3">陈</span><span class="ui-note__text"><span class="ui-note__title">11:30 莫干山森林营地入营<time>第 2 站</time></span><span class="ui-note__body">负责人 陈默 · 搭设帐篷与领取柴火</span></span><span class="ui-btn ui-btn--sm ui-note__btn">百度</span></li>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg></span><span class="ui-note__text"><span class="ui-note__title">18:00 营地篝火烤肉晚餐<time>第 3 站</time></span><span class="ui-note__body">离线缓存已同步 · 弱网仍可查看全天行程</span></span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Screen 4: AA Expense settlement -->
+          <div class="tour-slot" id="ts-4" hidden>
+            <div class="stage stage--fade-b">
+              <div class="at-rise fit to-edge" style="--fit-max:410px;--ax:max(24px, 50% - 205px);--ay:48px;--ay-sm:16px">
+                <div class="ui ui-panel ui-stat" data-ui="stat" data-from="1180" data-to="1260" data-prefix="¥">
+                  <div class="ui-stat__head">
+                    <div class="ui-stat__top">
+                      <span class="ui-stat__label">露营 AA 总支出（6 人分摊）</span>
+                      <span class="ui-stat__range">最少 3 笔转账</span>
+                    </div>
+                    <div class="ui-stat__line">
+                      <span class="ui-stat__num" data-stat-num>¥1,260</span>
+                      <span class="ui-chip ui-chip--plain ui-stat__delta">人均 ¥210.00</span>
+                      <span class="ui-stat__sub">按分整数精确结算</span>
+                    </div>
+                  </div>
+                  <div class="ui-stat__chart">
+                    <svg class="ui-stat__svg" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+                      <path class="ui-stat__grid" d="M0 30.5H400M0 60.5H400M0 90.5H400"/>
+                      <path class="ui-stat__cover" fill-rule="evenodd" d=""/>
+                      <g class="ui-stat__bars"><rect rx="3" x="12" y="18" width="44" height="102"/><rect rx="3" x="78" y="46" width="44" height="74"/><rect rx="3" x="144" y="64" width="44" height="56"/><rect rx="3" x="210" y="78" width="44" height="42"/><rect rx="3" x="276" y="88" width="44" height="32"/><rect rx="3" x="342" y="96" width="44" height="24"/></g>
+                    </svg>
+                    <div class="ui-stat__axis" aria-hidden="true"><span>营地 ¥680</span><span>车费 ¥320</span><span>食材 ¥260</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. FLOW (split-text-left + interactive hub diagram — calm back-third start) -->
+  <section class="section" id="flow" aria-labelledby="flow-h">
+    <div class="wrap">
+      <div class="grid fill">
+        <div class="span-5 split-col">
+          <div class="section-head" style="margin-bottom:0">
+            <h2 id="flow-h">用完即归档，留下清晰复盘</h2>
+            <p>所有房间数据经云端实时同步并在本地持久化缓存，断网不丢记录。活动结束 7 天后自动转为只读归档，随时导出高清 PNG 长图或 A4 PDF 发群留念。</p>
+          </div>
+          <ul class="rows">
+            <li><span class="rows__name">复盘导出</span><span class="rows__value">PNG 长图 · A4 PDF</span></li>
+            <li><span class="rows__name">弱网体验</span><span class="rows__value">乐观更新 · 离线缓存</span></li>
+            <li><span class="rows__name">归档锁定</span><span class="rows__value">7 天后只读防篡改</span></li>
+          </ul>
+          <p class="split-col__end"><a class="link" href="#download">前往下载客户端</a></p>
+        </div>
+        <div class="panel panel--dg frame--fill span-6 start-7">
+          <div class="dg" data-diagram>
+            <script type="application/json">
+              {
+                "layout": "hub",
+                "motion": { "pulse": "none" },
+                "alt": "轻橘 PopRoom 以房间为核心，串联投票、分工、日程导航、AA 分账、可控聊天室与 7 天归档复盘。",
+                "center": { "label": "PopRoom", "icon": "supabase" },
+                "spokes": [
+                  { "label": "投票", "icon": "ui:layers" },
+                  { "label": "分工", "icon": "ui:layout-grid" },
+                  { "label": "导航", "icon": "ui:map-pin" },
+                  { "label": "分账", "icon": "ui:wallet" },
+                  { "label": "聊天", "icon": "ui:message-square" },
+                  { "label": "归档", "icon": "pdf" }
+                ]
+              }
+            </script>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. FAQ (ground-surface warm stone, open answers, no accordion) -->
+  <section class="section ground-surface" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-5">
+          <div class="section-head" style="margin-bottom:0">
+            <h2 id="faq-h">常见问题</h2>
+            <p>关于安装包权限、房间门禁与归档规则的直接回答。</p>
+          </div>
+          <p><a class="link" href="mailto:beta@poproom.example">发邮件反馈问题</a></p>
+        </div>
+        <div class="span-6 start-7">
+          <div class="faq">
+            <div class="faq__item">
+              <h3>安装内测 APK 时提示未知来源怎么办？</h3>
+              <p>在安装弹窗中允许当前浏览器继续安装即可；仅上传照片时申请相册与相机权限，不申请麦克风权限。</p>
+            </div>
+            <div class="faq__item">
+              <h3>没有邀请口令的人能查看房间内容吗？</h3>
+              <p>不能。进房由服务端校验 4 位口令或房主审批，房主随时可重置链接，旧链接立即失效。</p>
+            </div>
+            <div class="faq__item">
+              <h3>不想再建一个刷屏聊天群怎么办？</h3>
+              <p>聊天室默认可关闭；开启后也仅在被 @提及 或房主催办时推送，普通消息绝不弹窗。</p>
+            </div>
+            <div class="faq__item">
+              <h3>有人手滑删掉了分工或账单怎么恢复？</h3>
+              <p>所有删除均采用软删除并写入操作日志，房主与管理员可在日志页一键回滚恢复。</p>
+            </div>
+            <div class="faq__item">
+              <h3>活动结束后行程和账单会丢失吗？</h3>
+              <p>不会。活动结束 7 天后自动转为只读归档保留，随时可导出高清 PNG 长图与 A4 PDF。</p>
+            </div>
+            <div class="faq__item">
+              <h3>弱网或断网时还能查看日程和看板吗？</h3>
+              <p>可以。本地离线缓存会持久化大厅与房间数据，弱网下操作乐观更新，联网后自动同步。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. DOWNLOAD WINDOW (left interactive tabs + download actions, right full-height release preview) -->
+  <section class="section" id="download" aria-labelledby="download-h">
+    <div class="wrap">
+      <div class="grid fill">
+        <div class="span-5 split-col">
+          <div class="section-head" style="margin-bottom:0">
+            <h2 id="download-h">下载轻橘 PopRoom 客户端</h2>
+            <p>Android 独立安装包已完成构建（EAS preview 内测通道），装完即可直接注册建房。</p>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="客户端下载方式">
+            <button class="tab" type="button" role="tab" id="dl-t1" aria-selected="true" aria-controls="dl-p1">Android APK</button>
+            <button class="tab" type="button" role="tab" id="dl-t2" aria-selected="false" aria-controls="dl-p2">房间码直达</button>
+            <button class="tab" type="button" role="tab" id="dl-t3" aria-selected="false" aria-controls="dl-p3">iOS 与 Web</button>
+          </div>
+
+          <div class="dl-panel" role="tabpanel" id="dl-p1" aria-labelledby="dl-t1">
+            <p>支持 Android 11+ 唤起高德与百度地图、系统原生分享复盘长图与 PDF。首次安装如遇未知来源提示，允许当前浏览器安装即可。</p>
+            <ul class="rows">
+              <li><span class="rows__name">当前版本</span><span class="rows__value">v0.1.0 · Build 1</span></li>
+              <li><span class="rows__name">包名</span><span class="rows__value">com.poproom.app</span></li>
+            </ul>
+            <!-- CLIENT FILE apk: downloads/PopRoom-v0.1.0-Build1.apk (replace href below with direct APK file URL once hosted) -->
+            <div class="btn-row">
+              <a class="btn btn--primary" href="https://expo.dev/accounts/hana684s-team/projects/poproom/builds" target="_blank" rel="noopener noreferrer">获取 Android APK<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+              <button class="btn btn--secondary" type="button" data-copy-btn data-copy-text="poproom://room/join?code=842916">复制进房链接</button>
+            </div>
+            <p class="dl-status" role="status" data-copy-status></p>
+          </div>
+
+          <div class="dl-panel" role="tabpanel" id="dl-p2" aria-labelledby="dl-t2" hidden>
+            <p>安装客户端后，点击下方协议链接可直接拉起 App 并填入 6 位房间码；复制邀请文案切回 App 也会自动识别提示。</p>
+            <div class="dl-code"><code>poproom://room/join?code=842916</code></div>
+            <div class="btn-row">
+              <button class="btn btn--primary" type="button" data-copy-btn data-copy-text="poproom://room/join?code=842916">复制深链地址<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></button>
+            </div>
+            <p class="dl-status" role="status" data-copy-status></p>
+          </div>
+
+          <div class="dl-panel" role="tabpanel" id="dl-p3" aria-labelledby="dl-t3" hidden>
+            <p>v0.1.0 内测阶段优先开放 Android 独立安装包分发，iOS 独立包与 Web 端随后续版本开放。</p>
+            <ul class="rows">
+              <li><span class="rows__name"><img data-icon="apple" src="assets/icons/apple.svg" alt="" width="16" height="16" loading="lazy" style="vertical-align:-2px;margin-right:8px">iOS 客户端</span><span class="rows__value">后续版本开放</span></li>
+              <li><span class="rows__name">诊断反馈</span><span class="rows__value">我的 → 内测版本信息</span></li>
+            </ul>
+            <div class="btn-row">
+              <a class="btn btn--primary" href="mailto:beta@poproom.example?subject=PopRoom%20iOS%20Beta">订阅 iOS 通知<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+            </div>
+            <p class="dl-status" role="status"></p>
+          </div>
+        </div>
+
+        <div class="panel dl-stage-panel frame--fill span-6 start-7">
+          <div class="stage stage--fade-b">
+            <div class="at-rise fit to-edge" style="--fit-max:420px;--ax:max(24px, 50% - 210px);--ay:44px;--ay-sm:16px">
+              <div class="ui ui-panel ui-checks" data-ui="checklist" role="img" aria-label="轻橘 PopRoom Android 内测安装包 v0.1.0 构建验收清单">
+                <div class="dl-mock__head">
+                  <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#E05A2B"/><rect x="12" y="12" width="40" height="40" rx="11" fill="#FFFDFB"/><rect x="18" y="18" width="12.5" height="12.5" rx="3.4" fill="#E05A2B"/><circle cx="24.25" cy="24.25" r="2.2" fill="#FFFAF6"/><rect x="33.5" y="18" width="12.5" height="12.5" rx="3.4" fill="#2A8565"/><rect x="18" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#3B6FD4"/><rect x="33.5" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#C47D16"/></svg>
+                  <div class="dl-mock__meta">
+                    <span class="dl-mock__name">轻橘 PopRoom · Android Beta</span>
+                    <span class="dl-mock__ver">v0.1.0 (Build 1) · com.poproom.app</span>
+                  </div>
+                  <span class="ic-tile dl-mock__os"><img data-icon="android" src="assets/icons/android.svg" alt="" width="20" height="20" loading="lazy"></span>
+                </div>
+                <div class="ui-checks__head">
+                  <div class="ui-title">内测独立包核验</div>
+                  <span class="ui-spacer"></span>
+                  <div class="ui-meta" data-checks-count>5 / 5 就绪</div>
+                </div>
+                <div class="ui-checks__bar"><i data-checks-bar style="--k:1"></i></div>
+                <ul class="ui-checks__list">
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">EAS preview 独立签名 APK</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">poproom:// 深度链接与剪贴板识别</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">高德 / 百度地图原生导航唤起</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">仅相册与相机最小权限，无麦克风</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">离线缓存与高清 PNG / PDF 分享</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 9. FOOTER.CLOSING (footer-statement on lit sky ground + close-word) -->
+<footer class="footer closing footer--statement" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div>
+          <h2 id="close-h">下一场活动，开一个轻橘房间</h2>
+          <p class="t-lead">Android 独立安装包 v0.1.0 已就绪，装完即可发起协作。</p>
+        </div>
+        <a class="btn btn--primary" href="#download">下载内测版<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">PopRoom</p>
+    </div>
+
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top">
+            <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#E05A2B"/><rect x="12" y="12" width="40" height="40" rx="11" fill="#FFFDFB"/><rect x="18" y="18" width="12.5" height="12.5" rx="3.4" fill="#E05A2B"/><circle cx="24.25" cy="24.25" r="2.2" fill="#FFFAF6"/><rect x="33.5" y="18" width="12.5" height="12.5" rx="3.4" fill="#2A8565"/><rect x="18" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#3B6FD4"/><rect x="33.5" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#C47D16"/></svg>
+            轻橘 PopRoom
+          </a>
+          <p class="footer__lede">一件事一个房间，用完即归档。</p>
+        </div>
+        <div class="span-2 footer__col"><h3>协作</h3><ul><li><a href="#workspace">活动看板</a></li><li><a href="#scenarios">场景模板</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>积木</h3><ul><li><a href="#blocks">四大模块</a></li><li><a href="#tour">交互演示</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>机制</h3><ul><li><a href="#flow">归档复盘</a></li><li><a href="#faq">常见问题</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>客户端</h3><ul><li><a href="#download">安装包下载</a></li><li><a href="privacy.html">隐私说明</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 轻橘 PopRoom &nbsp; <a href="privacy.html">隐私说明</a> &nbsp; <a href="terms.html">使用条款</a></span>
+        <div class="socials"></div>
+        <span class="credits">Product names and logos are trademarks of their owners</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="assets/diagrams/mount.js"></script>
+<script>
+(() => {
+  /* Copy link buttons (works on both http:// and file://) */
+  document.querySelectorAll('[data-copy-btn]').forEach((btn) => {
+    const baseText = btn.textContent.trim();
+    btn.addEventListener('click', async () => {
+      const value = btn.dataset.copyText || '';
+      const panel = btn.closest('.dl-panel');
+      const status = panel ? panel.querySelector('[data-copy-status]') : null;
+      let copied = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(value);
+          copied = true;
+        } catch {}
+      }
+      if (!copied) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = value;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          copied = document.execCommand('copy');
+          ta.remove();
+        } catch {}
+      }
+      if (status) {
+        status.textContent = copied
+          ? '已复制进房链接，安装客户端后可直接打开。'
+          : '请手动复制上方协议链接：' + value;
+      }
+      const prev = btn.innerHTML;
+      btn.textContent = '已复制';
+      setTimeout(() => { btn.innerHTML = prev || baseText; }, 1600);
+    });
+  });
+
+  /* Direct file:// fallback: browsers block <script type="module"> over file:// via CORS */
+  if (window.location.protocol !== 'file:') return;
+
+  const root = document.documentElement;
+  root.classList.add('is-file-proto', 'm-enter-done', 'mo-safe');
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* 1. Tabs ([role="tablist"]) for #tour and #download */
+  const partsOf = (tab) => (tab.getAttribute('aria-controls') || '')
+    .split(/\s+/).filter(Boolean)
+    .map((id) => document.getElementById(id)).filter(Boolean);
+
+  document.querySelectorAll('[role="tablist"]').forEach((list) => {
+    const tabs = Array.from(list.querySelectorAll('[role="tab"]'));
+    let first = true;
+    const select = (tab, focus) => {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        partsOf(t).forEach((el) => {
+          const wasHidden = el.hidden;
+          el.hidden = !on;
+          if (on && wasHidden && !first && !reduced() && el.animate) {
+            el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: 'ease-out' });
+          }
+        });
+      });
+      if (focus) tab.focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => select(t));
+      t.addEventListener('keydown', (e) => {
+        const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+          : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        select(tabs[(i + d + tabs.length) % tabs.length], true);
+      });
+    });
+    select(tabs.find((t) => t.getAttribute('aria-selected') === 'true') || tabs[0]);
+    first = false;
+  });
+
+  /* 2. Mobile navigation drawer */
+  const nav = document.querySelector('.nav');
+  if (nav) {
+    const toggle = nav.querySelector('.nav__toggle');
+    const bars = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    const cross = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    const setOpen = (open) => {
+      nav.classList.toggle('is-open', open);
+      document.body.classList.toggle('nav-locked', open);
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.innerHTML = open ? cross : bars;
+      }
+    };
+    if (toggle) toggle.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
+    nav.addEventListener('click', (e) => {
+      if (nav.classList.contains('is-open') && e.target.closest('a[href]')) setOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && nav.classList.contains('is-open')) {
+        setOpen(false);
+        if (toggle) toggle.focus();
+      }
+    });
+  }
+
+  /* 3. Interactive cards on file:// (toggles, checklists, template list, calendar) */
+  document.querySelectorAll('.ui-toggles').forEach((wrap) => {
+    const countEl = wrap.querySelector('[data-tg-count]');
+    const switches = Array.from(wrap.querySelectorAll('.ui-switch'));
+    const sync = () => {
+      const onCount = switches.filter((s) => s.classList.contains('is-on')).length;
+      if (countEl) countEl.textContent = onCount + ' / ' + switches.length + ' 开启';
+    };
+    switches.forEach((sw) => {
+      sw.addEventListener('click', () => {
+        const next = !sw.classList.contains('is-on');
+        sw.classList.toggle('is-on', next);
+        sw.setAttribute('aria-checked', String(next));
+        sync();
+      });
+    });
+  });
+
+  document.querySelectorAll('#blocks .ui-checks, #tour .ui-checks').forEach((wrap) => {
+    const items = Array.from(wrap.querySelectorAll('.ui-check'));
+    const countEl = wrap.querySelector('[data-checks-count]');
+    const barEl = wrap.querySelector('[data-checks-bar]');
+    const sync = () => {
+      const done = items.filter((it) => it.classList.contains('is-done')).length;
+      if (countEl) countEl.textContent = done + ' / ' + items.length + ' 项完成';
+      if (barEl) barEl.style.setProperty('--k', String(done / items.length));
+    };
+    items.forEach((it) => {
+      it.addEventListener('click', () => {
+        it.classList.toggle('is-done');
+        sync();
+      });
+    });
+  });
+
+  document.querySelectorAll('#scenarios .ui-search__row').forEach((row) => {
+    row.addEventListener('click', () => {
+      const list = row.closest('.ui-search__list');
+      if (!list) return;
+      list.querySelectorAll('.ui-search__row').forEach((r) => r.classList.remove('is-sel'));
+      row.classList.add('is-sel');
+    });
+  });
+
+  document.querySelectorAll('#tour .ui-calendar').forEach((cal) => {
+    const days = Array.from(cal.querySelectorAll('.ui-cal__d:not(.is-out)'));
+    const badge = cal.querySelector('[data-cal-range]');
+    const month = cal.dataset.month || '11月';
+    days.forEach((d) => {
+      d.addEventListener('click', () => {
+        days.forEach((x) => x.classList.remove('is-start', 'is-end'));
+        d.classList.add('is-start', 'is-end');
+        if (badge) badge.textContent = month + ' ' + d.dataset.d + ' 日';
+      });
+    });
+  });
+
+  /* 4. Hub Diagram renderer for #flow [data-diagram] on file:// */
+  const iconFile = (name) => {
+    if (!name) return '';
+    return 'assets/icons/' + (name.startsWith('ui:') ? 'ui-' + name.slice(3) : name) + '.svg';
+  };
+
+  const renderHubDiagram = (host) => {
+    const specEl = host.querySelector('script[type="application/json"]');
+    if (!specEl) return;
+    let spec;
+    try { spec = JSON.parse(specEl.textContent); } catch { return; }
+    if (spec.layout !== 'hub' || !spec.center || !Array.isArray(spec.spokes)) return;
+
+    host.setAttribute('data-dg-ground', 'dots glow');
+    host.setAttribute('data-tier', '2');
+    host.setAttribute('role', 'img');
+    if (spec.alt) host.setAttribute('aria-label', spec.alt);
+
+    const draw = () => {
+      const rect = host.getBoundingClientRect();
+      const w = Math.max(300, Math.round(rect.width || 560));
+      const h = Math.max(340, Math.round(rect.height || 440));
+      const cx = w / 2;
+      const cy = h / 2;
+      const rx = Math.min(w * 0.34, 188);
+      const ry = Math.min(h * 0.33, 146);
+
+      host.querySelectorAll('.dg-svg, .dg-nodes').forEach((n) => n.remove());
+
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('class', 'dg-svg');
+      svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      svg.setAttribute('aria-hidden', 'true');
+
+      const rings = document.createElementNS(svgNS, 'g');
+      rings.setAttribute('class', 'dg-rings');
+      [0.44, 0.74, 1.04].forEach((k) => {
+        const c = document.createElementNS(svgNS, 'circle');
+        c.setAttribute('cx', String(cx));
+        c.setAttribute('cy', String(cy));
+        c.setAttribute('r', String(Math.round(Math.min(rx, ry) * k)));
+        rings.appendChild(c);
+      });
+      svg.appendChild(rings);
+
+      const nodesLayer = document.createElement('div');
+      nodesLayer.className = 'dg-nodes';
+
+      const edges = [];
+      const spokeNodes = [];
+
+      spec.spokes.forEach((sp, idx) => {
+        const angle = (-Math.PI / 2) + (idx * 2 * Math.PI) / spec.spokes.length;
+        const sx = cx + Math.cos(angle) * rx;
+        const sy = cy + Math.sin(angle) * ry;
+        const mx = cx + Math.cos(angle) * rx * 0.52;
+        const my = cy + Math.sin(angle) * ry * 0.52;
+        const cpx = mx - Math.sin(angle) * 14;
+        const cpy = my + Math.cos(angle) * 14;
+
+        const g = document.createElementNS(svgNS, 'g');
+        g.setAttribute('class', 'dg-e');
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('class', 'dg-line');
+        path.setAttribute('d', 'M' + cx.toFixed(1) + ',' + cy.toFixed(1) + ' Q' + cpx.toFixed(1) + ',' + cpy.toFixed(1) + ' ' + sx.toFixed(1) + ',' + sy.toFixed(1));
+        g.appendChild(path);
+        svg.appendChild(g);
+        edges.push(g);
+
+        const node = document.createElement('div');
+        node.className = 'dg-node dg-node--pill';
+        node.style.left = sx.toFixed(1) + 'px';
+        node.style.top = sy.toFixed(1) + 'px';
+        node.style.transform = 'translate(-50%, -50%)';
+        node.innerHTML =
+          '<span class="dg-ic"><img src="' + iconFile(sp.icon) + '" alt="" width="18" height="18"></span>' +
+          '<span class="dg-label">' + sp.label + '</span>';
+        nodesLayer.appendChild(node);
+        spokeNodes.push(node);
+      });
+
+      const core = document.createElement('div');
+      core.className = 'dg-node dg-node--core is-ink';
+      core.style.left = cx.toFixed(1) + 'px';
+      core.style.top = cy.toFixed(1) + 'px';
+      core.style.transform = 'translate(-50%, -50%)';
+      core.innerHTML =
+        '<span class="dg-ic"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#E05A2B"/><rect x="12" y="12" width="40" height="40" rx="11" fill="#FFFDFB"/><rect x="18" y="18" width="12.5" height="12.5" rx="3.4" fill="#E05A2B"/><circle cx="24.25" cy="24.25" r="2.2" fill="#FFFAF6"/><rect x="33.5" y="18" width="12.5" height="12.5" rx="3.4" fill="#2A8565"/><rect x="18" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#3B6FD4"/><rect x="33.5" y="33.5" width="12.5" height="12.5" rx="3.4" fill="#C47D16"/></svg></span>' +
+        '<span class="dg-cap dg-cap--in">' + spec.center.label + '</span>';
+      nodesLayer.appendChild(core);
+
+      const clearFocus = () => {
+        host.classList.remove('is-focus');
+        edges.forEach((e) => e.classList.remove('is-focus'));
+        spokeNodes.forEach((n) => n.classList.remove('is-focus', 'is-hit'));
+        core.classList.remove('is-focus', 'is-hit');
+      };
+
+      spokeNodes.forEach((node, idx) => {
+        const focusThis = () => {
+          clearFocus();
+          host.classList.add('is-focus');
+          node.classList.add('is-focus', 'is-hit');
+          core.classList.add('is-focus');
+          edges[idx].classList.add('is-focus');
+        };
+        node.addEventListener('mouseenter', focusThis);
+        node.addEventListener('mouseleave', clearFocus);
+        node.addEventListener('click', focusThis);
+      });
+
+      core.addEventListener('mouseenter', () => {
+        clearFocus();
+        core.classList.add('is-hit');
+      });
+      core.addEventListener('mouseleave', clearFocus);
+
+      host.appendChild(svg);
+      host.appendChild(nodesLayer);
+    };
+
+    draw();
+    let timer;
+    window.addEventListener('resize', () => {
+      clearTimeout(timer);
+      timer = setTimeout(draw, 120);
+    });
+  };
+
+  document.querySelectorAll('[data-diagram]').forEach(renderHubDiagram);
+})();
+</script>
+</body>
+</html>
